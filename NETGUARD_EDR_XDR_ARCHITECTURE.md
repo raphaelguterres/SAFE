@@ -172,3 +172,39 @@ Safe migration path:
 - persist structured events in repository-compatible format
 - avoid heavy dependencies in agent and backend
 - keep response actions auditable and policy-driven
+
+## Enterprise Protection Layer
+
+NetGuard now adds a defensive protection layer between XDR analytics and
+endpoint action execution. The design is intentionally conservative: detections
+and correlations can recommend containment, but endpoint actions are gated by a
+policy decision, a short-lived HMAC approval, local safety checks, and audit
+events.
+
+```text
+Agent
+  -> Event Ingest
+  -> Detection
+  -> Correlation
+  -> Kill Chain
+  -> Policy Engine
+  -> Response Queue
+  -> Agent Executor
+  -> Audit Log
+```
+
+Core modules:
+
+- `xdr/killchain_engine.py`: maps events, detections, and correlations into MITRE-style Kill Chain findings.
+- `xdr/attack_timeline.py`: builds a host-level attack story with active stages, highest stage, progression score, and recommended next action.
+- `xdr/policy_engine.py`: decides whether response actions are automatic, approval-gated, or blocked.
+- `agent/response_executor.py`: executes only signed defensive actions and refuses unsafe actions fail-closed.
+- `/api/detection/coverage`: exposes MITRE tactic, technique, and Kill Chain coverage for SOC operators.
+
+Safety model:
+
+- `monitor_only` never performs containment.
+- `manual_approval` is the default operating posture for guarded response.
+- `semi_auto` can allow high-confidence IP blocking when evidence is complete.
+- `full_auto_containment` is explicit and still requires evidence, signatures, and local denylist checks.
+- `delete_file` remains disabled; file quarantine moves evidence and preserves audit history.

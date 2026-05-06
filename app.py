@@ -1705,6 +1705,18 @@ def _build_soc_preview_context():
             timeline_counts.get(alert_dt.replace(minute=0, second=0, microsecond=0).strftime("%H:00"), 0) + 1
         )
     tenant_name = "Admin Workspace" if tenant_id == "admin" else tenant_id
+    try:
+        from xdr.rule_catalog import build_detection_coverage
+
+        mitre_coverage = build_detection_coverage()
+    except Exception:
+        mitre_coverage = {
+            "total_rules": 0,
+            "killchain_coverage_score": 0,
+            "uncovered_tactics": [],
+            "rules_by_tactic": {},
+            "rules_by_technique": {},
+        }
 
     overview = {
         "total_tenants": max(1, len(tenant_ids)),
@@ -1735,6 +1747,18 @@ def _build_soc_preview_context():
             }
         ],
         "timeline_24h": [{"hour": hour, "count": count} for hour, count in timeline_counts.items()],
+        "mitre_coverage": mitre_coverage,
+        "host_protection_state": {
+            "monitored": online_agents,
+            "suspicious": max(0, len(host_list) - critical_hosts - offline_agents),
+            "contained": 0,
+            "needs_approval": critical_hosts,
+        },
+        "response_queue": {
+            "pending_approvals": critical_hosts,
+            "queued_actions": 0,
+            "mode": os.environ.get("NETGUARD_RESPONSE_MODE", "manual_approval"),
+        },
     }
 
     context = {
@@ -4431,6 +4455,15 @@ def detection_rules_catalog():
         ]
     catalog["summary"]["returned_rules"] = len(catalog["rules"])
     return jsonify(catalog)
+
+
+@app.route("/api/detection/coverage", methods=["GET"])
+@auth
+def detection_coverage():
+    """Expose MITRE and Kill Chain rule coverage for SOC/EDR operators."""
+    from xdr.rule_catalog import build_detection_coverage
+
+    return jsonify(build_detection_coverage())
 
 
 @app.route("/api/xdr/summary", methods=["GET"])

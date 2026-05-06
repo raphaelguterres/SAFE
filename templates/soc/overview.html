@@ -4,6 +4,9 @@
 {% set recent_detections = data.recent_detections if data.recent_detections is defined else [] %}
 {% set host_risks = data.host_risks if data.host_risks is defined else [] %}
 {% set recommendation = recommendation if recommendation is defined else data.recommendation|default({}) %}
+{% set coverage = data.mitre_coverage|default({}) %}
+{% set protection = data.host_protection_state|default({}) %}
+{% set queue = data.response_queue|default({}) %}
 
 {% block title %}NetGuard SOC | Overview{% endblock %}
 
@@ -59,6 +62,29 @@
   <a class="soc-action-button soc-action-button-primary" href="{{ recommendation.route|default('/soc') }}">
     {{ recommendation.label|default("Continue") }}
   </a>
+</section>
+
+<section class="soc-kpi-grid soc-kpi-grid-compact" aria-label="Enterprise protection layer">
+  <article class="soc-card soc-stat-card">
+    <div class="soc-stat-label">Kill Chain</div>
+    <div class="soc-stat-value soc-stat-value-sm">{{ coverage.killchain_coverage_score|default(0) }}%</div>
+    <div class="soc-stat-foot">Coverage across defensive ATT&amp;CK stages.</div>
+  </article>
+  <article class="soc-card soc-stat-card">
+    <div class="soc-stat-label">MITRE Rules</div>
+    <div class="soc-stat-value soc-stat-value-sm">{{ coverage.total_rules|default(0) }}</div>
+    <div class="soc-stat-foot">{{ coverage.uncovered_tactics|default([])|length }} tactics still uncovered.</div>
+  </article>
+  <article class="soc-card soc-stat-card">
+    <div class="soc-stat-label">Protection State</div>
+    <div class="soc-stat-value soc-stat-value-sm">{{ protection.monitored|default(0) }}</div>
+    <div class="soc-stat-foot">{{ protection.needs_approval|default(0) }} hosts need approval review.</div>
+  </article>
+  <article class="soc-card soc-stat-card">
+    <div class="soc-stat-label">Response Queue</div>
+    <div class="soc-stat-value soc-stat-value-sm">{{ queue.pending_approvals|default(0) }}</div>
+    <div class="soc-stat-foot">{{ queue.mode|default("manual_approval")|replace("_", " ")|title }} mode.</div>
+  </article>
 </section>
 
 <section class="soc-grid-2 soc-grid-balanced">

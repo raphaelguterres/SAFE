@@ -185,6 +185,34 @@ python -m netguard_agent \
 
 The project still runs locally with the current app entrypoint, but it is organized to support a more professional Agent + Server model.
 
+## Enterprise Protection Layer
+
+NetGuard now includes an EDR-lite protection layer focused on defensive triage,
+safe containment planning, and auditability. It does not implement malware,
+bypass, stealth, evasion, credential theft, or arbitrary remote command
+execution.
+
+```text
+Agent telemetry
+  -> Event ingest
+  -> Detection engine
+  -> Correlation engine
+  -> Kill Chain mapping
+  -> Policy engine
+  -> Response queue / approval
+  -> Agent response executor
+  -> Audit event
+```
+
+Protection rules are fail-closed by design:
+
+- Kill Chain findings map telemetry into MITRE-style stages such as execution, persistence, credential access, command and control, exfiltration, and impact.
+- The policy engine supports `monitor_only`, `manual_approval`, `semi_auto`, and `full_auto_containment`.
+- Safe telemetry actions such as `ping`, `flush_buffer`, and `collect_diagnostics` can run automatically when policy allows.
+- Guarded actions such as host isolation, process termination, IP blocking, and file quarantine require short-lived signed policy approval.
+- `delete_file` stays disabled by default. Quarantine moves evidence to a safe folder and never performs permanent deletion.
+- The agent refuses unsigned actions and refuses protected Windows processes such as `system`, `wininit`, `csrss`, `lsass`, and `services`.
+
 ## Operating Modes
 
 | Mode | Storage | Auth posture | Typical use |

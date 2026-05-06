@@ -14,6 +14,7 @@ from rules.yaml_loader import (
 )
 
 from .detections import DEFAULT_RULES, DetectionRule, YamlRuleSet
+from .killchain_engine import KillChainStage, TACTIC_TO_STAGE
 from .schema import ALLOWED_EVENT_TYPES
 
 
@@ -36,6 +37,63 @@ def build_detection_rule_catalog(
     return {
         "rules": records,
         "summary": _summarize(records, yaml_report, yaml_dir or DEFAULT_RULES_DIR),
+    }
+
+
+def build_detection_coverage(
+    *,
+    rules: tuple[Any, ...] | list[Any] | None = None,
+    yaml_dir: str | Path | None = None,
+) -> dict[str, Any]:
+    """Return MITRE and Kill Chain coverage, tolerating invalid YAML files."""
+
+    catalog = build_detection_rule_catalog(rules=rules, yaml_dir=yaml_dir)
+    records = catalog["rules"]
+    rules_by_tactic: Counter[str] = Counter()
+    rules_by_technique: Counter[str] = Counter()
+    stages = set()
+    for record in records:
+        mitre = record.get("mitre") or {}
+        tactic = _normalize_tactic(mitre.get("tactic"))
+        technique = str(mitre.get("technique") or "").strip()
+        if tactic:
+            rules_by_tactic[tactic] += 1
+            mapped_stage = TACTIC_TO_STAGE.get(tactic)
+            if mapped_stage:
+                stages.add(mapped_stage.value)
+        else:
+            rules_by_tactic["unmapped"] += 1
+        if technique:
+            for piece in _split_techniques(technique):
+                rules_by_technique[piece] += 1
+
+    all_stages = {stage.value for stage in KillChainStage}
+    uncovered = sorted(all_stages - stages)
+    coverage_score = int((len(stages) / len(all_stages)) * 100) if all_stages else 0
+    top_detections = sorted(
+        (
+            {
+                "rule_id": record.get("rule_id", ""),
+                "name": record.get("name", ""),
+                "source": record.get("source", ""),
+                "severity": record.get("severity", ""),
+                "tactic": (record.get("mitre") or {}).get("tactic", ""),
+                "technique": (record.get("mitre") or {}).get("technique", ""),
+            }
+            for record in records
+        ),
+        key=lambda item: (_severity_rank(item["severity"]), item["tactic"], item["rule_id"]),
+        reverse=True,
+    )[:10]
+    return {
+        "total_rules": len(records),
+        "rules_by_tactic": dict(sorted(rules_by_tactic.items())),
+        "rules_by_technique": dict(sorted(rules_by_technique.items())),
+        "uncovered_tactics": uncovered,
+        "top_detections": top_detections,
+        "killchain_coverage_score": coverage_score,
+        "covered_killchain_stages": sorted(stages),
+        "yaml_health": catalog["summary"].get("yaml_health", {}),
     }
 
 
@@ -136,3 +194,23 @@ def _safe_display_path(path: Path) -> str:
         return str(path.resolve().relative_to(Path.cwd().resolve())).replace("\\", "/")
     except Exception:
         return path.name
+
+
+def _normalize_tactic(value: Any) -> str:
+    return str(value or "").strip().lower().replace(" ", "_").replace("-", "_")
+
+
+def _split_techniques(value: str) -> list[str]:
+    parts: list[str] = []
+    for chunk in str(value or "").replace("->", ",").replace(";", ",").split(","):
+        text = chunk.strip()
+        if text:
+            parts.append(text)
+    return parts
+
+
+def _severity_rank(value: str) -> int:
+    return {"critical": 4, "high": 3, "medium": 2, "low": 1, "dynamic": 0}.get(
+        str(value or "").strip().lower(),
+        0,
+    )
