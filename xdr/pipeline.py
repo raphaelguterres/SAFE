@@ -8,6 +8,7 @@ from typing import Any
 
 from .correlation import WeakSignalCorrelationEngine
 from .detection import BehaviorDetectionEngine
+from .killchain_engine import KillChainEngine
 from .response import ResponseEngine
 from .schema import PipelineOutcome, parse_endpoint_events
 from .severity import clamp_risk, risk_level, severity_weight
@@ -19,10 +20,12 @@ class XDRPipeline:
         detection_engine: BehaviorDetectionEngine | None = None,
         correlation_engine: WeakSignalCorrelationEngine | None = None,
         response_engine: ResponseEngine | None = None,
+        killchain_engine: KillChainEngine | None = None,
     ):
         self.detection_engine = detection_engine or BehaviorDetectionEngine()
         self.correlation_engine = correlation_engine or WeakSignalCorrelationEngine()
         self.response_engine = response_engine or ResponseEngine()
+        self.killchain_engine = killchain_engine or KillChainEngine()
         self._risk_lock = threading.RLock()
         self._history_lock = threading.RLock()
         self._host_risk_scores: dict[str, int] = defaultdict(int)
@@ -35,10 +38,16 @@ class XDRPipeline:
     def process_event(self, event) -> PipelineOutcome:
         detections = self.detection_engine.process(event)
         correlations = self.correlation_engine.process(event, detections)
+        killchain_findings = self.killchain_engine.map_event_to_killchain(event, detections, correlations)
+        killchain_stage_summary = self.killchain_engine.stage_summary(killchain_findings)
+        attack_score = self.killchain_engine.attack_progression_score(killchain_findings)
         actions = self.response_engine.plan(event, detections, correlations)
         risk_delta = max(1, severity_weight(event.severity) // 3)
         risk_delta += sum(max(1, int(severity_weight(item.severity) * max(item.confidence, 0.5))) for item in detections)
         risk_delta += sum(max(1, int(severity_weight(item.severity) * max(item.confidence, 0.5))) for item in correlations)
+        risk_delta += sum(max(0, int(getattr(item, "risk_modifier", 0))) for item in killchain_findings)
+        if attack_score >= 80:
+            risk_delta += 10
         if any("execution_chain" in (item.tags or []) for item in correlations):
             risk_delta += 12
         host_risk = self._update_host_risk(event.host_id, risk_delta)
@@ -48,6 +57,9 @@ class XDRPipeline:
             correlations=correlations,
             actions=actions,
             host_risk_score=host_risk,
+            killchain_findings=killchain_findings,
+            killchain_stage_summary=killchain_stage_summary,
+            attack_progression_score=attack_score,
         )
         self._record_outcome(outcome)
         return outcome

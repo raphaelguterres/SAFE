@@ -250,6 +250,9 @@ class PipelineOutcome:
     correlations: list[CorrelationRecord] = field(default_factory=list)
     actions: list[ResponseAction] = field(default_factory=list)
     host_risk_score: int = 0
+    killchain_findings: list[Any] = field(default_factory=list)
+    killchain_stage_summary: dict[str, Any] = field(default_factory=dict)
+    attack_progression_score: int = 0
 
     @property
     def host_risk_level(self) -> str:
@@ -268,6 +271,9 @@ class PipelineOutcome:
             "detections": [item.to_dict() for item in self.detections],
             "correlations": [item.to_dict() for item in self.correlations],
             "actions": [item.to_dict() for item in self.actions],
+            "killchain_findings": [_to_dict(item) for item in self.killchain_findings],
+            "killchain_stage_summary": dict(self.killchain_stage_summary or {}),
+            "attack_progression_score": clamp_risk(self.attack_progression_score),
             "host_risk_score": clamp_risk(self.host_risk_score),
             "host_risk_level": self.host_risk_level,
             "highest_severity": self.highest_severity,
@@ -334,6 +340,29 @@ class PipelineOutcome:
                     },
                 )
             )
+        for finding in self.killchain_findings:
+            finding_dict = _to_dict(finding)
+            stage = str(finding_dict.get("stage") or "killchain")
+            events.append(
+                self.event.to_security_event(
+                    severity=self.highest_severity,
+                    rule_id=f"XDR-KC-{stage.upper()}",
+                    rule_name=f"Kill Chain: {stage.replace('_', ' ').title()}",
+                    event_type_override=f"killchain_{stage}",
+                    mitre_tactic=str(finding_dict.get("mitre_tactic") or stage),
+                    mitre_technique=str(finding_dict.get("mitre_technique") or ""),
+                    tags=["xdr", "killchain", stage],
+                    details={
+                        "stage": stage,
+                        "confidence": finding_dict.get("confidence"),
+                        "evidence": finding_dict.get("evidence"),
+                        "recommended_response": finding_dict.get("recommended_response"),
+                        "risk_modifier": finding_dict.get("risk_modifier"),
+                        "attack_progression_score": self.attack_progression_score,
+                        "stage_summary": self.killchain_stage_summary,
+                    },
+                )
+            )
         for action in self.actions:
             events.append(
                 self.event.to_security_event(
@@ -353,6 +382,18 @@ class PipelineOutcome:
                 )
             )
         return events
+
+
+def _to_dict(item: Any) -> dict[str, Any]:
+    if isinstance(item, dict):
+        return dict(item)
+    to_dict = getattr(item, "to_dict", None)
+    if callable(to_dict):
+        result = to_dict()
+        return result if isinstance(result, dict) else {}
+    if hasattr(item, "__dict__"):
+        return dict(getattr(item, "__dict__", {}))
+    return {}
 
 
 def parse_endpoint_events(payload: dict[str, Any] | list[Any]) -> list[EndpointEvent]:
