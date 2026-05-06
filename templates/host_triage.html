@@ -84,6 +84,28 @@
     .action-card .action-text { font-size: 1.15rem; font-weight: 600; line-height: 1.4; margin: .4rem 0 .8rem; }
     .action-card .rationale { color: var(--txt2); font-size: .88rem; line-height: 1.5; }
 
+    /* Cyber Kill Chain (Lockheed) panel */
+    .kc-panel h2 { display:flex; align-items:center; gap:.5rem; }
+    .kc-progress-row { display:flex; align-items:center; gap:1rem; margin: .8rem 0 1.2rem; }
+    .kc-progress-track { flex:1; height:6px; border-radius:3px; background: rgba(255,255,255,0.06); overflow:hidden; }
+    body.theme-light .kc-progress-track { background: rgba(0,0,0,0.06); }
+    .kc-progress-fill { height:100%; background: linear-gradient(90deg, var(--blue), var(--accent2)); border-radius:3px; transition: width .4s ease; }
+    .kc-progress-pct { font-family: 'JetBrains Mono', monospace; font-size:.78rem; color: var(--txt2); min-width:42px; text-align:right; }
+    .kc-stages { display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: .6rem; }
+    @media (max-width: 900px) { .kc-stages { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+    @media (max-width: 540px) { .kc-stages { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    .kc-stage { position:relative; padding: .9rem .8rem .8rem; border-radius: 8px; border: 1px solid var(--border); background: var(--s2); display:flex; flex-direction:column; gap:.3rem; min-height: 96px; transition: border-color .2s, background .2s; }
+    .kc-stage[data-reached="true"] { border-color: rgba(200,168,90,0.32); background: rgba(200,168,90,0.04); }
+    .kc-stage[data-current="true"] { border-color: var(--accent); background: rgba(200,168,90,0.10); box-shadow: inset 0 0 0 1px rgba(200,168,90,0.25); }
+    .kc-stage-num { font-family:'JetBrains Mono', monospace; font-size:.65rem; color: var(--txt3); letter-spacing:.18em; text-transform:uppercase; }
+    .kc-stage[data-reached="true"] .kc-stage-num { color: var(--accent); }
+    .kc-stage-name { font-weight:600; font-size:.85rem; color: var(--txt); line-height: 1.25; }
+    .kc-stage-meta { font-size:.7rem; color: var(--txt3); margin-top:auto; font-family:'JetBrains Mono', monospace; }
+    .kc-stage[data-reached="true"] .kc-stage-meta { color: var(--txt2); }
+    .kc-stage-tick { position:absolute; top:.55rem; right:.6rem; width:14px; height:14px; opacity:0; }
+    .kc-stage[data-reached="true"] .kc-stage-tick { opacity:1; color: var(--accent); }
+    .kc-stage-tick svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+
     /* Timeline */
     .timeline-empty { text-align: center; padding: 2rem; color: var(--txt3); font-style: italic; }
     .event-row { display: grid; grid-template-columns: 110px 80px 1fr 100px; gap: 1rem; padding: .7rem .5rem; border-bottom: 1px solid var(--border); align-items: center; font-size: .85rem; }
@@ -244,6 +266,23 @@
           <div id="action-rationale" class="rationale">—</div>
         </section>
       </div>
+
+      <!-- Cyber Kill Chain (Lockheed view) -->
+      <section class="panel kc-panel">
+        <h2>Cyber Kill Chain &mdash; <span id="kc-current-label" style="color:var(--accent);font-weight:600;">aguardando dados</span></h2>
+        <div class="kc-progress-row">
+          <div class="kc-progress-track" aria-hidden="true">
+            <div class="kc-progress-fill" id="kc-progress-fill" style="width:0%"></div>
+          </div>
+          <div class="kc-progress-pct" id="kc-progress-pct">0%</div>
+        </div>
+        <div class="kc-stages" id="kc-stages" role="list">
+          <!-- 6 stage cards rendered by JS -->
+        </div>
+        <p class="kc-helper" id="kc-helper" style="margin-top:.7rem;color:var(--txt2);font-size:.82rem;">
+          Mapeamento Lockheed Kill Chain sobre as MITRE ATT&amp;CK tactics detectadas no host. Quanto mais avançada a fase, maior a urgência de contenção.
+        </p>
+      </section>
 
       <!-- Timeline -->
       <section class="panel">
@@ -407,6 +446,65 @@
         renderTokens("side-processes", tl.map(e => e.process_name), "No process signal");
         renderTokens("side-agent", [host.status || "enrolled", host.platform || "", host.agent_version || ""], "No agent details");
       }
+    })();
+  </script>
+  <script>
+    // Cyber Kill Chain (Lockheed) — independent fetch
+    (function () {
+      var url = new URL(window.location.href);
+      var parts = window.location.pathname.split("/").filter(Boolean);
+      var hostId = parts[parts.length - 1] || "";
+      if (!hostId) return;
+
+      function renderStages(data) {
+        var stagesEl = document.getElementById("kc-stages");
+        var fillEl = document.getElementById("kc-progress-fill");
+        var pctEl = document.getElementById("kc-progress-pct");
+        var labelEl = document.getElementById("kc-current-label");
+        if (!stagesEl) return;
+
+        var phases = (data && data.phases) || [];
+        if (!phases.length) {
+          stagesEl.innerHTML = "<div style=\"grid-column:1/-1;color:var(--txt3);text-align:center;padding:1rem;font-size:.82rem;\">Sem dados de Kill Chain ainda. Eventos com MITRE tactics aparecerao aqui.</div>";
+          return;
+        }
+        stagesEl.innerHTML = phases.map(function (p, i) {
+          var reached = !!p.reached;
+          var current = !!p.is_current;
+          var meta = reached
+            ? (p.count + " evento" + (p.count === 1 ? "" : "s"))
+            : "&nbsp;";
+          return [
+            "<div class=\"kc-stage\" role=\"listitem\" data-reached=\"" + reached + "\" data-current=\"" + current + "\" title=\"" + (p.desc || "") + "\">",
+              "<span class=\"kc-stage-tick\" aria-hidden=\"true\">",
+                "<svg viewBox=\"0 0 24 24\"><polyline points=\"20 6 9 17 4 12\" /></svg>",
+              "</span>",
+              "<span class=\"kc-stage-num\">", String(i + 1).padStart(2, "0"), "</span>",
+              "<span class=\"kc-stage-name\">", (p.label_pt || p.label_en || p.id), "</span>",
+              "<span class=\"kc-stage-meta\">", meta, "</span>",
+            "</div>",
+          ].join("");
+        }).join("");
+
+        var pct = data.progression_pct || 0;
+        if (fillEl) fillEl.style.width = pct + "%";
+        if (pctEl)  pctEl.textContent = pct + "%";
+        if (labelEl) {
+          if (data.current_label) {
+            labelEl.textContent = data.current_label;
+          } else {
+            labelEl.textContent = "sem detecções";
+            labelEl.style.color = "var(--txt2)";
+          }
+        }
+      }
+
+      fetch("/api/risk/host/" + encodeURIComponent(hostId) + "/kill_chain", {
+        credentials: "same-origin",
+      })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) { if (data) renderStages(data); else renderStages({phases: []}); })
+        .catch(function () { renderStages({ phases: [] }); });
     })();
   </script>
   <script src="/static/js/netguard-ui.js" defer></script>

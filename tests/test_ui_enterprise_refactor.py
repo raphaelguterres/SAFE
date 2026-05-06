@@ -162,3 +162,13 @@ def test_enterprise_ui_assets_do_not_embed_secrets():
     )
     for marker in forbidden:
         assert marker not in combined
+
+
+def test_host_triage_kill_chain_markup_is_well_formed():
+    triage = _read("templates/host_triage.html")
+
+    assert triage.count("</body>") == 1
+    assert triage.count("</html>") == 1
+    assert "id=\"kc-stages\"" in triage
+    assert "/api/risk/host/" in triage
+    assert "geoBits2" not in triage

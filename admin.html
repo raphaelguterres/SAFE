@@ -103,8 +103,49 @@ a{color:var(--blue);text-decoration:none}
 .empty-state{text-align:center;padding:48px 20px;color:var(--muted);font-size:.85rem}
 .countdown{font-family:var(--mono);font-weight:700}
 hr{border:none;border-top:1px solid var(--border);margin:20px 0}
+
+/* ── LIGHT THEME (Apple Pro day) ────────────────────────── */
+body.theme-light{
+  --bg:#f5f5f7; --surface:#ffffff; --surface2:#f7f7f9;
+  --border:rgba(0,0,0,0.08);
+  --text:#1d1d1f; --muted:rgba(60,60,67,0.62);
+  --green:#248a3d; --yellow:#9d8000; --orange:#c93400;
+  --red:#d70015; --blue:#0066cc; --accent:#b8983f; --purple:#9d44d8;
+}
+body.theme-light, body.theme-light html { background:#f5f5f7 !important; color:#1d1d1f !important; }
+body.theme-light header { background:rgba(255,255,255,0.94) !important; border-bottom:1px solid rgba(0,0,0,0.08) !important; backdrop-filter:blur(20px); }
+body.theme-light .stat-card, body.theme-light .table-wrap, body.theme-light .panel,
+body.theme-light .modal, body.theme-light .audit-log, body.theme-light .tenant-card,
+body.theme-light .client-detail-panel, body.theme-light .audit-toolbar,
+body.theme-light .recommended-action, body.theme-light .nav-item-active,
+body.theme-light .filter-bar { background:#ffffff !important; border-color:rgba(0,0,0,0.08) !important; color:#1d1d1f !important; box-shadow:none !important; }
+body.theme-light thead, body.theme-light thead tr, body.theme-light thead th { background:#f7f7f9 !important; color:rgba(60,60,67,0.62) !important; }
+body.theme-light tbody tr { border-bottom:1px solid rgba(0,0,0,0.06) !important; }
+body.theme-light tbody tr:hover { background:rgba(0,0,0,0.025) !important; }
+body.theme-light input, body.theme-light select, body.theme-light textarea { background:#ffffff !important; border:1px solid rgba(0,0,0,0.12) !important; color:#1d1d1f !important; }
+body.theme-light .btn-primary, body.theme-light .button-primary { background:#b8983f !important; border-color:#b8983f !important; color:#ffffff !important; }
+body.theme-light .btn-ghost, body.theme-light .btn-secondary { background:#ffffff !important; border-color:rgba(0,0,0,0.16) !important; color:#1d1d1f !important; }
+body.theme-light h1, body.theme-light h2, body.theme-light h3 { color:#1d1d1f !important; }
+body.theme-light .subtitle, body.theme-light .stat-label { color:rgba(60,60,67,0.62) !important; }
+body.theme-light a { color:#b8983f; }
+body.theme-light .nav-section, body.theme-light .nav-item { color:rgba(60,60,67,0.62) !important; }
+body.theme-light .badge-critico, body.theme-light [class*="critico"], body.theme-light .crit { color:#a30010 !important; }
+body.theme-light .badge-alto, body.theme-light .alto { color:#b3500a !important; }
+body.theme-light .badge-baixo, body.theme-light .baixo { color:#1a6b30 !important; }
+body.theme-light .ao-vivo, body.theme-light .live { background:rgba(36,138,61,0.10) !important; color:#1a6b30 !important; }
+body.theme-light * { scrollbar-color: rgba(0,0,0,0.16) transparent !important; }
+
+/* theme toggle button */
+.theme-toggle{ width:32px;height:32px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;margin-right:8px;transition:background .2s,border-color .2s,color .2s }
+.theme-toggle:hover{ border-color:var(--accent);color:var(--accent) }
+body.theme-light .theme-toggle:hover{ background:rgba(0,0,0,0.04) }
+.theme-toggle svg{ width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round }
+.theme-toggle .icon-sun{display:none} .theme-toggle .icon-moon{display:block}
+body.theme-light .theme-toggle .icon-sun{display:block} body.theme-light .theme-toggle .icon-moon{display:none}
+
 </style>
 <link rel="stylesheet" href="/static/css/netguard.css">
+<script src="/static/js/theme-toggle.js"></script>
 </head>
 <body>
 <div id="shell">

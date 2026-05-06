@@ -23,10 +23,10 @@ logger = logging.getLogger("netguard.risk")
 
 # ── Score weights por severidade ─────────────────────────────────
 SEV_WEIGHTS = {
-    "CRITICAL": 25,
-    "HIGH":     12,
-    "MEDIUM":    5,
-    "LOW":       1,
+    "CRITICAL": 50,
+    "HIGH":     30,
+    "MEDIUM":   15,
+    "LOW":       5,
 }
 
 # ── Bonus por tática MITRE (progressão avançada = mais score) ────
@@ -47,6 +47,52 @@ TACTIC_BONUS = {
 
 # ── Decay: eventos antigos perdem peso ───────────────────────────
 DECAY_HALF_LIFE_HOURS = 6  # score cai pela metade a cada 6h
+
+
+def clamp_score(score: int | float) -> int:
+    """Clamp an EDR risk score into 0..100."""
+    try:
+        value = int(round(float(score)))
+    except (TypeError, ValueError):
+        value = 0
+    return max(0, min(100, value))
+
+
+def risk_level_for_score(score: int | float) -> str:
+    """Risk levels requested for the EDR active-defense model.
+
+    0-30 LOW, 31-60 MEDIUM, 61-85 HIGH, 86-100 CRITICAL.
+    """
+    value = clamp_score(score)
+    if value >= 86:
+        return "CRITICAL"
+    if value >= 61:
+        return "HIGH"
+    if value >= 31:
+        return "MEDIUM"
+    return "LOW"
+
+
+def score_event(
+    event: dict,
+    *,
+    correlation_bonus: int = 0,
+    threat_intel_score: int = 0,
+) -> int:
+    """Score one event as base severity + correlation + threat intel."""
+    def _safe_int(value) -> int:
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    sev = (event.get("severity") or "LOW").upper()
+    base_score = SEV_WEIGHTS.get(sev, SEV_WEIGHTS["LOW"])
+    event_corr = event.get("correlation_bonus", 0)
+    event_ti = event.get("threat_intel_score", 0)
+    corr = _safe_int(correlation_bonus) + _safe_int(event_corr)
+    ti = _safe_int(threat_intel_score) + _safe_int(event_ti)
+    return clamp_score(base_score + corr + ti)
 
 
 @dataclass
@@ -176,8 +222,8 @@ class RiskEngine:
             else:
                 decay = 1.0
 
-            # Base score from severity
-            base   = SEV_WEIGHTS.get(sev, 1)
+            # Base score from severity + EDR context bonuses
+            base   = score_event(event)
             bonus  = TACTIC_BONUS.get(tactic, 0)
             pts    = (base + bonus) * decay
 
@@ -206,11 +252,8 @@ class RiskEngine:
         # Cap at 100
         final_score = min(100, int(raw_score))
 
-        # Risk level
-        if final_score >= 75:   level = "CRITICAL"
-        elif final_score >= 50: level = "HIGH"
-        elif final_score >= 25: level = "MEDIUM"
-        else:                   level = "LOW"
+        # Risk level: 0-30 LOW, 31-60 MEDIUM, 61-85 HIGH, 86-100 CRITICAL
+        level = risk_level_for_score(final_score)
 
         # Update profile
         profile.score        = final_score
@@ -231,6 +274,12 @@ class RiskEngine:
         with self._lock:
             p = self._hosts.get(host_id)
             return p.to_dict() if p else None
+
+    def get_host_events(self, host_id: str, limit: int = 500) -> list[dict]:
+        """Return recent raw events for integrations such as Kill Chain view."""
+        with self._lock:
+            events = [event for _, event in self._events.get(host_id, [])]
+            return events[-max(1, int(limit)):]
 
     def get_all_hosts(self) -> List[dict]:
         with self._lock:

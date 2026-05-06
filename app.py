@@ -4664,6 +4664,8 @@ def autoblock_blocks():
 
 @app.route("/api/autoblock/block", methods=["POST"])
 @auth
+@csrf_protect
+@require_role("analyst", "admin")
 def autoblock_manual_block():
     if not AUTOBLOCK_AVAILABLE:
         return jsonify({"error":"indisponível"}), 503
@@ -4674,18 +4676,24 @@ def autoblock_manual_block():
     if not ip:
         return jsonify({"error":"ip obrigatório"}), 400
     rec = auto_block.block(ip, score, reason)
+    audit("AUTOBLOCK_MANUAL_BLOCK", ip=request.remote_addr or "-", detail=f"target={ip} score={score}")
     return jsonify({"status":"blocked","record": rec.to_dict() if rec else None})
 
 @app.route("/api/autoblock/unblock/<ip>", methods=["POST"])
 @auth
+@csrf_protect
+@require_role("analyst", "admin")
 def autoblock_unblock(ip):
     if not AUTOBLOCK_AVAILABLE:
         return jsonify({"error":"indisponível"}), 503
     ok = auto_block.unblock(ip)
+    audit("AUTOBLOCK_UNBLOCK", ip=request.remote_addr or "-", detail=f"target={ip} ok={ok}")
     return jsonify({"status":"unblocked" if ok else "error","ip":ip})
 
 @app.route("/api/autoblock/config", methods=["POST"])
 @auth
+@csrf_protect
+@require_role("admin")
 def autoblock_config():
     if not AUTOBLOCK_AVAILABLE:
         return jsonify({"error":"indisponível"}), 503
@@ -4694,6 +4702,7 @@ def autoblock_config():
         auto_block.set_threshold(int(data["threshold"]))
     if "enabled" in data:
         auto_block.set_enabled(bool(data["enabled"]))
+    audit("AUTOBLOCK_CONFIG", ip=request.remote_addr or "-", detail="updated autoblock config")
     return jsonify(auto_block.stats())
 
 # ── ML Baseline API ───────────────────────────────────────────────
@@ -4787,6 +4796,171 @@ def risk_report(host_id):
     if not RISK_AVAILABLE:
         return jsonify({"error": "Risk Engine indisponível"}), 503
     return jsonify(risk_engine.generate_report(host_id))
+
+
+@app.route("/api/risk/host/<host_id>/kill_chain")
+@auth
+def risk_host_kill_chain(host_id):
+    """Lockheed Cyber Kill Chain (6 phases) view for a single host.
+
+    Underlying detection stays MITRE ATT&CK; this endpoint projects MITRE
+    tactics into the canonical 6 Lockheed phases for analyst-friendly view.
+    """
+    try:
+        from engine.killchain_engine import KillChainEngine
+    except Exception as exc:
+        return jsonify({"error": f"Lockheed Kill Chain indisponivel: {exc}"}), 503
+
+    items: list = []
+
+    # Best-effort: pull from any engine that has data on this host.
+    try:
+        if RISK_AVAILABLE and hasattr(risk_engine, "get_host_events"):
+            items.extend(risk_engine.get_host_events(host_id) or [])
+    except Exception:
+        pass
+    try:
+        if RISK_AVAILABLE:
+            data = risk_engine.get_host(host_id) or {}
+            if isinstance(data, dict):
+                items.extend(data.get("recent_events") or [])
+                items.extend(data.get("detections") or [])
+                items.extend(data.get("mitre_events") or [])
+    except Exception:
+        pass
+    try:
+        if globals().get("xdr_pipeline") is not None:
+            recent = xdr_pipeline.recent_host_activity(host_id, limit=200)
+            for outcome in recent or []:
+                if not isinstance(outcome, dict):
+                    continue
+                items.extend(outcome.get("detections") or [])
+                items.extend(outcome.get("correlations") or [])
+                ev = outcome.get("event")
+                if isinstance(ev, dict):
+                    items.append(ev)
+    except Exception:
+        pass
+
+    analysis = KillChainEngine().analyze(items, host_id=host_id)
+    return jsonify(analysis.to_dict())
+
+
+@app.route("/api/killchain/analyze", methods=["POST"])
+@auth
+@csrf_protect
+def api_killchain_analyze():
+    """Analyze ad-hoc endpoint events through the Cyber Kill Chain engine."""
+    try:
+        from engine.killchain_engine import KillChainEngine
+    except Exception as exc:
+        return jsonify({"error": f"Kill Chain Engine indisponivel: {exc}"}), 503
+    data = request.get_json(force=True, silent=True) or {}
+    events = data.get("events")
+    if events is None:
+        events = [data.get("event") or data]
+    if not isinstance(events, list):
+        return jsonify({"error": "events deve ser uma lista"}), 400
+    host_id = str(data.get("host_id") or (events[0].get("host_id") if events and isinstance(events[0], dict) else "unknown"))
+    analysis = KillChainEngine().analyze(events, host_id=host_id)
+    return jsonify({"ok": True, "analysis": analysis.to_dict()})
+
+
+@app.route("/api/threats/reputation", methods=["GET"])
+@auth
+def api_threat_reputation():
+    """Lookup IP/domain/hash reputation without exposing secrets or calling paid APIs."""
+    try:
+        from engine.threat_intel import ThreatIntelClient
+    except Exception as exc:
+        return jsonify({"error": f"Threat Intel indisponivel: {exc}"}), 503
+    value = (request.args.get("value") or "").strip()
+    if not value:
+        return jsonify({"error": "value obrigatorio"}), 400
+    ioc_type = (request.args.get("type") or "").strip()
+    tenant_id = _resolve_tenant_id()
+    try:
+        feed = _get_ti_feed()
+    except Exception:
+        feed = None
+    verdict = ThreatIntelClient(feed=feed).reputation(
+        value,
+        ioc_type=ioc_type,
+        tenant_id=tenant_id,
+    )
+    return jsonify({"ok": True, "verdict": verdict.to_dict()})
+
+
+@app.route("/api/response/actions", methods=["GET"])
+@auth
+def api_response_actions_history():
+    """Return active-defense history for the current process."""
+    engine = globals().get("_active_defense_engine")
+    if not engine:
+        return jsonify({"ok": True, "history": []})
+    limit = min(int(request.args.get("limit", 50)), 200)
+    return jsonify({"ok": True, "history": engine.history(limit)})
+
+
+@app.route("/api/response/actions", methods=["POST"])
+@auth
+@csrf_protect
+@require_role("analyst", "admin")
+def api_response_actions_plan():
+    """Plan or dry-run active response for a high-risk event.
+
+    Real destructive execution is gated by NETGUARD_ACTIVE_RESPONSE_ENABLED=true
+    and by per-action policy flags. In normal demo/local mode this only returns
+    safe simulated actions.
+    """
+    try:
+        from engine.response_engine import ActiveDefenseEngine, ActiveDefensePolicy
+        from engine.threat_intel import ThreatIntelClient
+    except Exception as exc:
+        return jsonify({"error": f"Response Engine indisponivel: {exc}"}), 503
+
+    data = request.get_json(force=True, silent=True) or {}
+    event = data.get("event") if isinstance(data.get("event"), dict) else data
+    if not isinstance(event, dict):
+        return jsonify({"error": "event deve ser um objeto"}), 400
+
+    tenant_id = _resolve_tenant_id()
+    try:
+        ti_feed = _get_ti_feed()
+    except Exception:
+        ti_feed = None
+    ti_client = ThreatIntelClient(feed=ti_feed)
+    threat_score = ti_client.event_score(event, tenant_id=tenant_id)
+    risk_score = int(data.get("risk_score") or event.get("risk_score") or 0)
+    risk_score = max(risk_score, min(100, risk_score + threat_score))
+
+    policy = ActiveDefensePolicy.from_env()
+    active_engine = globals().get("_active_defense_engine")
+    if active_engine is None:
+        active_engine = ActiveDefenseEngine(
+            policy=policy,
+            dry_run=os.environ.get("NETGUARD_ACTIVE_RESPONSE_ENABLED", "false").lower() != "true",
+            auto_block_engine=auto_block if AUTOBLOCK_AVAILABLE else None,
+            remediation_engine=_get_remediation() if REMEDIATION_AVAILABLE else None,
+        )
+        globals()["_active_defense_engine"] = active_engine
+
+    killchain_stage = str(data.get("killchain_stage") or event.get("killchain_stage") or "")
+    should_execute = bool(data.get("execute", False))
+    result = active_engine.handle_event(
+        event,
+        risk_score=risk_score,
+        killchain_stage=killchain_stage,
+        threat_intel_score=threat_score,
+        execute=should_execute,
+    )
+    audit(
+        "ACTIVE_RESPONSE_PLAN",
+        ip=request.remote_addr or "-",
+        detail=f"risk={risk_score} actions={len(result.get('actions', []))} execute={should_execute}",
+    )
+    return jsonify(result)
+
 
 @app.route("/api/risk/summary")
 @auth

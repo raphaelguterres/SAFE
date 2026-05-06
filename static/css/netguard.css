@@ -1397,3 +1397,286 @@ textarea::placeholder {
 .ng-skeleton {
   background: linear-gradient(90deg, rgba(148, 163, 184, 0.08), rgba(148, 163, 184, 0.18), rgba(148, 163, 184, 0.08));
 }
+
+
+/* ============================================================
+   FINAL LIGHT THEME OVERRIDE (Apple Pro day)
+   Wins over the multiple :root blocks above (which default to dark)
+   ============================================================ */
+[data-theme="light"]:root,
+[data-theme="light"],
+body.theme-light {
+  --bg: #f5f5f7;
+  --panel: #ffffff;
+  --panel-soft: #fbfbfd;
+  --border: rgba(0, 0, 0, 0.08);
+  --text: #1d1d1f;
+  --muted: rgba(60, 60, 67, 0.62);
+  --critical: #d70015;
+  --high: #c93400;
+  --medium: #9d8000;
+  --low: #5277a3;
+  --accent: #b8983f;
+  --success: #248a3d;
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.06);
+
+  --surface: #ffffff;
+  --surface2: #f7f7f9;
+  --s1: #ffffff;
+  --s2: #f7f7f9;
+  --s3: #ebebef;
+  --s4: #dcdce0;
+  --txt: #1d1d1f;
+  --txt2: rgba(60, 60, 67, 0.62);
+  --txt3: rgba(60, 60, 67, 0.40);
+  --blue: #0066cc;
+  --blue2: #0a66d1;
+  --green: #248a3d;
+  --green2: #1a6b30;
+  --orange: #c93400;
+  --red: #d70015;
+  --cyn: #b8983f;
+  --ora: #c93400;
+  --yel: #9d8000;
+  --pur: #9d44d8;
+  --pur2: #7c2da3;
+  --mag: #c5005c;
+
+  --soc-bg: #f5f5f7;
+  --soc-bg-elevated: #ffffff;
+  --soc-bg-panel: #ffffff;
+  --soc-bg-soft: #f7f7f9;
+  --soc-border: rgba(0, 0, 0, 0.08);
+  --soc-border-strong: rgba(184, 152, 63, 0.32);
+  --soc-accent: #b8983f;
+  --soc-accent-2: #c8a85a;
+  --soc-text: #1d1d1f;
+  --soc-text-muted: rgba(60, 60, 67, 0.62);
+  --soc-text-dim: rgba(60, 60, 67, 0.40);
+  --soc-critical: #d70015;
+  --soc-high: #c93400;
+  --soc-medium: #9d8000;
+  --soc-low: #5277a3;
+  --soc-success: #248a3d;
+  --soc-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+
+  color-scheme: light;
+}
+
+[data-theme="light"] html,
+body.theme-light {
+  background: #f5f5f7 !important;
+  color: #1d1d1f !important;
+}
+
+/* hard override on the body bg gradient set earlier in this file */
+[data-theme="light"] body,
+body.theme-light {
+  background:
+    radial-gradient(circle at 16% -12%, rgba(184, 152, 63, 0.04), transparent 32%),
+    linear-gradient(180deg, #fbfbfd 0%, #f5f5f7 48%, #f2f2f4 100%) !important;
+  color: #1d1d1f !important;
+}
+
+[data-theme="light"] html { color-scheme: light !important; }
+
+/* table header in light: gray (not dark blue) */
+[data-theme="light"] thead,
+[data-theme="light"] thead tr,
+[data-theme="light"] thead th,
+body.theme-light thead,
+body.theme-light thead tr,
+body.theme-light thead th {
+  background: #f7f7f9 !important;
+  color: rgba(60, 60, 67, 0.62) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* admin: light specific */
+[data-theme="light"] body.admin-enterprise,
+body.theme-light.admin-enterprise {
+  background: #f5f5f7 !important;
+  color: #1d1d1f !important;
+}
+[data-theme="light"] body.admin-enterprise header,
+body.theme-light.admin-enterprise header {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.08) !important;
+  backdrop-filter: blur(20px);
+}
+[data-theme="light"] body.admin-enterprise .badge-admin,
+body.theme-light.admin-enterprise .badge-admin {
+  background: rgba(184, 152, 63, 0.10) !important;
+  border-color: rgba(184, 152, 63, 0.32) !important;
+  color: #806320 !important;
+}
+[data-theme="light"] body.admin-enterprise h1,
+body.theme-light.admin-enterprise h1 {
+  color: #1d1d1f !important;
+}
+[data-theme="light"] body.admin-enterprise .subtitle,
+body.theme-light.admin-enterprise .subtitle {
+  color: rgba(60, 60, 67, 0.62) !important;
+}
+[data-theme="light"] body.admin-enterprise .stat-card,
+[data-theme="light"] body.admin-enterprise .table-wrap,
+[data-theme="light"] body.admin-enterprise .audit-log,
+[data-theme="light"] body.admin-enterprise .modal,
+body.theme-light.admin-enterprise .stat-card,
+body.theme-light.admin-enterprise .table-wrap,
+body.theme-light.admin-enterprise .audit-log,
+body.theme-light.admin-enterprise .modal {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #1d1d1f !important;
+  box-shadow: none !important;
+}
+[data-theme="light"] body.admin-enterprise .stat-value,
+body.theme-light.admin-enterprise .stat-value {
+  color: #1d1d1f !important;
+}
+[data-theme="light"] body.admin-enterprise .stat-label,
+body.theme-light.admin-enterprise .stat-label {
+  color: rgba(60, 60, 67, 0.62) !important;
+}
+
+/* host_triage posture, panels, breakdown items */
+[data-theme="light"] .posture,
+body.theme-light .posture,
+[data-theme="light"] .panel,
+body.theme-light .panel,
+[data-theme="light"] .action-card,
+body.theme-light .action-card {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #1d1d1f !important;
+}
+[data-theme="light"] .posture h1,
+body.theme-light .posture h1,
+[data-theme="light"] .panel h2,
+body.theme-light .panel h2 {
+  color: #1d1d1f !important;
+}
+[data-theme="light"] .posture-meta span,
+body.theme-light .posture-meta span,
+[data-theme="light"] .crumbs,
+body.theme-light .crumbs {
+  color: rgba(60, 60, 67, 0.62) !important;
+}
+[data-theme="light"] .posture-meta strong,
+body.theme-light .posture-meta strong {
+  color: #1d1d1f !important;
+}
+[data-theme="light"] .breakdown-item,
+body.theme-light .breakdown-item {
+  color: #1d1d1f !important;
+  border-bottom-color: rgba(0, 0, 0, 0.06) !important;
+}
+[data-theme="light"] .breakdown-points,
+body.theme-light .breakdown-points {
+  color: rgba(60, 60, 67, 0.62) !important;
+}
+[data-theme="light"] .risk-breakdown,
+body.theme-light .risk-breakdown {
+  border-top-color: rgba(0, 0, 0, 0.08) !important;
+}
+[data-theme="light"] .event-row,
+body.theme-light .event-row {
+  border-bottom-color: rgba(0, 0, 0, 0.06) !important;
+}
+[data-theme="light"] .event-time,
+[data-theme="light"] .event-source,
+body.theme-light .event-time,
+body.theme-light .event-source {
+  color: rgba(60, 60, 67, 0.62) !important;
+}
+
+/* severity pills (.sev-CRITICAL etc, .band-pill) light variants */
+[data-theme="light"] .sev-CRITICAL,
+[data-theme="light"] .band-pill.band-critical,
+body.theme-light .sev-CRITICAL,
+body.theme-light .band-pill.band-critical {
+  background: rgba(214, 0, 21, 0.06) !important;
+  color: #a30010 !important;
+  border-color: rgba(214, 0, 21, 0.20) !important;
+}
+[data-theme="light"] .sev-HIGH,
+[data-theme="light"] .band-pill.band-high,
+body.theme-light .sev-HIGH,
+body.theme-light .band-pill.band-high {
+  background: rgba(201, 52, 0, 0.06) !important;
+  color: #b3500a !important;
+  border-color: rgba(201, 52, 0, 0.20) !important;
+}
+[data-theme="light"] .sev-MEDIUM,
+[data-theme="light"] .band-pill.band-medium,
+body.theme-light .sev-MEDIUM,
+body.theme-light .band-pill.band-medium {
+  background: rgba(157, 128, 0, 0.06) !important;
+  color: #806320 !important;
+  border-color: rgba(157, 128, 0, 0.20) !important;
+}
+[data-theme="light"] .sev-LOW,
+[data-theme="light"] .band-pill.band-low,
+body.theme-light .sev-LOW,
+body.theme-light .band-pill.band-low {
+  background: rgba(82, 119, 163, 0.06) !important;
+  color: #2d4d7a !important;
+  border-color: rgba(82, 119, 163, 0.20) !important;
+}
+[data-theme="light"] .band-pill.band-none,
+body.theme-light .band-pill.band-none {
+  background: rgba(36, 138, 61, 0.08) !important;
+  color: #1a6b30 !important;
+  border-color: rgba(36, 138, 61, 0.32) !important;
+}
+
+/* urgency-pill in operator_inbox (uses .band-* classes too) */
+[data-theme="light"] .urgency-pill,
+body.theme-light .urgency-pill {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(0, 0, 0, 0.10) !important;
+  color: #1d1d1f !important;
+}
+
+/* status-pill in inbox */
+[data-theme="light"] .status-pill,
+body.theme-light .status-pill {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  color: rgba(60, 60, 67, 0.62) !important;
+}
+[data-theme="light"] .status-online,
+body.theme-light .status-online {
+  color: #1a6b30 !important;
+}
+[data-theme="light"] .status-enrolled,
+body.theme-light .status-enrolled {
+  color: #0040dd !important;
+}
+
+/* triage-actions */
+[data-theme="light"] .triage-actions button,
+body.theme-light .triage-actions button {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.16) !important;
+  color: #1d1d1f !important;
+}
+
+/* side-token (host triage) */
+[data-theme="light"] .side-token,
+body.theme-light .side-token {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(0, 0, 0, 0.10) !important;
+  color: rgba(60, 60, 67, 0.62) !important;
+}
+
+/* score-cell band-* stays colored but darker */
+[data-theme="light"] .score-cell.band-critical,
+body.theme-light .score-cell.band-critical { color: #a30010 !important; }
+[data-theme="light"] .score-cell.band-high,
+body.theme-light .score-cell.band-high { color: #b3500a !important; }
+[data-theme="light"] .score-cell.band-medium,
+body.theme-light .score-cell.band-medium { color: #806320 !important; }
+[data-theme="light"] .score-cell.band-low,
+body.theme-light .score-cell.band-low { color: #0040dd !important; }
