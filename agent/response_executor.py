@@ -1,0 +1,297 @@
+"""Defensive endpoint response executor for NetGuard agents.
+
+This module intentionally implements guarded, auditable defensive actions only.
+It is not a remote shell and it never deletes evidence permanently.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import ipaddress
+import os
+import platform
+import shutil
+import subprocess
+import time
+import uuid
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any, Callable
+
+from server.response_policy import verify_response_policy
+
+
+PROTECTED_PROCESSES = {
+    "system",
+    "wininit",
+    "csrss",
+    "lsass",
+    "services",
+    "explorer",
+}
+
+CRITICAL_PROCESSES = {"system", "wininit", "csrss", "lsass", "services"}
+SUPPORTED_ACTIONS = {
+    "collect_diagnostics",
+    "flush_buffer",
+    "ping",
+    "isolate_host_simulated",
+    "block_ip_windows_firewall",
+    "kill_process_guarded",
+    "quarantine_file_guarded",
+}
+
+
+@dataclass(slots=True)
+class EndpointResponseResult:
+    status: str
+    action_type: str
+    result: dict[str, Any] = field(default_factory=dict)
+    audit_event: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+class EndpointResponseExecutor:
+    """Executes policy-signed defensive response actions on an endpoint."""
+
+    def __init__(
+        self,
+        *,
+        host_id: str,
+        tenant_id: str,
+        policy_secret: str,
+        dry_run: bool = True,
+        diagnostics_provider: Callable[[], dict[str, Any]] | None = None,
+        buffer_flusher: Callable[[], Any] | None = None,
+        audit_sink: Callable[[dict[str, Any]], None] | None = None,
+        quarantine_dir: str | Path | None = None,
+    ):
+        self.host_id = str(host_id or "").strip()
+        self.tenant_id = str(tenant_id or "").strip()
+        self.policy_secret = str(policy_secret or "")
+        self.dry_run = bool(dry_run)
+        self.diagnostics_provider = diagnostics_provider
+        self.buffer_flusher = buffer_flusher
+        self.audit_sink = audit_sink
+        self.quarantine_dir = Path(quarantine_dir) if quarantine_dir else Path(r"C:\ProgramData\NetGuard\Quarantine")
+
+    def execute(self, action: dict[str, Any]) -> EndpointResponseResult:
+        action_type = str(action.get("action_type") or "").strip().lower()
+        payload = action.get("payload") if isinstance(action.get("payload"), dict) else {}
+        if action_type not in SUPPORTED_ACTIONS:
+            return self._result("refused", action_type, {"error": "unsupported_action_type"})
+
+        policy_ok, reason = self._verify_policy(action_type, action)
+        if not policy_ok:
+            return self._result("refused", action_type, {"error": reason})
+
+        try:
+            if action_type == "ping":
+                return self._result("success", action_type, {"message": "pong"})
+            if action_type == "collect_diagnostics":
+                return self._result("success", action_type, self._collect_diagnostics())
+            if action_type == "flush_buffer":
+                return self._flush_buffer(action_type)
+            if action_type == "isolate_host_simulated":
+                return self._result(
+                    "success",
+                    action_type,
+                    {
+                        "simulated": True,
+                        "message": "Host isolation simulation recorded; no firewall state was changed.",
+                    },
+                )
+            if action_type == "block_ip_windows_firewall":
+                return self._block_ip(payload)
+            if action_type == "kill_process_guarded":
+                return self._kill_process(payload)
+            if action_type == "quarantine_file_guarded":
+                return self._quarantine_file(payload)
+        except Exception as exc:
+            return self._result("failed", action_type, {"error": exc.__class__.__name__})
+        return self._result("refused", action_type, {"error": "unsupported_action_type"})
+
+    def _verify_policy(self, action_type: str, action: dict[str, Any]) -> tuple[bool, str]:
+        payload = action.get("payload") if isinstance(action.get("payload"), dict) else {}
+        policy = action.get("policy") if isinstance(action.get("policy"), dict) else payload.get("policy")
+        if not isinstance(policy, dict):
+            return False, "missing_policy"
+
+        policy_host = str(policy.get("host_id") or "").strip()
+        policy_tenant = str(policy.get("tenant_id") or "").strip()
+        policy_action = str(policy.get("action_type") or "").strip().lower()
+        if policy_host != self.host_id:
+            return False, "policy_host_mismatch"
+        if policy_tenant != self.tenant_id:
+            return False, "policy_tenant_mismatch"
+        if policy_action != action_type:
+            return False, "policy_action_mismatch"
+
+        return verify_response_policy(
+            self.policy_secret,
+            tenant_id=policy_tenant,
+            host_id=policy_host,
+            action_type=policy_action,
+            nonce=policy.get("nonce"),
+            expires_at=policy.get("expires_at"),
+            signature=policy.get("signature"),
+        )
+
+    def _collect_diagnostics(self) -> dict[str, Any]:
+        diagnostics = {
+            "host_id": self.host_id,
+            "tenant_id": self.tenant_id,
+            "hostname": platform.node(),
+            "platform": platform.system().lower(),
+            "platform_version": platform.version(),
+            "dry_run": self.dry_run,
+            "generated_at": int(time.time()),
+        }
+        if self.diagnostics_provider:
+            extra = self.diagnostics_provider()
+            if isinstance(extra, dict):
+                diagnostics.update(_safe_public_dict(extra))
+        return diagnostics
+
+    def _flush_buffer(self, action_type: str) -> EndpointResponseResult:
+        if not self.buffer_flusher:
+            return self._result("skipped", action_type, {"message": "buffer_flusher_not_configured"})
+        flushed = self.buffer_flusher()
+        return self._result("success", action_type, {"flushed": flushed})
+
+    def _block_ip(self, payload: dict[str, Any]) -> EndpointResponseResult:
+        target_ip = str(payload.get("ip") or payload.get("target") or payload.get("dst_ip") or "").strip()
+        try:
+            ipaddress.ip_address(target_ip)
+        except ValueError:
+            return self._result("refused", "block_ip_windows_firewall", {"error": "invalid_ip"})
+
+        if self.dry_run:
+            return self._result("skipped", "block_ip_windows_firewall", {"dry_run": True, "ip": target_ip})
+        if platform.system().lower() != "windows":
+            return self._result("skipped", "block_ip_windows_firewall", {"error": "windows_only", "ip": target_ip})
+
+        rule_name = f"NetGuard Block {target_ip}"
+        completed = subprocess.run(
+            [
+                "netsh",
+                "advfirewall",
+                "firewall",
+                "add",
+                "rule",
+                f"name={rule_name}",
+                "dir=out",
+                "action=block",
+                f"remoteip={target_ip}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        if completed.returncode != 0:
+            return self._result(
+                "failed",
+                "block_ip_windows_firewall",
+                {"error": "netsh_failed", "returncode": completed.returncode},
+            )
+        return self._result("success", "block_ip_windows_firewall", {"ip": target_ip, "rule_name": rule_name})
+
+    def _kill_process(self, payload: dict[str, Any]) -> EndpointResponseResult:
+        process_name = _clean_process_name(payload.get("process_name"))
+        try:
+            pid = int(payload.get("pid"))
+        except (TypeError, ValueError):
+            return self._result("refused", "kill_process_guarded", {"error": "missing_pid"})
+        if pid <= 0:
+            return self._result("refused", "kill_process_guarded", {"error": "invalid_pid"})
+        if not process_name:
+            return self._result("refused", "kill_process_guarded", {"error": "missing_process_name"})
+        if process_name in CRITICAL_PROCESSES:
+            return self._result("refused", "kill_process_guarded", {"error": "protected_process", "process_name": process_name})
+        if process_name in PROTECTED_PROCESSES and not payload.get("explicit_approval"):
+            return self._result("refused", "kill_process_guarded", {"error": "explicit_approval_required", "process_name": process_name})
+        if self.dry_run:
+            return self._result("skipped", "kill_process_guarded", {"dry_run": True, "pid": pid, "process_name": process_name})
+
+        if platform.system().lower() == "windows":
+            completed = subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, text=True, timeout=15, check=False)
+            if completed.returncode != 0:
+                return self._result("failed", "kill_process_guarded", {"error": "taskkill_failed", "returncode": completed.returncode})
+        else:
+            os.kill(pid, 15)
+        return self._result("success", "kill_process_guarded", {"pid": pid, "process_name": process_name})
+
+    def _quarantine_file(self, payload: dict[str, Any]) -> EndpointResponseResult:
+        raw_path = str(payload.get("path") or payload.get("file_path") or "").strip()
+        expected_hash = str(payload.get("sha256") or payload.get("hash") or "").strip().lower()
+        signature_checked = bool(payload.get("signature_checked") or payload.get("origin_checked"))
+        if not raw_path:
+            return self._result("refused", "quarantine_file_guarded", {"error": "missing_file_path"})
+        if not expected_hash:
+            return self._result("refused", "quarantine_file_guarded", {"error": "missing_sha256"})
+        if not signature_checked:
+            return self._result("refused", "quarantine_file_guarded", {"error": "missing_signature_check"})
+        source_path = Path(raw_path)
+        if not source_path.exists() or not source_path.is_file():
+            return self._result("failed", "quarantine_file_guarded", {"error": "file_not_found"})
+        actual_hash = _sha256_file(source_path)
+        if actual_hash.lower() != expected_hash:
+            return self._result("refused", "quarantine_file_guarded", {"error": "sha256_mismatch"})
+        if self.dry_run:
+            return self._result("skipped", "quarantine_file_guarded", {"dry_run": True, "path": str(source_path)})
+
+        self.quarantine_dir.mkdir(parents=True, exist_ok=True)
+        destination = self.quarantine_dir / f"{actual_hash[:16]}_{source_path.name}"
+        shutil.move(str(source_path), str(destination))
+        return self._result(
+            "success",
+            "quarantine_file_guarded",
+            {
+                "quarantine_path": str(destination),
+                "sha256": actual_hash,
+                "deleted": False,
+            },
+        )
+
+    def _result(self, status: str, action_type: str, result: dict[str, Any]) -> EndpointResponseResult:
+        audit_event = {
+            "audit_id": f"ngra_{uuid.uuid4().hex}",
+            "timestamp": int(time.time()),
+            "tenant_id": self.tenant_id,
+            "host_id": self.host_id,
+            "action_type": action_type,
+            "status": status,
+            "dry_run": self.dry_run,
+        }
+        if self.audit_sink:
+            self.audit_sink(dict(audit_event))
+        return EndpointResponseResult(status=status, action_type=action_type, result=dict(result or {}), audit_event=audit_event)
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _clean_process_name(value: Any) -> str:
+    name = Path(str(value or "").strip()).name.lower()
+    if name.endswith(".exe"):
+        name = name[:-4]
+    return name
+
+
+def _safe_public_dict(value: dict[str, Any]) -> dict[str, Any]:
+    redacted = {}
+    for key, item in value.items():
+        lowered = str(key).lower()
+        if any(secret_word in lowered for secret_word in ("token", "secret", "password", "key")):
+            continue
+        redacted[str(key)] = item
+    return redacted
+

@@ -1,0 +1,105 @@
+from __future__ import annotations
+
+import hashlib
+import time
+
+from agent.response_executor import EndpointResponseExecutor
+from server.response_policy import sign_response_policy
+
+
+SECRET = "s" * 32
+
+
+def _signed_action(action_type: str, payload: dict | None = None) -> dict:
+    nonce = "n" * 16
+    expires_at = int(time.time()) + 120
+    policy = {
+        "tenant_id": "tenant-a",
+        "host_id": "host-a",
+        "action_type": action_type,
+        "nonce": nonce,
+        "expires_at": expires_at,
+        "signature": sign_response_policy(
+            SECRET,
+            tenant_id="tenant-a",
+            host_id="host-a",
+            action_type=action_type,
+            nonce=nonce,
+            expires_at=expires_at,
+        ),
+    }
+    return {"action_type": action_type, "payload": payload or {}, "policy": policy}
+
+
+def _executor(**overrides):
+    params = {
+        "host_id": "host-a",
+        "tenant_id": "tenant-a",
+        "policy_secret": SECRET,
+        "dry_run": True,
+    }
+    params.update(overrides)
+    return EndpointResponseExecutor(**params)
+
+
+def test_executor_refuses_unsigned_action():
+    result = _executor().execute({"action_type": "ping", "payload": {}})
+
+    assert result.status == "refused"
+    assert result.result["error"] == "missing_policy"
+
+
+def test_executor_accepts_signed_safe_action_and_audits():
+    audits = []
+    result = _executor(audit_sink=audits.append).execute(_signed_action("ping"))
+
+    assert result.status == "success"
+    assert result.result["message"] == "pong"
+    assert result.audit_event["action_type"] == "ping"
+    assert audits and audits[0]["status"] == "success"
+
+
+def test_executor_redacts_sensitive_diagnostics_provider_fields():
+    result = _executor(
+        diagnostics_provider=lambda: {"api_key": "secret", "buffer_pending": 2}
+    ).execute(_signed_action("collect_diagnostics"))
+
+    assert result.status == "success"
+    assert "api_key" not in result.result
+    assert result.result["buffer_pending"] == 2
+
+
+def test_executor_refuses_protected_process_kill():
+    result = _executor().execute(
+        _signed_action(
+            "kill_process_guarded",
+            {"pid": 500, "process_name": "lsass.exe", "explicit_approval": True},
+        )
+    )
+
+    assert result.status == "refused"
+    assert result.result["error"] == "protected_process"
+
+
+def test_executor_quarantines_without_deleting_evidence_permanently(tmp_path):
+    sample = tmp_path / "sample.bin"
+    sample.write_bytes(b"netguard suspicious sample")
+    digest = hashlib.sha256(sample.read_bytes()).hexdigest()
+    quarantine_dir = tmp_path / "quarantine"
+    executor = _executor(dry_run=False, quarantine_dir=quarantine_dir)
+
+    result = executor.execute(
+        _signed_action(
+            "quarantine_file_guarded",
+            {
+                "path": str(sample),
+                "sha256": digest,
+                "signature_checked": True,
+            },
+        )
+    )
+
+    assert result.status == "success"
+    assert result.result["deleted"] is False
+    assert not sample.exists()
+    assert quarantine_dir.exists()
