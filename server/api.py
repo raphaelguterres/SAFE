@@ -30,6 +30,7 @@ import os
 from typing import Any
 
 from .auth import KeyStore, extract_api_key, require_agent_key
+from .api_guard import ApiAbuseGuard
 from .ingestion import (
     IngestionError,
     IngestionPipeline,
@@ -59,6 +60,7 @@ def build_blueprint(
     bp = Blueprint("netguard_edr", __name__, url_prefix=url_prefix)
     pipeline = pipeline or IngestionPipeline(repo)
     limiter = limiter or build_rate_limiter_from_env(rate_per_sec=20.0, burst=40)
+    api_guard = ApiAbuseGuard()
 
     @bp.route("/events", methods=["POST"])
     @require_agent_key(key_store)
@@ -91,6 +93,20 @@ def build_blueprint(
                 "error": "invalid_json",
                 "message": str(exc),
             }), 400
+
+        guard = api_guard.inspect(
+            endpoint=f"{url_prefix}/events",
+            tenant_id=str((payload or {}).get("tenant_id") or "default") if isinstance(payload, dict) else "default",
+            agent_id=str((payload or {}).get("agent_id") or (payload or {}).get("host_id") or api_key[:16]) if isinstance(payload, dict) else api_key[:16],
+            content_length=request.content_length,
+            payload=payload,
+        )
+        if not guard.allowed:
+            logger.warning("api guard blocked /events: %s", guard.reason)
+            response = {"ok": False, "error": guard.reason, **(guard.details or {})}
+            if guard.retry_after:
+                response["retry_after"] = guard.retry_after
+            return jsonify(response), guard.status_code
 
         # 4. ingestion pipeline
         try:

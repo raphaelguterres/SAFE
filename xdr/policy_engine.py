@@ -28,6 +28,29 @@ APPROVAL_REQUIRED_ACTIONS = {
 APPROVAL_REQUIRED_ACTIONS.update({"block_execution_pattern"})
 DISABLED_ACTIONS = {"delete_file", "delete_file_guarded"}
 
+APPROVAL_MATRIX = {
+    "viewer": set(),
+    "analyst": {"create_investigation"},
+    "responder": {"collect_diagnostics", "flush_buffer", "ping", "block_ip", "block_source_ip", "block_ip_windows_firewall"},
+    "admin": {
+        "collect_diagnostics",
+        "flush_buffer",
+        "ping",
+        "block_ip",
+        "block_source_ip",
+        "block_ip_windows_firewall",
+        "isolate_host",
+        "isolate_host_simulated",
+        "safe_host_isolation",
+        "rollback_host_isolation",
+        "kill_process",
+        "kill_process_guarded",
+        "quarantine_file",
+        "quarantine_file_guarded",
+    },
+    "owner": {"*"},
+}
+
 
 @dataclass(slots=True)
 class ResponseDecision:
@@ -191,6 +214,15 @@ def decide_response_action(
     evidence: dict[str, Any] | None = None,
 ) -> ResponseDecision:
     return ResponsePolicyEngine(mode).decide(action_type, context, confidence=confidence, evidence=evidence)
+
+
+def can_approve_response_action(role: str, action_type: str, *, policy_mode_change: bool = False) -> bool:
+    normalized_role = str(role or "viewer").strip().lower()
+    action = str(action_type or "").strip().lower()
+    if policy_mode_change:
+        return normalized_role == "owner"
+    allowed = APPROVAL_MATRIX.get(normalized_role, set())
+    return "*" in allowed or action in allowed
 
 
 def _coerce_mode(value: str | ResponseMode) -> ResponseMode:

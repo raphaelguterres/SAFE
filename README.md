@@ -285,6 +285,36 @@ controls remain admin-gated, CSRF-protected, rate-limited, and audited.
 See [NETGUARD_XDR_SCALING.md](NETGUARD_XDR_SCALING.md) for the scaling model,
 queue behavior, retention strategy, and rollout guidance.
 
+## Enterprise Hardening & Trust Model
+
+NetGuard now includes an enterprise hardening layer focused on trust, replay
+resistance, tenant isolation, audit integrity, and production-readiness checks.
+
+Core additions:
+
+- **Agent Trust V2:** optional HMAC-signed agent requests with tenant id, host id, agent id, timestamp, nonce, and anti-replay validation.
+- **Replay guard:** bounded nonce cache scoped by tenant and agent, rejecting reused nonces inside a 60 second trust window.
+- **Action Signing V2:** response actions include a signed envelope binding action id, tenant, host, action type, parameters hash, approval id, policy mode, and expiry.
+- **RBAC approvals:** `owner`, `admin`, `responder`, `analyst`, and `viewer` now model response approval boundaries more clearly.
+- **API abuse guard:** ingest routes enforce payload size, batch size, event type whitelist, and tenant/agent-scoped rate limits.
+- **Audit integrity:** `/api/admin/audit/integrity` verifies audit chain integrity over current and rotated audit logs.
+- **Config status:** `/api/admin/config/status` reports production-readiness posture without exposing secrets.
+- **Secure exports:** `/api/incidents/export` exports tenant-scoped JSON/CSV with secret-field redaction and audit logging.
+
+Enable strict agent request signing with:
+
+```bash
+NETGUARD_AGENT_TRUST_V2=true
+```
+
+For production, configure strong values for `TOKEN_SIGNING_SECRET`,
+`SECRET_KEY`, `NETGUARD_RESPONSE_POLICY_SECRET`, and optionally
+`NETGUARD_RESPONSE_ACTION_SECRET`. NetGuard remains defensive-only: no bypass,
+no evasion, and no destructive endpoint action without approval.
+
+See [NETGUARD_ENTERPRISE_HARDENING.md](NETGUARD_ENTERPRISE_HARDENING.md) for
+the full trust model and production checklist.
+
 ## Operating Modes
 
 | Mode | Storage | Auth posture | Typical use |
@@ -512,6 +542,8 @@ The new coverage adds checks for:
 - [DEPLOY.md](DEPLOY.md): deployment patterns and production checklist
 - [SECURITY.md](SECURITY.md): hardening notes and security posture
 - [NETGUARD_AGENT_SERVER_ARCHITECTURE.md](NETGUARD_AGENT_SERVER_ARCHITECTURE.md): Agent + Server architecture
+- [NETGUARD_ENTERPRISE_HARDENING.md](NETGUARD_ENTERPRISE_HARDENING.md): Agent Trust V2, action signing, tenant isolation, audit integrity
+- [NETGUARD_XDR_SCALING.md](NETGUARD_XDR_SCALING.md): scalable XDR pipeline and bounded ingestion
 - [DOCKER.md](DOCKER.md): containerized execution
 
 ## Realistic Roadmap
@@ -529,6 +561,9 @@ The new coverage adds checks for:
 - [x] Tenant-scoped API tokens with narrower operational scopes for agent flows
 - [x] Redis rate-limit backend for multi-node EDR ingest deployments
 - [x] Legacy event/tenant repository migration metadata with checksum/status reporting
+- [x] Scalable XDR platform core with bounded ingest, deduplication, priority lanes, heartbeat, orchestration, and performance dashboard
+- [x] Enterprise hardening and trust core with Agent Trust V2, replay guard, action signing V2, config status, audit integrity, API abuse guard, and secure incident export
+- [ ] Client Dashboard Clean Experience: premium executive/technical client views, clean design-system tokens, host protection cards, incident cards, empty states, and responsive UX
 - [ ] Full domain migrations for all legacy app tables
 - [x] Agent packaging as service/daemon for Windows and Linux
 - [ ] Endpoint-side destructive response handlers beyond fail-closed stubs

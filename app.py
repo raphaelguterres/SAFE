@@ -4746,6 +4746,69 @@ def _xdr_ingest_v2_config() -> dict:
     }
 
 
+_api_abuse_guard_singleton = None
+
+
+def _get_api_abuse_guard():
+    """Lazily create a tenant-scoped abuse guard for high-volume ingest routes."""
+    global _api_abuse_guard_singleton
+    if _api_abuse_guard_singleton is None:
+        from server.api_guard import ApiAbuseGuard
+
+        _api_abuse_guard_singleton = ApiAbuseGuard(
+            max_payload_bytes=_safe_int_env(
+                "NETGUARD_API_MAX_PAYLOAD_BYTES",
+                1024 * 1024,
+                min_value=1024,
+                max_value=10 * 1024 * 1024,
+            ),
+            max_batch_events=_safe_int_env(
+                "NETGUARD_API_MAX_BATCH_EVENTS",
+                500,
+                min_value=1,
+                max_value=5000,
+            ),
+            rate_limit_per_minute=_safe_int_env(
+                "NETGUARD_API_RATE_PER_MINUTE",
+                1200,
+                min_value=1,
+                max_value=100000,
+            ),
+        )
+    return _api_abuse_guard_singleton
+
+
+def _guard_ingest_request(
+    payload,
+    *,
+    endpoint_label: str,
+    agent_id: str = "",
+    enforce_event_types: bool = True,
+):
+    """Return a Flask response when an ingest/admin control request is abusive."""
+    tenant_id = _current_request_tenant_id()
+    decision = _get_api_abuse_guard().inspect(
+        endpoint=request.path or endpoint_label,
+        tenant_id=tenant_id,
+        agent_id=agent_id,
+        content_length=request.content_length,
+        payload=payload,
+    )
+    if decision.allowed:
+        return None
+    if decision.reason == "event_type_not_allowed" and not enforce_event_types:
+        return None
+    detail = (
+        f"endpoint={endpoint_label} tenant={tenant_id} "
+        f"agent={agent_id or '-'} reason={decision.reason}"
+    )
+    audit("API_ABUSE_BLOCKED", actor=tenant_id, ip=request.remote_addr or "-", detail=detail)
+    body = {"ok": False, "error": decision.reason, **(decision.details or {})}
+    if decision.retry_after:
+        body["retry_after"] = decision.retry_after
+    return jsonify(body), decision.status_code
+
+
 def _process_xdr_ingest_payload_v2(payload):
     """Queue XDR telemetry through the bounded V2 ingest path.
 
@@ -4819,6 +4882,17 @@ def xdr_events_ingest():
         payload = request.get_json(force=True) or {}
     except Exception:
         return jsonify({"error": "invalid_json"}), 400
+    agent_id = ""
+    if isinstance(payload, dict):
+        agent_id = str(payload.get("agent_id") or payload.get("host_id") or "").strip()
+    blocked = _guard_ingest_request(
+        payload,
+        endpoint_label="xdr_events",
+        agent_id=agent_id,
+        enforce_event_types=False,
+    )
+    if blocked is not None:
+        return blocked
     try:
         if _xdr_ingest_v2_enabled():
             result = _process_xdr_ingest_payload_v2(payload)
@@ -8260,6 +8334,51 @@ def incidents_list():
         "stats": eng.stats(),
     })
 
+
+@app.route("/api/incidents/export")
+@auth
+@require_role("analyst", "admin")
+def incidents_export():
+    """Export tenant-scoped incidents with redaction and record limits."""
+    if not INCIDENT_AVAILABLE:
+        return jsonify({"error": "Incident Engine indisponivel"}), 503
+    fmt = str(request.args.get("format") or "json").strip().lower()
+    limit = _safe_limit(request.args.get("limit", 200), default=200, max_val=1000)
+    status = str(request.args.get("status") or "").strip().lower()
+    severity = str(request.args.get("severity") or "").strip().lower()
+    if status and status not in _VALID_INCIDENT_STATUS:
+        return jsonify({"error": f"status invalido: {status}"}), 400
+    if severity and severity not in _VALID_SEVERITY:
+        return jsonify({"error": f"severity invalido: {severity}"}), 400
+    if fmt not in {"json", "csv"}:
+        return jsonify({"error": "format_invalido", "allowed": ["json", "csv"]}), 400
+
+    tenant_id = _current_request_tenant_id()
+    incidents = _get_incidents().list_incidents(
+        status=status or None,
+        severity=severity or None,
+        limit=limit,
+    )
+    from xdr.export_engine import export_incidents
+
+    content_type, body = export_incidents(
+        incidents,
+        tenant_id=tenant_id,
+        fmt=fmt,
+        limit=limit,
+    )
+    audit(
+        "INCIDENT_EXPORT",
+        actor=tenant_id,
+        ip=request.remote_addr or "-",
+        detail=f"format={fmt} limit={limit} count={len(incidents)}",
+    )
+    resp = make_response(body)
+    resp.headers["Content-Type"] = content_type
+    resp.headers["Content-Disposition"] = f'attachment; filename="netguard-incidents-{tenant_id}.{fmt}"'
+    return resp
+
+
 @app.route("/api/incidents/<int:iid>")
 @auth
 @require_session
@@ -8613,6 +8732,21 @@ def admin_performance_api():
         return jsonify({"ok": False, "error": "performance_unavailable"}), 500
 
 
+@app.route("/api/admin/config/status")
+@_admin_only
+def admin_config_status():
+    """Safe production-readiness status without exposing configured secrets."""
+    try:
+        from server.config_validator import validate_production_config
+
+        status = validate_production_config()
+        audit("ADMIN_CONFIG_STATUS_VIEW", actor="admin", ip=request.remote_addr or "-", detail="safe")
+        return jsonify({"ok": True, "config": status})
+    except Exception:
+        logger.exception("admin config status failed")
+        return jsonify({"ok": False, "error": "config_status_unavailable"}), 500
+
+
 @app.route("/api/admin/ingest-v2/control", methods=["POST"])
 @_admin_only
 @csrf_protect
@@ -8620,6 +8754,9 @@ def admin_performance_api():
 def admin_ingest_v2_control():
     """Safe operational controls for the feature-flagged XDR ingest V2 queue."""
     data = request.get_json(silent=True) or {}
+    blocked = _guard_ingest_request(data, endpoint_label="admin_ingest_v2_control", agent_id="admin")
+    if blocked is not None:
+        return blocked
     action = str(data.get("action") or "").strip().lower()
     pipeline = _get_xdr_ingestion_pipeline()
     processed = 0
@@ -10171,6 +10308,39 @@ def admin_audit_log():
         return jsonify({"error": str(exc)}), 500
 
     return jsonify({"entries": entries, "total": len(entries)})
+
+
+@app.route("/api/admin/audit/integrity", methods=["GET"])
+@_admin_only
+def admin_audit_integrity():
+    """Verify audit-log hash-chain integrity over current and rotated audit files."""
+    try:
+        limit = _safe_limit(request.args.get("limit", 5000), default=5000, max_val=50000)
+        from xdr.audit_integrity import verify_audit_log
+
+        checked = 0
+        first_broken = None
+        last_hash = ""
+        valid = True
+        for path in _iter_audit_log_paths():
+            result = verify_audit_log(path, limit=limit)
+            checked += result.checked_records
+            if not result.valid and first_broken is None:
+                first_broken = result.first_broken_record
+                valid = False
+            if result.last_hash:
+                last_hash = result.last_hash
+        audit("ADMIN_AUDIT_INTEGRITY_VIEW", actor="admin", ip=request.remote_addr or "-", detail=f"checked={checked}")
+        return jsonify({
+            "ok": True,
+            "valid": valid,
+            "checked_records": checked,
+            "first_broken_record": first_broken,
+            "last_hash": last_hash,
+        })
+    except Exception:
+        logger.exception("admin audit integrity failed")
+        return jsonify({"ok": False, "error": "audit_integrity_unavailable"}), 500
 
 
 @app.route("/api/admin/security-stats", methods=["GET"])

@@ -21,6 +21,7 @@ from typing import Any, Callable
 from urllib.parse import urlparse
 
 from server.response_policy import verify_response_policy
+from xdr.action_signing import verify_signed_action
 
 
 PROTECTED_PROCESSES = {
@@ -141,6 +142,20 @@ class EndpointResponseExecutor:
 
     def _verify_policy(self, action_type: str, action: dict[str, Any]) -> tuple[bool, str]:
         payload = action.get("payload") if isinstance(action.get("payload"), dict) else {}
+        policy_v2 = (
+            action.get("policy_v2")
+            if isinstance(action.get("policy_v2"), dict)
+            else payload.get("policy_v2")
+        )
+        if isinstance(policy_v2, dict):
+            return verify_signed_action(
+                self.policy_secret,
+                policy_v2,
+                parameters=payload,
+                expected_tenant_id=self.tenant_id,
+                expected_host_id=self.host_id,
+                expected_action_type=action_type,
+            )
         policy = action.get("policy") if isinstance(action.get("policy"), dict) else payload.get("policy")
         if not isinstance(policy, dict):
             return False, "missing_policy"

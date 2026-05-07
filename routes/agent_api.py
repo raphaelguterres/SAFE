@@ -1,11 +1,21 @@
 from __future__ import annotations
 
 import os
+import time
 from typing import Any, Callable
 
 from flask import Blueprint, jsonify, request
 
+from server.agent_trust import AgentTrustValidator, extract_agent_key_from_headers
+from server.api_guard import ApiAbuseGuard
 from server.response_policy import verify_response_policy
+from storage.action_repository import generate_action_id
+from xdr.action_signing import sign_action
+from xdr.policy_engine import can_approve_response_action
+
+
+_AGENT_TRUST_VALIDATOR = AgentTrustValidator()
+_AGENT_API_GUARD = ApiAbuseGuard()
 
 
 def create_agent_api_blueprint(
@@ -68,8 +78,9 @@ def create_agent_api_blueprint(
     ) -> str:
         if action_type not in guarded_action_types:
             return ""
-        if auth_ctx.auth_type != "admin" and str(getattr(auth_ctx, "role", "")).lower() != "admin":
-            return "destructive_action_requires_admin"
+        role = "admin" if auth_ctx.auth_type == "admin" else str(getattr(auth_ctx, "role", "viewer")).lower()
+        if not can_approve_response_action(role, action_type):
+            return "response_action_approval_denied"
         ok, reason = verify_response_policy(
             os.environ.get("NETGUARD_RESPONSE_POLICY_SECRET", ""),
             tenant_id=tenant_id,
@@ -80,6 +91,41 @@ def create_agent_api_blueprint(
             signature=data.get("policy_signature"),
         )
         return "" if ok else reason
+
+    def _enterprise_trust_enabled() -> bool:
+        return str(os.environ.get("NETGUARD_AGENT_TRUST_V2", "")).strip().lower() in {"1", "true", "yes", "on"}
+
+    def _api_guard_decision(payload: dict | None, *, tenant_id: str, agent_id: str = ""):
+        return _AGENT_API_GUARD.inspect(
+            endpoint=request.path,
+            tenant_id=tenant_id,
+            agent_id=agent_id,
+            content_length=request.content_length,
+            payload=payload,
+        )
+
+    def _validate_agent_trust_v2(auth_ctx):
+        if not _enterprise_trust_enabled() or auth_ctx.auth_type != "agent":
+            return None
+        result = _AGENT_TRUST_VALIDATOR.validate(
+            method=request.method,
+            path=request.path,
+            headers=request.headers,
+            body=request.get_data(cache=True),
+            agent_key=extract_agent_key_from_headers(request.headers),
+            expected_tenant_id=str(auth_ctx.tenant_id or "default"),
+            expected_host_id=str(auth_ctx.host_id or ""),
+            host_lookup=lambda tenant_id, host_id: get_agent_service().host_repo.get_host(host_id, tenant_id=tenant_id),
+        )
+        if result.valid:
+            return None
+        audit_fn(
+            "AGENT_TRUST_V2_DENIED",
+            actor=str(getattr(auth_ctx, "host_id", "") or "agent"),
+            ip=request.remote_addr or "-",
+            detail=f"tenant={getattr(auth_ctx, 'tenant_id', '')} reason={result.reason}",
+        )
+        return jsonify({"error": "agent_trust_denied", "reason": result.reason}), 401
 
     @bp.route("/api/agent/register", methods=["POST"])
     def agent_register():
@@ -305,7 +351,9 @@ def create_agent_api_blueprint(
                     "error": guarded_policy_error,
                     "message": "destructive response actions require admin and signed policy approval",
                 }), 403
+            action_id = None
             if action_type in guarded_action_types:
+                action_id = generate_action_id()
                 payload = {
                     **payload,
                     "policy": {
@@ -317,10 +365,27 @@ def create_agent_api_blueprint(
                         "signature": str(data.get("policy_signature") or "").strip().lower(),
                     },
                 }
+                action_secret = os.environ.get("NETGUARD_RESPONSE_ACTION_SECRET") or os.environ.get("NETGUARD_RESPONSE_POLICY_SECRET", "")
+                if action_secret:
+                    issued_at = int(time.time())
+                    expires_at = int(data.get("policy_expires_at"))
+                    payload["policy_v2"] = sign_action(
+                        action_secret,
+                        action_id=action_id,
+                        tenant_id=tenant_id,
+                        host_id=safe_host_id,
+                        action_type=action_type,
+                        parameters=payload,
+                        issued_at=issued_at,
+                        expires_at=expires_at,
+                        policy_mode=os.environ.get("NETGUARD_RESPONSE_MODE", "manual_approval"),
+                        approval_id=str(data.get("approval_id") or data.get("policy_nonce") or ""),
+                    ).to_dict()
             action = get_action_repository().create_action(
                 tenant_id=tenant_id,
                 host_id=safe_host_id,
                 action_type=action_type,
+                action_id=action_id,
                 payload=payload,
                 requested_by=f"{auth_ctx.auth_type}:{auth_ctx.tenant_id}",
                 reason=sanitize_text(str(data.get("reason") or ""), max_len=500),
@@ -415,6 +480,9 @@ def create_agent_api_blueprint(
             auth_ctx = authenticate_agent_request()
             if auth_ctx.auth_type != "agent" or not auth_ctx.host_id:
                 return jsonify({"error": "agent_key_required"}), 403
+            trust_response = _validate_agent_trust_v2(auth_ctx)
+            if trust_response is not None:
+                return trust_response
             actions = get_action_repository().lease_actions(
                 tenant_id=str(auth_ctx.tenant_id or "default"),
                 host_id=str(auth_ctx.host_id),
@@ -438,6 +506,9 @@ def create_agent_api_blueprint(
             if auth_ctx.auth_type != "agent" or not auth_ctx.host_id:
                 return jsonify({"error": "agent_key_required"}), 403
             data = request.get_json(silent=True) or {}
+            trust_response = _validate_agent_trust_v2(auth_ctx)
+            if trust_response is not None:
+                return trust_response
             status = sanitize_text(str(data.get("status") or ""), max_len=32).lower()
             result = data.get("result") if isinstance(data.get("result"), dict) else {}
             action = get_action_repository().ack_action(
@@ -470,6 +541,13 @@ def create_agent_api_blueprint(
             auth_ctx = authenticate_agent_request()
             ensure_agent_writer(auth_ctx)
             data = request.get_json(force=True) or {}
+            guard = _api_guard_decision(data, tenant_id=str(auth_ctx.tenant_id or "default"), agent_id=str(auth_ctx.host_id or ""))
+            if not guard.allowed:
+                audit_fn("API_ABUSE_BLOCKED", actor=str(auth_ctx.host_id or "agent"), ip=request.remote_addr or "-", detail=f"endpoint=agent_heartbeat reason={guard.reason}")
+                return jsonify({"error": guard.reason, **(guard.details or {})}), guard.status_code
+            trust_response = _validate_agent_trust_v2(auth_ctx)
+            if trust_response is not None:
+                return trust_response
             host_id = sanitize_text(str(data.get("host_id") or auth_ctx.host_id or ""), max_len=128)
             if not host_id:
                 return jsonify({"error": "host_id obrigatorio"}), 400
@@ -506,6 +584,13 @@ def create_agent_api_blueprint(
             auth_ctx = authenticate_agent_request()
             ensure_agent_writer(auth_ctx)
             data = request.get_json(force=True) or {}
+            guard = _api_guard_decision(data, tenant_id=str(auth_ctx.tenant_id or "default"), agent_id=str(auth_ctx.host_id or ""))
+            if not guard.allowed:
+                audit_fn("API_ABUSE_BLOCKED", actor=str(auth_ctx.host_id or "agent"), ip=request.remote_addr or "-", detail=f"endpoint=agent_events reason={guard.reason}")
+                return jsonify({"error": guard.reason, **(guard.details or {})}), guard.status_code
+            trust_response = _validate_agent_trust_v2(auth_ctx)
+            if trust_response is not None:
+                return trust_response
             host_id = sanitize_text(str(data.get("host_id") or auth_ctx.host_id or ""), max_len=128)
             if not host_id:
                 return jsonify({"error": "host_id obrigatorio"}), 400

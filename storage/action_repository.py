@@ -234,13 +234,14 @@ class AgentActionRepository:
         tenant_id: str,
         host_id: str,
         action_type: str,
+        action_id: str | None = None,
         payload: dict[str, Any] | None = None,
         requested_by: str = "",
         reason: str = "",
         ttl_seconds: int = 3600,
         max_attempts: int = 3,
     ) -> dict:
-        action_id = generate_action_id()
+        action_id = str(action_id or generate_action_id())
         now = _utc_now()
         ph = self._placeholder()
         params = (

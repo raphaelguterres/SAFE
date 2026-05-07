@@ -411,13 +411,26 @@ class AdminRateLimitGuard:
 
 
 ROLES = {
+    "owner":    {"level": 120, "label": "Owner"},
     "admin":    {"level": 100, "label": "Administrador"},
+    "responder": {"level": 70,  "label": "Responder"},
     "analyst":  {"level": 50,  "label": "Analista SOC"},
     "viewer":   {"level": 10,  "label": "Observador"},
 }
 
 DEFAULT_TOKEN_SCOPES = {
+    "owner": {"*"},
     "admin": {"*"},
+    "responder": {
+        "dashboard:read",
+        "events:read",
+        "hosts:read",
+        "incidents:read",
+        "incidents:write",
+        "response:queue",
+        "response:approve",
+        "rules:read",
+    },
     "analyst": {
         "dashboard:read",
         "events:read",
@@ -532,7 +545,8 @@ def require_role(*roles: str):
                 if not _auth_on:
                     return fn(*args, **kwargs)
                 tenant_role = getattr(g, "tenant_role", "viewer")
-                if tenant_role not in roles and tenant_role != "admin":
+                required_level = min((role_level(role) for role in roles), default=0)
+                if tenant_role not in roles and role_level(tenant_role) < required_level:
                     logger.warning(
                         "[RBAC] Acesso negado | role=%s | required=%s | endpoint=%s",
                         tenant_role, roles, fn.__name__,
