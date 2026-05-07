@@ -264,6 +264,19 @@ The current `/api/xdr/events` path remains synchronous for compatibility, but
 records performance metrics and is ready to be fronted by the bounded ingestion
 pipeline when deployment scale requires it.
 
+To enable the bounded V2 path for `/api/xdr/events`:
+
+```bash
+NETGUARD_XDR_INGEST_V2=true
+NETGUARD_XDR_QUEUE_MAX=5000
+NETGUARD_XDR_BATCH_SIZE=100
+NETGUARD_XDR_CONSUMERS=1
+```
+
+When enabled, the endpoint returns `202 Accepted` with queue status instead of
+inline detection details. Leave it disabled for demos or integrations that
+expect the original synchronous response contract.
+
 See [NETGUARD_XDR_SCALING.md](NETGUARD_XDR_SCALING.md) for the scaling model,
 queue behavior, retention strategy, and rollout guidance.
 

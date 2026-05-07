@@ -61,6 +61,30 @@ The bounded queue always drains in priority order. Low-risk lanes are allowed to
 drop under pressure; high-risk signals are preserved as long as their own lane
 has capacity.
 
+## Feature Flag Rollout
+
+The current `/api/xdr/events` path stays synchronous unless explicitly changed.
+This preserves existing demos, tests, and integrations that expect inline
+detection records.
+
+Enable the V2 queue path with:
+
+```text
+NETGUARD_XDR_INGEST_V2=true
+NETGUARD_XDR_QUEUE_MAX=5000
+NETGUARD_XDR_BATCH_SIZE=100
+NETGUARD_XDR_CONSUMERS=1
+```
+
+When enabled, `/api/xdr/events` validates the request, enforces tenant scope,
+queues accepted telemetry, and returns `202 Accepted` with queue metadata. If the
+bounded queue cannot accept any event, the endpoint returns `429` instead of
+growing memory unbounded.
+
+`NETGUARD_XDR_INGEST_V2_DRAIN_INLINE=true` exists only for tests and controlled
+single-process validation. Production should normally leave it disabled so
+worker threads perform the queued processing.
+
 ## Deduplication
 
 Deduplication is intentionally tenant-scoped. A noisy event from `tenant-a`

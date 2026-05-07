@@ -97,6 +97,7 @@ class TelemetryIngestionPipeline:
         self.metrics = metrics or get_performance_metrics()
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
+        self._last_handler_result: Any = None
 
     def submit(self, event: Any, *, tenant_id: str | None = None) -> IngestionSubmitResult:
         payload = _event_dict(event)
@@ -219,6 +220,8 @@ class TelemetryIngestionPipeline:
             "batch_size": self.batch_size,
             "dedup": self.dedup_engine.stats(),
             "metrics": self.metrics.snapshot(),
+            "running": any(thread.is_alive() for thread in self._threads),
+            "last_handler_result": self._last_handler_result,
         }
 
     def _consumer_loop(self) -> None:
@@ -236,7 +239,7 @@ class TelemetryIngestionPipeline:
             self.metrics.record_queue_latency((now - item.received_at) * 1000)
         try:
             if self.handler:
-                self.handler([item.event for item in batch])
+                self._last_handler_result = self.handler([item.event for item in batch])
         except Exception as exc:
             for item in batch:
                 self.metrics.record_dropped(tenant_id=item.tenant_id, reason="handler_error")

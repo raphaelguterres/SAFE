@@ -1160,7 +1160,14 @@ def _get_xdr_ingestion_pipeline():
             from xdr.performance_metrics import get_performance_metrics
 
             def _handler(events):
-                return _get_xdr_pipeline().process_payload(events)
+                outcomes = _get_xdr_pipeline().process_payload(events)
+                tenant_groups = {}
+                for outcome in outcomes:
+                    tenant_groups.setdefault(outcome.event.tenant_id or "default", []).append(outcome)
+                saved = 0
+                for tenant_id, tenant_outcomes in tenant_groups.items():
+                    saved += _persist_xdr_outcomes(tenant_outcomes, tenant_id=tenant_id)
+                return {"processed": len(outcomes), "saved_events": saved}
 
             _xdr_ingestion_pipeline_singleton = TelemetryIngestionPipeline(
                 handler=_handler,
@@ -1306,17 +1313,17 @@ def _get_forensics_engine():
         return _forensics_engine_singleton
 
 
-def _get_tenant_event_repo():
-    tenant_id = _current_request_tenant_id()
+def _get_tenant_event_repo(tenant_id: str | None = None):
+    tenant_id = tenant_id or _current_request_tenant_id()
     return EventRepository(
         db_path=getattr(repo, "db_path", None),
         tenant_id=tenant_id,
     )
 
 
-def _persist_xdr_outcomes(outcomes):
-    tenant_repo = _get_tenant_event_repo()
-    tenant_id = _current_request_tenant_id()
+def _persist_xdr_outcomes(outcomes, *, tenant_id: str | None = None):
+    tenant_id = tenant_id or _current_request_tenant_id()
+    tenant_repo = _get_tenant_event_repo(tenant_id)
     saved = 0
     for outcome in outcomes:
         security_events = outcome.to_security_events()
@@ -4711,6 +4718,75 @@ def _process_xdr_ingest_payload(payload):
     }
 
 
+def _xdr_ingest_v2_enabled() -> bool:
+    return _env_bool("NETGUARD_XDR_INGEST_V2") is True
+
+
+def _process_xdr_ingest_payload_v2(payload):
+    """Queue XDR telemetry through the bounded V2 ingest path.
+
+    Default /api/xdr/events remains synchronous. This path is used only when
+    NETGUARD_XDR_INGEST_V2=true and returns queue acceptance rather than
+    inline detections/actions.
+    """
+    batch = payload.get("events") if isinstance(payload, dict) else payload
+    event_count = len(batch) if isinstance(batch, list) else 1
+    tenant_id = _current_request_tenant_id()
+    if isinstance(batch, list) and len(batch) > 500:
+        raise ValueError("batch_too_large")
+
+    from xdr.schema import parse_endpoint_events
+
+    events = parse_endpoint_events(payload)
+    normalized_events = []
+    for event in events:
+        if event.tenant_id and event.tenant_id != tenant_id:
+            raise ValueError("tenant_mismatch")
+        event.tenant_id = tenant_id
+        normalized_events.append(event.to_dict())
+
+    pipeline = _get_xdr_ingestion_pipeline()
+    pipeline.start()
+    result = pipeline.submit_batch(normalized_events, tenant_id=tenant_id)
+    processed_inline = 0
+    if _env_bool("NETGUARD_XDR_INGEST_V2_DRAIN_INLINE") is True:
+        max_batches = max(1, (event_count // max(1, pipeline.batch_size)) + 1)
+        processed_inline = pipeline.process_available(max_batches=max_batches)
+
+    snapshot = pipeline.snapshot()
+    accepted_total = result.accepted + result.duplicates
+    if accepted_total <= 0 and result.rejected > 0:
+        http_status = 429
+        status = "backpressure"
+    else:
+        http_status = 202
+        status = "queued"
+
+    logger.info(
+        "XDR ingest V2 | tenant=%s | queued=%d | duplicates=%d | rejected=%d | depth=%d",
+        tenant_id,
+        result.accepted,
+        result.duplicates,
+        result.rejected,
+        snapshot.get("total_depth", 0),
+    )
+    return {
+        "ok": accepted_total > 0,
+        "mode": "ingest_v2",
+        "status": status,
+        "tenant_id": tenant_id,
+        "received": event_count,
+        "queued": result.accepted,
+        "duplicates": result.duplicates,
+        "rejected": result.rejected,
+        "processed_inline": processed_inline,
+        "queue_depth": snapshot.get("total_depth", 0),
+        "queue_depths": snapshot.get("queue_depths", {}),
+        "results": [item.to_dict() for item in result.results[:50]],
+        "_http_status": http_status,
+    }
+
+
 @app.route("/api/xdr/events", methods=["POST"])
 @auth
 def xdr_events_ingest():
@@ -4720,6 +4796,10 @@ def xdr_events_ingest():
     except Exception:
         return jsonify({"error": "invalid_json"}), 400
     try:
+        if _xdr_ingest_v2_enabled():
+            result = _process_xdr_ingest_payload_v2(payload)
+            status = int(result.pop("_http_status", 202))
+            return jsonify(result), status
         result = _process_xdr_ingest_payload(payload)
         return jsonify(result)
     except ValueError as exc:
