@@ -39,6 +39,8 @@ agent/.venv-build/
 *.log
 *.log.*
 .pytest_cache/
+.pytest_cache_netguard/
+.pytest_tmp/
 .coverage
 
 # ========================

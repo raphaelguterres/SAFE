@@ -27,6 +27,8 @@ Decisões de design:
 
 from __future__ import annotations
 
+import base64
+import gzip
 import json
 import logging
 import sqlite3
@@ -44,6 +46,36 @@ def _mask_key(key: str) -> str:
     if len(key) <= 8:
         return "***"
     return key[:8] + "..." + str(len(key))
+
+
+def chunk_envelope(envelope: dict, max_events: int = 100) -> list[dict]:
+    """Split large envelopes without changing the event schema."""
+    events = envelope.get("events") or []
+    max_events = max(1, int(max_events))
+    if not isinstance(events, list) or len(events) <= max_events:
+        return [dict(envelope)]
+    chunks = []
+    total = (len(events) + max_events - 1) // max_events
+    for index in range(0, len(events), max_events):
+        chunk = dict(envelope)
+        chunk["events"] = events[index:index + max_events]
+        chunk["batch_index"] = len(chunks)
+        chunk["batch_total"] = total
+        chunks.append(chunk)
+    return chunks
+
+
+def compressed_payload_preview(payload: dict) -> dict:
+    """Prepare a gzip+base64 payload for future compatible transports."""
+    raw = json.dumps(payload, default=str, separators=(",", ":")).encode("utf-8")
+    compressed = gzip.compress(raw)
+    return {
+        "compressed": True,
+        "encoding": "gzip+base64",
+        "payload": base64.b64encode(compressed).decode("ascii"),
+        "original_bytes": len(raw),
+        "compressed_bytes": len(compressed),
+    }
 
 
 # ── Buffer offline ────────────────────────────────────────────────
@@ -66,9 +98,10 @@ class OfflineBuffer:
     Thread-safe (uma conexão + lock interno).
     """
 
-    def __init__(self, db_path: Path, max_events: int = 5000):
+    def __init__(self, db_path: Path, max_events: int = 5000, max_payload_bytes: int = 2_000_000):
         self.db_path = db_path
         self.max_events = max(100, int(max_events))
+        self.max_payload_bytes = max(64_000, int(max_payload_bytes))
         self._lock = threading.RLock()
         self._init_db()
 
@@ -87,8 +120,16 @@ class OfflineBuffer:
             finally:
                 conn.close()
 
-    def push(self, payload: dict) -> None:
+    def push(self, payload: dict) -> bool:
         text = json.dumps(payload, default=str)
+        payload_bytes = len(text.encode("utf-8"))
+        if payload_bytes > self.max_payload_bytes:
+            logger.error(
+                "Payload excede limite do buffer offline (%d bytes > %d)",
+                payload_bytes,
+                self.max_payload_bytes,
+            )
+            return False
         with self._conn() as conn:
             conn.execute(
                 "INSERT INTO pending_events (payload_json, created_at, attempts) "
@@ -111,6 +152,7 @@ class OfflineBuffer:
                     "Buffer rotacionado: drop %d evento(s) mais antigos",
                     excess,
                 )
+        return True
 
     def pop_batch(self, max_items: int = 50) -> list[tuple[int, dict]]:
         """Devolve (rowid, payload). Caller chama ack() depois do POST OK."""
@@ -158,6 +200,19 @@ class OfflineBuffer:
                 "SELECT COUNT(*) FROM pending_events"
             ).fetchone()[0]
 
+    def stats(self) -> dict:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*), COALESCE(MAX(attempts), 0), COALESCE(MIN(created_at), 0) FROM pending_events"
+            ).fetchone()
+        return {
+            "size": int(row[0] or 0),
+            "max_events": self.max_events,
+            "max_attempts": int(row[1] or 0),
+            "oldest_created_at": float(row[2] or 0),
+            "max_payload_bytes": self.max_payload_bytes,
+        }
+
 
 # ── HTTP sender ───────────────────────────────────────────────────
 
@@ -183,6 +238,9 @@ class EventSender:
         timeout: int = 15,
         buffer_path: Path | str = "agent_buffer.db",
         offline_buffer_max: int = 5000,
+        max_events_per_batch: int = 100,
+        offline_max_payload_bytes: int = 2_000_000,
+        compression_enabled: bool = False,
         max_retries: int = 4,
         backoff_factor: float = 0.8,
     ):
@@ -192,8 +250,11 @@ class EventSender:
         self.timeout = int(timeout)
         self.max_retries = int(max_retries)
         self.backoff_factor = float(backoff_factor)
+        self.max_events_per_batch = max(1, int(max_events_per_batch))
+        self.compression_enabled = bool(compression_enabled)
         self.buffer = OfflineBuffer(Path(buffer_path),
-                                     max_events=offline_buffer_max)
+                                     max_events=offline_buffer_max,
+                                     max_payload_bytes=offline_max_payload_bytes)
         self._stop_drain = threading.Event()
         self._session = self._build_session()
 
@@ -264,6 +325,13 @@ class EventSender:
         Envia envelope { host_id, hostname, agent_version, events: [...] }.
         Se falhar por erro transitório, persiste no buffer e devolve False.
         """
+        chunks = chunk_envelope(envelope, self.max_events_per_batch)
+        if len(chunks) > 1:
+            all_ok = True
+            for chunk in chunks:
+                all_ok = self.send_batch(chunk, buffer_on_failure=buffer_on_failure) and all_ok
+            return all_ok
+
         ok, info = self._post(envelope)
         if ok:
             logger.debug(
@@ -286,6 +354,9 @@ class EventSender:
         )
         self.buffer.push(envelope)
         return False
+
+    def buffer_stats(self) -> dict:
+        return self.buffer.stats()
 
     def drain_once(self, max_batches: int = 5) -> int:
         """

@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NetGuard XDR Performance</title>
+  <link rel="stylesheet" href="/static/css/netguard.css">
+  <style>
+    :root {
+      --perf-bg: #090b10;
+      --perf-panel: #111722;
+      --perf-panel-soft: #151d2b;
+      --perf-border: rgba(148, 163, 184, .18);
+      --perf-text: #eef2f7;
+      --perf-muted: #94a3b8;
+      --perf-accent: #38bdf8;
+      --perf-good: #34d399;
+      --perf-warn: #f59e0b;
+      --perf-bad: #fb7185;
+    }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, rgba(56, 189, 248, .10), transparent 32%), var(--perf-bg);
+      color: var(--perf-text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .perf-shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 34px 22px 48px;
+    }
+    .perf-topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+    .perf-eyebrow {
+      color: var(--perf-accent);
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 42px);
+      letter-spacing: -.04em;
+    }
+    .perf-muted {
+      color: var(--perf-muted);
+      margin: 8px 0 0;
+      line-height: 1.55;
+    }
+    .perf-btn {
+      border: 1px solid var(--perf-border);
+      background: rgba(255, 255, 255, .04);
+      color: var(--perf-text);
+      border-radius: 999px;
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: transform .16s ease, border-color .16s ease, background .16s ease;
+    }
+    .perf-btn:hover,
+    .perf-btn:focus {
+      border-color: rgba(56, 189, 248, .7);
+      background: rgba(56, 189, 248, .12);
+      outline: none;
+      transform: translateY(-1px);
+    }
+    .perf-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .perf-card {
+      border: 1px solid var(--perf-border);
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)), var(--perf-panel);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.22);
+      transition: transform .18s ease, border-color .18s ease;
+    }
+    .perf-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(148, 163, 184, .35);
+    }
+    .perf-label {
+      color: var(--perf-muted);
+      font-size: 13px;
+    }
+    .perf-value {
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -.04em;
+      margin-top: 8px;
+    }
+    .perf-section {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 14px;
+    }
+    .perf-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    .perf-table th,
+    .perf-table td {
+      border-bottom: 1px solid var(--perf-border);
+      padding: 11px 8px;
+      text-align: left;
+    }
+    .perf-table th {
+      color: var(--perf-muted);
+      font-weight: 600;
+    }
+    .status-pill {
+      display: inline-flex;
+      border: 1px solid var(--perf-border);
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: var(--perf-muted);
+      font-size: 13px;
+    }
+    .status-pill.good { color: var(--perf-good); border-color: rgba(52, 211, 153, .35); }
+    .status-pill.warn { color: var(--perf-warn); border-color: rgba(245, 158, 11, .35); }
+    .status-pill.bad { color: var(--perf-bad); border-color: rgba(251, 113, 133, .35); }
+    pre {
+      background: var(--perf-panel-soft);
+      border: 1px solid var(--perf-border);
+      border-radius: 18px;
+      padding: 14px;
+      overflow: auto;
+      color: #cbd5e1;
+    }
+    @media (max-width: 860px) {
+      .perf-grid,
+      .perf-section {
+        grid-template-columns: 1fr;
+      }
+      .perf-topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="perf-shell">
+    <header class="perf-topbar">
+      <div>
+        <div class="perf-eyebrow">Scalable XDR Platform</div>
+        <h1>Performance Core</h1>
+        <p class="perf-muted">Queue pressure, ingest latency, dedup ratio and safe throughput for the NetGuard XDR backend.</p>
+      </div>
+      <button class="perf-btn" type="button" id="refresh">Refresh metrics</button>
+    </header>
+
+    <section class="perf-grid" aria-label="Performance summary">
+      <article class="perf-card">
+        <div class="perf-label">Events per second</div>
+        <div class="perf-value" id="eps">0</div>
+      </article>
+      <article class="perf-card">
+        <div class="perf-label">Dedup ratio</div>
+        <div class="perf-value" id="dedup">0%</div>
+      </article>
+      <article class="perf-card">
+        <div class="perf-label">Dropped events</div>
+        <div class="perf-value" id="dropped">0</div>
+      </article>
+      <article class="perf-card">
+        <div class="perf-label">Queue depth</div>
+        <div class="perf-value" id="depth">0</div>
+      </article>
+    </section>
+
+    <section class="perf-section">
+      <article class="perf-card">
+        <div class="perf-label">Priority lanes</div>
+        <table class="perf-table">
+          <thead><tr><th>Lane</th><th>Depth</th><th>Status</th></tr></thead>
+          <tbody id="lanes"></tbody>
+        </table>
+      </article>
+      <article class="perf-card">
+        <div class="perf-label">Latency</div>
+        <table class="perf-table">
+          <thead><tr><th>Stage</th><th>Avg</th><th>Max</th></tr></thead>
+          <tbody id="latency"></tbody>
+        </table>
+      </article>
+    </section>
+
+    <section class="perf-section">
+      <article class="perf-card">
+        <div class="perf-label">Tenant-safe counters</div>
+        <pre id="tenants">{}</pre>
+      </article>
+      <article class="perf-card">
+        <div class="perf-label">Raw snapshot</div>
+        <pre id="raw">{}</pre>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const fmt = new Intl.NumberFormat();
+    function pill(depth) {
+      if (depth > 1000) return '<span class="status-pill bad">pressure</span>';
+      if (depth > 100) return '<span class="status-pill warn">elevated</span>';
+      return '<span class="status-pill good">normal</span>';
+    }
+    async function loadMetrics() {
+      const res = await fetch('/api/admin/performance', { credentials: 'same-origin' });
+      const data = await res.json();
+      const metrics = data.metrics || {};
+      const counters = metrics.counters || {};
+      const ingest = data.ingestion || {};
+      const depths = ingest.queue_depths || metrics.queue_depths || {};
+      const latency = metrics.latency || {};
+      document.getElementById('eps').textContent = metrics.events_per_second || 0;
+      document.getElementById('dedup').textContent = Math.round((metrics.dedup_ratio || 0) * 100) + '%';
+      document.getElementById('dropped').textContent = fmt.format(counters.events_dropped || 0);
+      document.getElementById('depth').textContent = fmt.format(ingest.total_depth || 0);
+      document.getElementById('lanes').innerHTML = Object.entries(depths)
+        .map(([lane, depth]) => `<tr><td>${lane}</td><td>${fmt.format(depth)}</td><td>${pill(depth)}</td></tr>`)
+        .join('') || '<tr><td colspan="3">No queued telemetry</td></tr>';
+      document.getElementById('latency').innerHTML = Object.entries(latency)
+        .map(([stage, item]) => `<tr><td>${stage}</td><td>${item.avg_ms || 0}ms</td><td>${item.max_ms || 0}ms</td></tr>`)
+        .join('') || '<tr><td colspan="3">No latency samples yet</td></tr>';
+      document.getElementById('tenants').textContent = JSON.stringify(metrics.tenants || {}, null, 2);
+      document.getElementById('raw').textContent = JSON.stringify(data, null, 2);
+    }
+    document.getElementById('refresh').addEventListener('click', loadMetrics);
+    loadMetrics();
+  </script>
+</body>
+</html>

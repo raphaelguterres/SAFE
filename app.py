@@ -1114,6 +1114,7 @@ _ti_feed_scheduler_started = False
 _playbook_engine_singleton = None
 _forensics_engine_singleton = None
 _xdr_pipeline_singleton = None
+_xdr_ingestion_pipeline_singleton = None
 
 
 def _cache_invalidate_prefixes(cache: dict, lock: threading.Lock, prefixes):
@@ -1149,6 +1150,26 @@ def _get_xdr_pipeline():
 
             _xdr_pipeline_singleton = XDRPipeline()
         return _xdr_pipeline_singleton
+
+
+def _get_xdr_ingestion_pipeline():
+    global _xdr_ingestion_pipeline_singleton
+    with _engine_singletons_lock:
+        if _xdr_ingestion_pipeline_singleton is None:
+            from xdr.ingestion_pipeline import TelemetryIngestionPipeline
+            from xdr.performance_metrics import get_performance_metrics
+
+            def _handler(events):
+                return _get_xdr_pipeline().process_payload(events)
+
+            _xdr_ingestion_pipeline_singleton = TelemetryIngestionPipeline(
+                handler=_handler,
+                max_queue_size=int(os.getenv("NETGUARD_XDR_QUEUE_MAX", "5000")),
+                batch_size=int(os.getenv("NETGUARD_XDR_BATCH_SIZE", "100")),
+                consumer_count=int(os.getenv("NETGUARD_XDR_CONSUMERS", "1")),
+                metrics=get_performance_metrics(),
+            )
+        return _xdr_ingestion_pipeline_singleton
 
 
 def _current_request_tenant_id():
@@ -1464,6 +1485,12 @@ def _xdr_rebuild_host_risks(xdr_events: list[dict]) -> list[dict]:
 def _build_xdr_summary_payload(*, query_limit: int = 250, recent_limit: int = 30, host_limit: int = 20) -> dict:
     pipeline = _get_xdr_pipeline()
     tenant_repo = _get_tenant_event_repo()
+    try:
+        from xdr.performance_metrics import get_performance_metrics
+
+        performance = get_performance_metrics().snapshot()
+    except Exception:
+        performance = {}
     recent_raw = tenant_repo.query(limit=max(query_limit, recent_limit))
     xdr_events = [
         e for e in recent_raw
@@ -1515,6 +1542,7 @@ def _build_xdr_summary_payload(*, query_limit: int = 250, recent_limit: int = 30
             "medium": sum(1 for item in host_risks if 40 <= item["risk_score"] < 60),
             "low": sum(1 for item in host_risks if 20 <= item["risk_score"] < 40),
         },
+        "performance": performance,
     }
 
 
@@ -4610,14 +4638,35 @@ def yara_stats():
 
 def _process_xdr_ingest_payload(payload):
     batch = payload.get("events") if isinstance(payload, dict) else payload
+    tenant_id = _current_request_tenant_id()
+    event_count = len(batch) if isinstance(batch, list) else 1
+    try:
+        from xdr.performance_metrics import get_performance_metrics
+
+        perf_metrics = get_performance_metrics()
+    except Exception:
+        perf_metrics = None
     if isinstance(batch, list) and len(batch) > 500:
+        if perf_metrics:
+            perf_metrics.record_received(tenant_id=tenant_id, count=event_count)
+            perf_metrics.record_dropped(tenant_id=tenant_id, count=event_count, reason="batch_too_large")
         raise ValueError("batch_too_large")
 
+    started = time.perf_counter()
+    if perf_metrics:
+        perf_metrics.record_received(tenant_id=tenant_id, count=event_count)
     try:
+        detection_started = time.perf_counter()
         outcomes = _get_xdr_pipeline().process_payload(payload)
+        if perf_metrics:
+            perf_metrics.record_detection_latency((time.perf_counter() - detection_started) * 1000)
     except ValueError as exc:
+        if perf_metrics:
+            perf_metrics.record_dropped(tenant_id=tenant_id, count=event_count, reason="invalid_event")
         raise ValueError(str(exc)) from exc
     except Exception:
+        if perf_metrics:
+            perf_metrics.record_dropped(tenant_id=tenant_id, count=event_count, reason="xdr_ingest_failed")
         logger.exception("XDR ingest failed | tenant=%s", _resolve_tenant_id())
         raise RuntimeError("xdr_ingest_failed")
 
@@ -4641,7 +4690,9 @@ def _process_xdr_ingest_payload(payload):
         detection_records.extend(item.to_dict() for item in outcome.detections)
         correlation_records.extend(item.to_dict() for item in outcome.correlations)
 
-    tenant_id = _current_request_tenant_id()
+    if perf_metrics:
+        perf_metrics.record_processed(tenant_id=tenant_id, count=len(outcomes))
+        perf_metrics.record_ingestion_latency((time.perf_counter() - started) * 1000)
     logger.info(
         "XDR ingest | tenant=%s | events=%d | detections=%d | correlations=%d | saved=%d",
         tenant_id, len(outcomes), detections, correlations, saved,
@@ -7098,6 +7149,20 @@ def admin_inbox_page():
     return resp
 
 
+@app.route("/admin/performance")
+@_admin_only
+def admin_performance_page():
+    """Internal performance dashboard for the scalable XDR platform core."""
+    resp = make_response(render_template("performance.html"))
+    resp.headers["Content-Type"] = "text/html; charset=utf-8"
+    _set_no_cache_headers(resp)
+    try:
+        _get_or_set_csrf_cookie(resp)
+    except Exception:
+        pass
+    return resp
+
+
 @app.route("/demo/reset", methods=["POST"])
 def demo_reset():
     """Recria os dados de demo do zero (útil para apresentações)."""
@@ -8419,6 +8484,28 @@ def admin_overview():
     Apenas acessível com token de admin (IDS_AUTH=true).
     """
     return jsonify(_build_admin_overview())
+
+
+@app.route("/api/admin/performance")
+@_admin_only
+def admin_performance_api():
+    """Operational metrics for bounded queues, ingest latency and XDR throughput."""
+    try:
+        from xdr.performance_metrics import get_performance_metrics
+
+        metrics = get_performance_metrics().snapshot(include_tenants=True)
+        ingestion = _get_xdr_ingestion_pipeline().snapshot()
+        pipeline_summary = _build_xdr_summary_payload(query_limit=100, recent_limit=10, host_limit=10).get("pipeline_stats", {})
+        audit("ADMIN_PERFORMANCE_VIEW", actor="admin", ip=request.remote_addr or "-", detail="xdr")
+        return jsonify({
+            "ok": True,
+            "metrics": metrics,
+            "ingestion": ingestion,
+            "pipeline": pipeline_summary,
+        })
+    except Exception as exc:
+        logger.exception("admin performance failed: %s", exc)
+        return jsonify({"ok": False, "error": "performance_unavailable"}), 500
 
 
 @app.route("/api/recommended-route")

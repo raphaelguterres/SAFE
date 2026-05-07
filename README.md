@@ -244,6 +244,29 @@ The Defense Core remains fail-closed: destructive actions are not automatic,
 endpoint actions require signed policy, protected Windows processes are denied,
 and rollback is part of containment design.
 
+## Scalable XDR Platform
+
+NetGuard now includes a scalable XDR platform core designed for multiple hosts,
+high-volume endpoint telemetry, and safer SOC operations under load.
+
+Core additions:
+
+- **Bounded telemetry ingestion:** `xdr/ingestion_pipeline.py` provides bounded priority queues, async consumers, batch processing, backpressure handling, and queue metrics. It is built to fail closed instead of allowing unbounded memory growth.
+- **Priority lanes:** `xdr/priority_engine.py` classifies telemetry into `P0` through `P3`, ensuring credential access, ransomware/impact, privilege escalation, persistence, suspicious PowerShell, and beaconing are processed before low-risk telemetry.
+- **Deduplication:** `xdr/dedup_engine.py` suppresses repeated process, authentication, network, and alert floods using tenant-scoped rolling-window fingerprints with TTL.
+- **Storage adapter:** `storage/storage_adapter.py` separates hot events, incidents, audit logs, and telemetry history with SQLite as the local backend and PostgreSQL-ready SQL paths for production.
+- **Heartbeat engine:** `xdr/heartbeat_engine.py` evaluates host freshness as `healthy`, `degraded`, `delayed`, `offline`, or `isolated`.
+- **Response orchestration:** `xdr/orchestration_engine.py` coordinates staged multi-host containment, approvals, retries, timeouts, and rollback actions.
+- **Performance observability:** `/admin/performance` and `/api/admin/performance` expose events/sec, queue depth, latency, dropped events, dedup ratio, and tenant-safe counters.
+- **Agent buffer optimization:** `agent/sender.py` chunks large envelopes, keeps an offline cache cap, exposes buffer stats, and includes a compression preview helper for future compatible transports.
+
+The current `/api/xdr/events` path remains synchronous for compatibility, but
+records performance metrics and is ready to be fronted by the bounded ingestion
+pipeline when deployment scale requires it.
+
+See [NETGUARD_XDR_SCALING.md](NETGUARD_XDR_SCALING.md) for the scaling model,
+queue behavior, retention strategy, and rollout guidance.
+
 ## Operating Modes
 
 | Mode | Storage | Auth posture | Typical use |
