@@ -25,4 +25,6 @@ def test_admin_performance_api_returns_safe_metrics_payload():
     assert payload["ok"] is True
     assert "metrics" in payload
     assert "ingestion" in payload
+    assert "ingest_v2_config" in payload
     assert "queue_depths" in payload["ingestion"]
+    assert payload["ingest_v2_config"]["mode"] in {"sync_v1", "queued_v2"}

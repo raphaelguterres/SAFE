@@ -257,7 +257,7 @@ Core additions:
 - **Storage adapter:** `storage/storage_adapter.py` separates hot events, incidents, audit logs, and telemetry history with SQLite as the local backend and PostgreSQL-ready SQL paths for production.
 - **Heartbeat engine:** `xdr/heartbeat_engine.py` evaluates host freshness as `healthy`, `degraded`, `delayed`, `offline`, or `isolated`.
 - **Response orchestration:** `xdr/orchestration_engine.py` coordinates staged multi-host containment, approvals, retries, timeouts, and rollback actions.
-- **Performance observability:** `/admin/performance` and `/api/admin/performance` expose events/sec, queue depth, latency, dropped events, dedup ratio, and tenant-safe counters.
+- **Performance observability:** `/admin/performance` and `/api/admin/performance` expose events/sec, queue depth, worker status, latency, dropped events, dedup ratio, V2 feature-flag state, and tenant-safe counters.
 - **Agent buffer optimization:** `agent/sender.py` chunks large envelopes, keeps an offline cache cap, exposes buffer stats, and includes a compression preview helper for future compatible transports.
 
 The current `/api/xdr/events` path remains synchronous for compatibility, but
@@ -276,6 +276,11 @@ NETGUARD_XDR_CONSUMERS=1
 When enabled, the endpoint returns `202 Accepted` with queue status instead of
 inline detection details. Leave it disabled for demos or integrations that
 expect the original synchronous response contract.
+
+Admin operators can inspect and safely control the queue from `/admin/performance`
+or via `POST /api/admin/ingest-v2/control` with `start`, `stop`, or `drain`.
+The start action is blocked unless `NETGUARD_XDR_INGEST_V2=true`; all mutating
+controls remain admin-gated, CSRF-protected, rate-limited, and audited.
 
 See [NETGUARD_XDR_SCALING.md](NETGUARD_XDR_SCALING.md) for the scaling model,
 queue behavior, retention strategy, and rollout guidance.

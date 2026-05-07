@@ -1027,6 +1027,19 @@ def _env_bool(name: str):
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _safe_int_env(name: str, default: int, *, min_value: int | None = None, max_value: int | None = None) -> int:
+    raw = os.environ.get(name)
+    try:
+        value = int(raw) if raw is not None else int(default)
+    except (TypeError, ValueError):
+        value = int(default)
+    if min_value is not None:
+        value = max(int(min_value), value)
+    if max_value is not None:
+        value = min(int(max_value), value)
+    return value
+
+
 def _background_autostart_enabled(feature_env: str, legacy_disable_env: str | None = None) -> bool:
     if legacy_disable_env and _env_bool(legacy_disable_env) is True:
         return False
@@ -1171,9 +1184,9 @@ def _get_xdr_ingestion_pipeline():
 
             _xdr_ingestion_pipeline_singleton = TelemetryIngestionPipeline(
                 handler=_handler,
-                max_queue_size=int(os.getenv("NETGUARD_XDR_QUEUE_MAX", "5000")),
-                batch_size=int(os.getenv("NETGUARD_XDR_BATCH_SIZE", "100")),
-                consumer_count=int(os.getenv("NETGUARD_XDR_CONSUMERS", "1")),
+                max_queue_size=_safe_int_env("NETGUARD_XDR_QUEUE_MAX", 5000, min_value=100, max_value=250000),
+                batch_size=_safe_int_env("NETGUARD_XDR_BATCH_SIZE", 100, min_value=1, max_value=1000),
+                consumer_count=_safe_int_env("NETGUARD_XDR_CONSUMERS", 1, min_value=1, max_value=16),
                 metrics=get_performance_metrics(),
             )
         return _xdr_ingestion_pipeline_singleton
@@ -4720,6 +4733,17 @@ def _process_xdr_ingest_payload(payload):
 
 def _xdr_ingest_v2_enabled() -> bool:
     return _env_bool("NETGUARD_XDR_INGEST_V2") is True
+
+
+def _xdr_ingest_v2_config() -> dict:
+    return {
+        "enabled": _xdr_ingest_v2_enabled(),
+        "drain_inline": _env_bool("NETGUARD_XDR_INGEST_V2_DRAIN_INLINE") is True,
+        "queue_max": _safe_int_env("NETGUARD_XDR_QUEUE_MAX", 5000, min_value=100, max_value=250000),
+        "batch_size": _safe_int_env("NETGUARD_XDR_BATCH_SIZE", 100, min_value=1, max_value=1000),
+        "consumers": _safe_int_env("NETGUARD_XDR_CONSUMERS", 1, min_value=1, max_value=16),
+        "mode": "queued_v2" if _xdr_ingest_v2_enabled() else "sync_v1",
+    }
 
 
 def _process_xdr_ingest_payload_v2(payload):
@@ -8581,11 +8605,68 @@ def admin_performance_api():
             "ok": True,
             "metrics": metrics,
             "ingestion": ingestion,
+            "ingest_v2_config": _xdr_ingest_v2_config(),
             "pipeline": pipeline_summary,
         })
     except Exception as exc:
         logger.exception("admin performance failed: %s", exc)
         return jsonify({"ok": False, "error": "performance_unavailable"}), 500
+
+
+@app.route("/api/admin/ingest-v2/control", methods=["POST"])
+@_admin_only
+@csrf_protect
+@limiter.limit("20 per minute")
+def admin_ingest_v2_control():
+    """Safe operational controls for the feature-flagged XDR ingest V2 queue."""
+    data = request.get_json(silent=True) or {}
+    action = str(data.get("action") or "").strip().lower()
+    pipeline = _get_xdr_ingestion_pipeline()
+    processed = 0
+
+    if action == "start":
+        if not _xdr_ingest_v2_enabled():
+            audit("ADMIN_INGEST_V2_START_BLOCKED", actor="admin", ip=request.remote_addr or "-", detail="feature_disabled")
+            return jsonify({
+                "ok": False,
+                "error": "ingest_v2_disabled",
+                "config": _xdr_ingest_v2_config(),
+                "ingestion": pipeline.snapshot(),
+            }), 409
+        pipeline.start()
+        audit("ADMIN_INGEST_V2_START", actor="admin", ip=request.remote_addr or "-", detail="workers=start")
+    elif action == "stop":
+        pipeline.stop()
+        audit("ADMIN_INGEST_V2_STOP", actor="admin", ip=request.remote_addr or "-", detail="workers=stop")
+    elif action == "drain":
+        try:
+            max_batches = int(data.get("max_batches", 10))
+        except (TypeError, ValueError):
+            max_batches = 10
+        max_batches = max(1, min(max_batches, 100))
+        processed = pipeline.process_available(max_batches=max_batches)
+        audit(
+            "ADMIN_INGEST_V2_DRAIN",
+            actor="admin",
+            ip=request.remote_addr or "-",
+            detail=f"processed={processed} max_batches={max_batches}",
+        )
+    else:
+        return jsonify({
+            "ok": False,
+            "error": "invalid_action",
+            "allowed": ["start", "stop", "drain"],
+            "config": _xdr_ingest_v2_config(),
+            "ingestion": pipeline.snapshot(),
+        }), 400
+
+    return jsonify({
+        "ok": True,
+        "action": action,
+        "processed": processed,
+        "config": _xdr_ingest_v2_config(),
+        "ingestion": pipeline.snapshot(),
+    })
 
 
 @app.route("/api/recommended-route")

@@ -121,8 +121,22 @@ GET /api/admin/performance
 ```
 
 The dashboard exposes queue depth, events/sec, latency, dropped events, dedup
-ratio, and tenant-safe counters. It does not expose secrets, raw tokens, host
-keys, or `.env` values.
+ratio, feature-flag state, worker state, and tenant-safe counters. It does not
+expose secrets, raw tokens, host keys, or `.env` values.
+
+Safe operational controls are available for admin operators:
+
+```text
+POST /api/admin/ingest-v2/control
+{"action":"start"}
+{"action":"drain","max_batches":10}
+{"action":"stop"}
+```
+
+The control endpoint is admin-gated, CSRF-protected for browser sessions,
+rate-limited, and audited. `start` is refused unless
+`NETGUARD_XDR_INGEST_V2=true`, so the V2 worker pool cannot be accidentally
+activated while production is still using the synchronous V1 contract.
 
 ## Rollout Guidance
 
@@ -133,7 +147,9 @@ keys, or `.env` values.
    PostgreSQL for production multi-tenant deployments.
 4. Monitor `/admin/performance` during agent rollout. Watch dropped events,
    latency, dedup ratio, and queue depth.
-5. Use response orchestration in `manual_approval` or `semi_auto` first. Do not
+5. Use `drain` for controlled single-node validation before enabling worker
+   threads with `start`.
+6. Use response orchestration in `manual_approval` or `semi_auto` first. Do not
    enable full containment automation until SOC approval and rollback workflows
    are tested.
 

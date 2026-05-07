@@ -69,6 +69,29 @@
       outline: none;
       transform: translateY(-1px);
     }
+    .perf-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 0 16px;
+    }
+    .perf-status-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .perf-mini {
+      border: 1px solid var(--perf-border);
+      background: rgba(255,255,255,.03);
+      border-radius: 18px;
+      padding: 14px 16px;
+    }
+    .perf-mini strong {
+      display: block;
+      font-size: 18px;
+      margin-top: 5px;
+    }
     .perf-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -139,6 +162,7 @@
     }
     @media (max-width: 860px) {
       .perf-grid,
+      .perf-status-row,
       .perf-section {
         grid-template-columns: 1fr;
       }
@@ -159,6 +183,28 @@
       </div>
       <button class="perf-btn" type="button" id="refresh">Refresh metrics</button>
     </header>
+
+    <section class="perf-actions" aria-label="Ingest V2 controls">
+      <button class="perf-btn" type="button" data-action="start">Start V2 workers</button>
+      <button class="perf-btn" type="button" data-action="drain">Drain once</button>
+      <button class="perf-btn" type="button" data-action="stop">Stop workers</button>
+      <span class="perf-muted" id="control-status">V2 starts only when the feature flag is enabled.</span>
+    </section>
+
+    <section class="perf-status-row" aria-label="Ingest V2 status">
+      <article class="perf-mini">
+        <div class="perf-label">Feature flag</div>
+        <strong id="feature-flag">sync_v1</strong>
+      </article>
+      <article class="perf-mini">
+        <div class="perf-label">Workers</div>
+        <strong id="workers">stopped</strong>
+      </article>
+      <article class="perf-mini">
+        <div class="perf-label">Queue config</div>
+        <strong id="queue-config">0 / 0</strong>
+      </article>
+    </section>
 
     <section class="perf-grid" aria-label="Performance summary">
       <article class="perf-card">
@@ -210,10 +256,32 @@
 
   <script>
     const fmt = new Intl.NumberFormat();
+    function csrfToken() {
+      const match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
+      return match ? decodeURIComponent(match[1]) : '';
+    }
     function pill(depth) {
       if (depth > 1000) return '<span class="status-pill bad">pressure</span>';
       if (depth > 100) return '<span class="status-pill warn">elevated</span>';
       return '<span class="status-pill good">normal</span>';
+    }
+    async function controlIngest(action) {
+      const body = action === 'drain' ? { action, max_batches: 10 } : { action };
+      const headers = { 'Content-Type': 'application/json' };
+      const csrf = csrfToken();
+      if (csrf) headers['X-CSRFToken'] = csrf;
+      const res = await fetch('/api/admin/ingest-v2/control', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers,
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      const status = document.getElementById('control-status');
+      status.textContent = data.ok
+        ? `Action ${action} accepted.`
+        : `Action ${action} refused: ${data.error || 'unavailable'}.`;
+      await loadMetrics();
     }
     async function loadMetrics() {
       const res = await fetch('/api/admin/performance', { credentials: 'same-origin' });
@@ -221,12 +289,16 @@
       const metrics = data.metrics || {};
       const counters = metrics.counters || {};
       const ingest = data.ingestion || {};
+      const config = data.ingest_v2_config || {};
       const depths = ingest.queue_depths || metrics.queue_depths || {};
       const latency = metrics.latency || {};
       document.getElementById('eps').textContent = metrics.events_per_second || 0;
       document.getElementById('dedup').textContent = Math.round((metrics.dedup_ratio || 0) * 100) + '%';
       document.getElementById('dropped').textContent = fmt.format(counters.events_dropped || 0);
       document.getElementById('depth').textContent = fmt.format(ingest.total_depth || 0);
+      document.getElementById('feature-flag').textContent = config.mode || 'sync_v1';
+      document.getElementById('workers').textContent = ingest.running ? `running (${ingest.consumer_count || 1})` : 'stopped';
+      document.getElementById('queue-config').textContent = `${fmt.format(config.batch_size || ingest.batch_size || 0)} batch / ${fmt.format(config.queue_max || ingest.max_queue_size || 0)} max`;
       document.getElementById('lanes').innerHTML = Object.entries(depths)
         .map(([lane, depth]) => `<tr><td>${lane}</td><td>${fmt.format(depth)}</td><td>${pill(depth)}</td></tr>`)
         .join('') || '<tr><td colspan="3">No queued telemetry</td></tr>';
@@ -237,6 +309,9 @@
       document.getElementById('raw').textContent = JSON.stringify(data, null, 2);
     }
     document.getElementById('refresh').addEventListener('click', loadMetrics);
+    document.querySelectorAll('[data-action]').forEach((button) => {
+      button.addEventListener('click', () => controlIngest(button.dataset.action));
+    });
     loadMetrics();
   </script>
 </body>

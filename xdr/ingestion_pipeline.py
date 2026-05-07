@@ -98,6 +98,11 @@ class TelemetryIngestionPipeline:
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
         self._last_handler_result: Any = None
+        self._last_error: str = ""
+        self._last_started_at: float | None = None
+        self._last_stopped_at: float | None = None
+        self._last_processed_at: float | None = None
+        self._start_count = 0
 
     def submit(self, event: Any, *, tenant_id: str | None = None) -> IngestionSubmitResult:
         payload = _event_dict(event)
@@ -188,9 +193,12 @@ class TelemetryIngestionPipeline:
         return processed
 
     def start(self) -> None:
-        if self._threads:
+        if any(thread.is_alive() for thread in self._threads):
             return
+        self._threads.clear()
         self._stop.clear()
+        self._last_started_at = time.time()
+        self._start_count += 1
         for index in range(self.consumer_count):
             thread = threading.Thread(
                 target=self._consumer_loop,
@@ -205,6 +213,7 @@ class TelemetryIngestionPipeline:
         for thread in list(self._threads):
             thread.join(timeout=timeout)
         self._threads.clear()
+        self._last_stopped_at = time.time()
 
     def total_depth(self) -> int:
         return sum(q.qsize() for q in self._queues.values())
@@ -213,14 +222,22 @@ class TelemetryIngestionPipeline:
         return {priority.value: self._queues[priority].qsize() for priority in self.PRIORITY_ORDER}
 
     def snapshot(self) -> dict[str, Any]:
+        running = any(thread.is_alive() for thread in self._threads)
         return {
             "queue_depths": self.queue_depths(),
             "total_depth": self.total_depth(),
             "max_queue_size": self.max_queue_size,
             "batch_size": self.batch_size,
+            "consumer_count": self.consumer_count,
             "dedup": self.dedup_engine.stats(),
             "metrics": self.metrics.snapshot(),
-            "running": any(thread.is_alive() for thread in self._threads),
+            "running": running,
+            "stop_requested": self._stop.is_set(),
+            "start_count": self._start_count,
+            "last_started_at": self._last_started_at,
+            "last_stopped_at": self._last_stopped_at,
+            "last_processed_at": self._last_processed_at,
+            "last_error": self._last_error,
             "last_handler_result": self._last_handler_result,
         }
 
@@ -241,10 +258,13 @@ class TelemetryIngestionPipeline:
             if self.handler:
                 self._last_handler_result = self.handler([item.event for item in batch])
         except Exception as exc:
+            self._last_error = type(exc).__name__
             for item in batch:
                 self.metrics.record_dropped(tenant_id=item.tenant_id, reason="handler_error")
             logger.exception("XDR ingestion handler failed closed: %s", exc)
             return
+        self._last_error = ""
+        self._last_processed_at = time.time()
         elapsed_ms = (time.monotonic() - started) * 1000
         tenant_counts: dict[str, int] = {}
         for item in batch:
