@@ -1,4 +1,4 @@
-"""Production readiness validator for NetGuard deployments."""
+"""Production readiness validator for SAFE deployments."""
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 """
-NetGuard IDS Engine v3.0
+SAFE Enterprise Defense Platform Engine v3.0
 Detecção contextual, janela deslizante, whitelist,
 composite scoring, persistência SQLite, bloqueio de IP.
 """

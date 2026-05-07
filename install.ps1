@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    NetGuard IDS — Instalador para Windows (PowerShell)
+    SAFE Enterprise Defense Platform — Instalador para Windows (PowerShell)
 .DESCRIPTION
     Instala dependências, cria venv, registra serviço Windows e abre o dashboard.
     Tempo estimado: 2-5 minutos.
@@ -36,7 +36,7 @@ function Test-Admin {
 Clear-Host
 Write-Host ""
 Write-Host "  ╔══════════════════════════════════════╗" -ForegroundColor Blue
-Write-Host "  ║   NetGuard IDS — Instalação Rápida   ║" -ForegroundColor Blue
+Write-Host "  ║   SAFE Enterprise Defense Platform — Instalação Rápida   ║" -ForegroundColor Blue
 Write-Host "  ╚══════════════════════════════════════╝" -ForegroundColor Blue
 Write-Host ""
 
@@ -71,7 +71,7 @@ Write-OK "pip disponível"
 # Pasta do projeto
 $projectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (-not (Test-Path "$projectDir\app.py")) {
-    Write-Fail "app.py não encontrado em '$projectDir'. Execute o script dentro da pasta do NetGuard."
+    Write-Fail "app.py não encontrado em '$projectDir'. Execute o script dentro da pasta do SAFE."
 }
 Write-OK "Pasta do projeto: $projectDir"
 
@@ -127,7 +127,7 @@ if ($AsService) {
         Write-Warn "-AsService requer privilégios de administrador. Pulando."
     } else {
         Write-Step "Registrando serviço Windows"
-        $svcName = "NetGuardIDS"
+        $svcName = "SAFEIDS"
         $existing = Get-Service -Name $svcName -ErrorAction SilentlyContinue
 
         # Usa NSSM se disponível, senão cria via sc.exe
@@ -136,7 +136,7 @@ if ($AsService) {
             if ($existing) { & $nssm stop $svcName; & $nssm remove $svcName confirm }
             & $nssm install $svcName $pyExe "$projectDir\app.py"
             & $nssm set $svcName AppDirectory $projectDir
-            & $nssm set $svcName DisplayName "NetGuard IDS"
+            & $nssm set $svcName DisplayName "SAFE Enterprise Defense Platform"
             & $nssm set $svcName Start SERVICE_AUTO_START
             & $nssm start $svcName
             Write-OK "Serviço '$svcName' registrado e iniciado via NSSM"
@@ -153,7 +153,7 @@ Write-Host "  ╔═════════════════════
 Write-Host "  ║        Instalação concluída!         ║" -ForegroundColor Green
 Write-Host "  ╚══════════════════════════════════════╝" -ForegroundColor Green
 Write-Host ""
-Write-Host "  Para iniciar o NetGuard:" -ForegroundColor White
+Write-Host "  Para iniciar o SAFE:" -ForegroundColor White
 Write-Host "    cd `"$projectDir`"" -ForegroundColor Cyan
 Write-Host "    venv\Scripts\activate" -ForegroundColor Cyan
 Write-Host "    python app.py" -ForegroundColor Cyan
@@ -161,7 +161,7 @@ Write-Host ""
 Write-Host "  Dashboard: http://${Interface}:${Port}" -ForegroundColor Blue
 Write-Host ""
 
-$open = Read-Host "  Iniciar o NetGuard agora? [S/n]"
+$open = Read-Host "  Iniciar o SAFE agora? [S/n]"
 if ($open -ne "n" -and $open -ne "N") {
     Write-Host "  Iniciando..." -ForegroundColor Green
     Start-Process $pyExe -ArgumentList "$projectDir\app.py" -WorkingDirectory $projectDir -NoNewWindow

@@ -1,9 +1,9 @@
-# NetGuard EDR/XDR Evolution Plan
+# SAFE EDR/XDR Evolution Plan
 
 ## Target architecture
 
 ```text
-NetGuard Agent
+SAFE Agent
   -> API ingestion layer
   -> Detection engine
   -> Correlation engine
@@ -18,7 +18,7 @@ NetGuard Agent
 - SaaS-friendly multi-tenant pipeline
 - Secure token-based ingestion
 - Minimal dependencies
-- Backward compatibility with current NetGuard dashboard and engines
+- Backward compatibility with current SAFE dashboard and engines
 
 ## Recommended folder structure
 
@@ -129,7 +129,7 @@ Agent-mediated in later phases:
 - execution block
 - source block
 
-## Integration with existing NetGuard
+## Integration with existing SAFE
 
 Safe migration path:
 
@@ -175,7 +175,7 @@ Safe migration path:
 
 ## Enterprise Protection Layer
 
-NetGuard now adds a defensive protection layer between XDR analytics and
+SAFE now adds a defensive protection layer between XDR analytics and
 endpoint action execution. The design is intentionally conservative: detections
 and correlations can recommend containment, but endpoint actions are gated by a
 policy decision, a short-lived HMAC approval, local safety checks, and audit

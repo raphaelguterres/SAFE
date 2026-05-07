@@ -1,5 +1,5 @@
 """
-NetGuard — Stripe Billing Integration
+SAFE — Stripe Billing Integration
 Gerencia planos, checkout e webhooks para o modo SaaS.
 
 Variáveis de ambiente necessárias:

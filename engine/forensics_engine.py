@@ -1,5 +1,5 @@
 """
-NetGuard IDS — Forensics Snapshot Engine
+SAFE Enterprise Defense Platform — Forensics Snapshot Engine
 Captura automaticamente evidências forenses quando alertas críticos são disparados.
 
 Coleta:

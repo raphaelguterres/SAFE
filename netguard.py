@@ -1,5 +1,5 @@
 """
-NetGuard IDS v3.0 — Launcher Principal
+SAFE Enterprise Defense Platform v3.0 — Launcher Principal
 Janela nativa via pywebview.
 """
 
@@ -20,7 +20,7 @@ BASE = pathlib.Path(__file__).parent.resolve()
 sys.path.insert(0, str(BASE))
 
 def parse_args():
-    p = argparse.ArgumentParser(prog="NetGuard IDS")
+    p = argparse.ArgumentParser(prog="SAFE Enterprise Defense Platform")
     p.add_argument("--port",     type=int, default=5000)
     p.add_argument("--no-tray",  action="store_true")
     p.add_argument("--install",  action="store_true")
@@ -61,7 +61,7 @@ def abrir_janela(port):
         import webview
 
         window = webview.create_window(
-            title            = "NetGuard IDS v3.0",
+            title            = "SAFE Enterprise Defense Platform v3.0",
             url              = f"http://127.0.0.1:{port}",
             width            = 1440,
             height           = 900,
@@ -120,16 +120,16 @@ def iniciar_tray(port):
                     cor = "#f03e3e" if cr>0 else "#ff8c42" if hi>0 else "#00c97a"
                     icon.icon  = criar_icone(cor)
                     icon.title = (
-                        f"NetGuard — ⚠ {cr} CRÍTICO(S)" if cr>0 else
-                        f"NetGuard — {hi} alto(s)"       if hi>0 else
-                        "NetGuard IDS — Rede segura"
+                        f"SAFE — ⚠ {cr} CRÍTICO(S)" if cr>0 else
+                        f"SAFE — {hi} alto(s)"       if hi>0 else
+                        "SAFE Enterprise Defense Platform — Rede segura"
                     )
                 except Exception:
                     pass
                 time.sleep(15)
 
         icon = pystray.Icon(
-            "netguard", criar_icone("#5a7a9a"), "NetGuard IDS",
+            "netguard", criar_icone("#5a7a9a"), "SAFE Enterprise Defense Platform",
             menu=Menu(
                 Menu.SEPARATOR,
                 MenuItem("Sair", sair),
@@ -178,7 +178,7 @@ def main():
 
     print("  Abrindo janela...")
     abrir_janela(args.port)
-    print("  NetGuard encerrado.")
+    print("  SAFE encerrado.")
 
 if __name__ == "__main__":
     main()

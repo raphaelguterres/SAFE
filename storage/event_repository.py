@@ -1,5 +1,5 @@
 """
-NetGuard — Event Repository
+SAFE — Event Repository
 Camada de armazenamento de eventos de segurança.
 
 Suporta dois backends via DATABASE_URL:

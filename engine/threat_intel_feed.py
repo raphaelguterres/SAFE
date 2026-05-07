@@ -1,5 +1,5 @@
 """
-NetGuard IDS — Threat Intelligence Auto-Feed Engine
+SAFE Enterprise Defense Platform — Threat Intelligence Auto-Feed Engine
 Puxa IOCs automaticamente de fontes abertas:
   • Abuse.ch URLhaus   — URLs de malware
   • Abuse.ch ThreatFox — IOCs (IP:porta, domínio, hash)
@@ -415,7 +415,7 @@ class ThreatIntelFeed:
 
 def _http_get(url: str, timeout: int = 30, gzip_ok: bool = False) -> bytes:
     headers = {
-        "User-Agent": "NetGuard-IDS/1.0 ThreatIntelFeed (security research)",
+        "User-Agent": "SAFE-XDR/1.0 ThreatIntelFeed (security research)",
         "Accept": "application/json, text/csv, */*",
     }
     if gzip_ok:
@@ -431,7 +431,7 @@ def _http_get(url: str, timeout: int = 30, gzip_ok: bool = False) -> bytes:
 
 def _http_post(url: str, data: bytes, timeout: int = 30) -> bytes:
     headers = {
-        "User-Agent": "NetGuard-IDS/1.0 ThreatIntelFeed",
+        "User-Agent": "SAFE-XDR/1.0 ThreatIntelFeed",
         "Content-Type": "application/json",
     }
     req = Request(url, data=data, headers=headers, method="POST")

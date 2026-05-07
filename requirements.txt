@@ -1,4 +1,4 @@
-# NetGuard IDS v3.0 — dependências principais (versões pinadas)
+# SAFE Enterprise Defense Platform v3.0 — dependências principais (versões pinadas)
 # Atualize com cautela; rode os testes após qualquer bump de versão.
 
 # Core web

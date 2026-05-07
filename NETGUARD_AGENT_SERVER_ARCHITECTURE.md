@@ -1,8 +1,8 @@
-# NetGuard Agent + Server Architecture
+# SAFE Agent + Server Architecture
 
 ## Goal
 
-This document describes the current NetGuard runtime shape after the move from a local IDS dashboard toward a lightweight EDR/SIEM architecture.
+This document describes the current SAFE runtime shape after the move from a local IDS dashboard toward a lightweight EDR/SIEM architecture.
 
 The design goal is pragmatic:
 

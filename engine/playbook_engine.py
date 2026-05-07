@@ -1,5 +1,5 @@
 """
-NetGuard IDS — Incident Response Playbook Engine
+SAFE Enterprise Defense Platform — Incident Response Playbook Engine
 Executa playbooks automáticos quando detecções críticas ocorrem.
 
 Playbooks disponíveis:

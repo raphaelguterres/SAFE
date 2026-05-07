@@ -6,7 +6,7 @@
 {% set host_states = live_host_states if live_host_states is defined else [] %}
 {% set hunts = threat_hunts if threat_hunts is defined else [] %}
 
-{% block title %}NetGuard SOC | Live Response{% endblock %}
+{% block title %}SAFE Security Operations | Pending Actions{% endblock %}
 
 {% block page %}
 <header class="soc-page-header soc-page-header-airy">
@@ -17,7 +17,7 @@
       <span>Live Response</span>
     </div>
     <h1 class="soc-page-title">Live Response Console</h1>
-    <p class="soc-page-copy">Controlled response workflow for approvals, host containment, process triage, Kill Chain progression, and MITRE context.</p>
+    <p class="soc-page-copy">Controlled workflow for approvals, host containment, process triage, attack progression, and MITRE context.</p>
   </div>
 </header>
 
@@ -69,7 +69,7 @@
               {% if host.active_attack_stages %}
                 {{ host.active_attack_stages[:3]|join(" -> ") }}
               {% else %}
-                No active Kill Chain progression.
+                No active attack progression.
               {% endif %}
             </div>
           </div>
@@ -125,7 +125,7 @@
 <section class="soc-panel">
   <div class="soc-panel-header">
     <div>
-      <h2 class="soc-panel-title">Response Queue</h2>
+      <h2 class="soc-panel-title">Pending security actions</h2>
       <div class="soc-list-copy">Every endpoint action remains policy-bound, auditable, and reversible.</div>
     </div>
   </div>

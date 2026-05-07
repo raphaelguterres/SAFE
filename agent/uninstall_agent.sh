@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# NetGuard Agent Linux/systemd uninstaller.
+# SAFE Agent Linux/systemd uninstaller.
 #
 # Run as root on the endpoint:
 #   sudo sh ./uninstall_agent.sh --keep-state
@@ -80,7 +80,7 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
 fi
 
-echo "NetGuard Agent removed."
+echo "SAFE Agent removed."
 if [ "$KEEP_STATE" = "true" ]; then
     echo "State kept: ${STATE_DIR}"
     echo "Logs kept:  ${LOG_DIR}"

@@ -1,4 +1,4 @@
-"""Hash-chain helpers for NetGuard audit logs."""
+"""Hash-chain helpers for SAFE audit logs."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Safe reversible file quarantine for NetGuard endpoint response."""
+"""Safe reversible file quarantine for SAFE endpoint response."""
 
 from __future__ import annotations
 

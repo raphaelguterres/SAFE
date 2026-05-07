@@ -196,10 +196,10 @@ def test_provisioning_uri_url_encodes_spaces(auth_mod):
     """Issuer com espaço é URL-encoded (senão apps quebram o label)."""
     uri = auth_mod.totp_provisioning_uri(
         secret_b32="ABCDEFGHIJKLMNOP",
-        issuer="NetGuard IDS",
+        issuer="SAFE Enterprise Defense Platform",
         account="raphael@example.com",
     )
-    assert "NetGuard%20IDS" in uri
+    assert "SAFE%20Enterprise%20Defense%20Platform" in uri
     assert "raphael%40example.com" in uri
 
 

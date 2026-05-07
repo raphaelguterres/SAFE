@@ -1,5 +1,5 @@
 """
-NetGuard IDS — Relatório de Conformidade
+SAFE Enterprise Defense Platform — Relatório de Conformidade
 Gera relatórios PDF para SOC 2 Type II, PCI DSS e HIPAA.
 
 Uso:
@@ -30,7 +30,7 @@ from reportlab.platypus import (
     HRFlowable, PageBreak, KeepTogether,
 )
 
-# ── Paleta NetGuard ───────────────────────────────────────────────────────────
+# ── Paleta SAFE ───────────────────────────────────────────────────────────
 C_BG      = colors.HexColor("#0d1117")
 C_SURFACE = colors.HexColor("#161b22")
 C_BORDER  = colors.HexColor("#30363d")
@@ -467,7 +467,7 @@ def generate_compliance_report(
     framework: str = "soc2",
     month: str = "",
     org_name: str = "Organização",
-    auditor_name: str = "NetGuard IDS v3.0",
+    auditor_name: str = "SAFE Enterprise Defense Platform v3.0",
 ) -> bytes:
     """
     Gera relatório de conformidade em PDF.
@@ -523,7 +523,7 @@ def generate_compliance_report(
         canvas.setFillColor(fw["color"])
         canvas.setFont("Helvetica-Bold", 8)
         canvas.drawString(2 * cm, PAGE_H - 0.9 * cm,
-                          f"NetGuard IDS  |  {fw['name']}  |  {org_name}")
+                          f"SAFE Enterprise Defense Platform  |  {fw['name']}  |  {org_name}")
 
         # Footer
         canvas.setFillColor(C_BORDER)
@@ -614,7 +614,7 @@ def generate_compliance_report(
     story.append(Paragraph(
         f"Este relatório apresenta a avaliação de conformidade com {fw['name']} "
         f"para <b>{org_name}</b> referente ao período de <b>{month_name}</b>, "
-        f"realizada pelo sistema NetGuard IDS v3.0.",
+        f"realizada pelo sistema SAFE Enterprise Defense Platform v3.0.",
         styles["body"]
     ))
     story.append(Spacer(1, 0.3 * cm))
@@ -663,7 +663,7 @@ def generate_compliance_report(
     story.append(Spacer(1, 0.5 * cm))
 
     story.append(Paragraph(
-        f"Durante o período avaliado, o sistema NetGuard IDS monitorou continuamente "
+        f"Durante o período avaliado, o sistema SAFE Enterprise Defense Platform monitorou continuamente "
         f"a infraestrutura de {org_name}, registrando {total:,} eventos de segurança. "
         f"Dos {n_ctrl} controles {fw['short']} avaliados, "
         f"<b>{n_conforme} estão em conformidade</b>, "
@@ -743,7 +743,7 @@ def generate_compliance_report(
     story.append(Spacer(1, 0.3 * cm))
 
     story.append(Paragraph(
-        "As métricas a seguir foram coletadas automaticamente pelo NetGuard IDS "
+        "As métricas a seguir foram coletadas automaticamente pelo SAFE Enterprise Defense Platform "
         "durante o período de avaliação e servem como evidência objetiva de "
         "implementação dos controles de segurança.",
         styles["body"]
@@ -874,7 +874,7 @@ def _build_recommendations(evidence: dict, n_atencao: int,
             "title":    "Ativar bloqueio automático de IPs maliciosos",
             "description": (
                 f"{crit:,} eventos CRITICAL detectados sem bloqueio automático registrado. "
-                "Configure o Auto Block Engine do NetGuard IDS para bloquear "
+                "Configure o Auto Block Engine do SAFE Enterprise Defense Platform para bloquear "
                 "automaticamente IPs com múltiplos eventos críticos."
             )
         })

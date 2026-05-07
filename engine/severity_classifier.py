@@ -1,5 +1,5 @@
 """
-NetGuard — Severity Classifier
+SAFE — Severity Classifier
 Classifica severidade de eventos e alertas de forma determinística.
 Extensível via regras de mapeamento sem alterar lógica central.
 """

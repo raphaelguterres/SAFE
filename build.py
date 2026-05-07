@@ -1,12 +1,12 @@
 """
-build.py — Gera NetGuard.exe
+build.py — Gera SAFE.exe
 Empacota todos os módulos em um único executável.
 
 Como usar:
   python build.py
 
 Saída:
-  dist/NetGuard.exe
+  dist/SAFE.exe
 """
 
 import subprocess
@@ -70,13 +70,13 @@ def criar_atalho(exe_path):
         if not desktop.exists():
             desktop = pathlib.Path.home() / "OneDrive" / "Desktop"
 
-        atalho = desktop / "NetGuard IDS.lnk"
+        atalho = desktop / "SAFE Enterprise Defense Platform.lnk"
         script = f"""
         $ws = New-Object -ComObject WScript.Shell
         $s  = $ws.CreateShortcut('{atalho}')
         $s.TargetPath   = '{exe_path}'
         $s.IconLocation = '{exe_path}'
-        $s.Description  = 'NetGuard IDS - Sistema de Deteccao de Intrusao'
+        $s.Description  = 'SAFE Enterprise Defense Platform - Sistema de Deteccao de Intrusao'
         $s.Save()
         """
         result = subprocess.run(
@@ -87,7 +87,7 @@ def criar_atalho(exe_path):
             print(f"  ✓ Atalho criado: {atalho}")
         else:
             # Fallback — cria na pasta do projeto
-            print(f"  ⚠ Atalho não criado no Desktop — copie manualmente o NetGuard.exe")
+            print(f"  ⚠ Atalho não criado no Desktop — copie manualmente o SAFE.exe")
     except Exception as e:
         print(f"  ⚠ Atalho: {e}")
 
@@ -95,7 +95,7 @@ def criar_atalho(exe_path):
 def build():
     print("""
   ╔══════════════════════════════════════════════╗
-  ║  NetGuard IDS v3.0 — Build Final            ║
+  ║  SAFE Enterprise Defense Platform v3.0 — Build Final            ║
   ╚══════════════════════════════════════════════╝
     """)
 
@@ -155,7 +155,7 @@ def build():
         sys.executable, "-m", "PyInstaller",
         "--onefile",
         "--noconsole",
-        "--name", "NetGuard",
+        "--name", "SAFE",
         "--distpath", str(DIST),
         "--workpath", str(BUILD),
         "--specpath", str(BASE),
@@ -186,7 +186,7 @@ def build():
 
     print()
     if result.returncode == 0:
-        exe = DIST / "NetGuard.exe"
+        exe = DIST / "SAFE.exe"
         tam = exe.stat().st_size / 1024 / 1024 if exe.exists() else 0
         print(f"  ✓ Build concluído!")
         print(f"  Arquivo : {exe}")
@@ -195,13 +195,13 @@ def build():
         criar_atalho(str(exe))
         print(f"""
   Como usar:
-    Duplo clique em dist\\NetGuard.exe
+    Duplo clique em dist\\SAFE.exe
 
   Para iniciar com o Windows (como Administrador):
-    dist\\NetGuard.exe --install
+    dist\\SAFE.exe --install
 
   Para remover do autostart:
-    dist\\NetGuard.exe --uninstall
+    dist\\SAFE.exe --uninstall
         """)
     else:
         print("  ✗ Build falhou — verifique os erros acima")

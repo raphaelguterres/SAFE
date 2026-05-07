@@ -1,4 +1,4 @@
-"""Threat intelligence facade for NetGuard EDR.
+"""Threat intelligence facade for SAFE EDR.
 
 The production feed engine already lives in ``engine.threat_intel_feed``. This
 module provides the stable EDR-facing reputation API requested by the active

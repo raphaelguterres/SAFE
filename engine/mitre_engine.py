@@ -1,5 +1,5 @@
 """
-NetGuard IDS - MITRE ATT&CK engine.
+SAFE Enterprise Defense Platform - MITRE ATT&CK engine.
 Maps detections to MITRE ATT&CK and generates coverage data for the UI.
 """
 from __future__ import annotations
@@ -451,7 +451,7 @@ class MitreEngine:
         }
         max_count = max(counts.values(), default=1)
         return {
-            "name": "NetGuard IDS Coverage",
+            "name": "SAFE Enterprise Defense Platform Coverage",
             "versions": {"attack": "14", "navigator": "4.9", "layer": "4.5"},
             "domain": "enterprise-attack",
             "description": f"Techniques detected in the last {days} days",

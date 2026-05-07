@@ -1,4 +1,4 @@
-"""NetGuard XDR foundation package."""
+"""SAFE XDR foundation package."""
 
 from __future__ import annotations
 

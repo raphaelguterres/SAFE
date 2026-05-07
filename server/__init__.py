@@ -1,4 +1,4 @@
-"""Server-side services for NetGuard.
+"""Server-side services for SAFE.
 
 The package surface is intentionally import-light: callers that only
 need `server.auth` or `server.api` should not pay the import cost of

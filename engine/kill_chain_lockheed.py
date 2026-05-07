@@ -1,5 +1,5 @@
 """
-NetGuard — Lockheed Cyber Kill Chain view
+SAFE — Lockheed Cyber Kill Chain view
 
 Wraps the MITRE ATT&CK tactics already used by killchain.py / mitre_engine.py
 into the 6 canonical Lockheed Martin Cyber Kill Chain phases.

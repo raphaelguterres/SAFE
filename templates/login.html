@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NetGuard IDS | Secure operator login</title>
+  <title>SAFE | Enterprise Defense Platform</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -15,10 +15,10 @@
   <header class="site-header">
     <div class="page-frame header-inner">
       <a class="brand" href="/">
-        <span class="brand-mark">NG</span>
+        <span class="brand-mark">S</span>
         <span class="brand-stack">
-          <strong>NetGuard IDS</strong>
-          <small>secure operator access</small>
+          <strong>SAFE</strong>
+          <small>Enterprise Defense Platform</small>
         </span>
       </a>
       <div class="site-actions">
@@ -32,36 +32,36 @@
   <main class="section">
     <div class="page-frame auth-shell">
       <section class="panel auth-aside">
-        <span class="eyebrow">Auth gate</span>
-        <h1 class="display" style="font-size:clamp(2.2rem,4vw,3.4rem);">Acesso limpo para <span class="gradient">opera&ccedil;&atilde;o blindada</span>.</h1>
+        <span class="eyebrow">SAFE Console</span>
+        <h1 class="display" style="font-size:clamp(2.2rem,4vw,3.4rem);">Enterprise Defense Platform</h1>
         <p class="lead">
-          O login foi redesenhado para transmitir confian&ccedil;a, clareza e postura enterprise.
-          O operador entra r&aacute;pido, com contexto suficiente e sem ru&iacute;do visual.
+          Acesso premium para opera&ccedil;&otilde;es SOC, endpoint telemetry e resposta defensiva.
+          Uma entrada limpa, segura e sem ru&iacute;do para investiga&ccedil;&atilde;o enterprise.
         </p>
         <div class="security-list">
           <article class="security-item">
-            <strong>Token first</strong>
-            <span class="list-copy">Fluxo direto para acesso seguro com validacao server-side e cookie protegido.</span>
+            <strong>Trust first</strong>
+            <span class="list-copy">Sess&atilde;o protegida, valida&ccedil;&atilde;o server-side e controles de acesso por perfil.</span>
           </article>
           <article class="security-item">
-            <strong>Leitura imediata</strong>
-            <span class="list-copy">Hierarquia visual pronta para uso interno, demo comercial e suporte senior.</span>
+            <strong>Low noise</strong>
+            <span class="list-copy">Interface escura, objetiva e desenhada para decis&atilde;o r&aacute;pida do analista.</span>
           </article>
           <article class="security-item">
-            <strong>Sem improviso</strong>
-            <span class="list-copy">Experiencia com cara de produto corporativo, do primeiro clique ao dashboard.</span>
+            <strong>Enterprise posture</strong>
+            <span class="list-copy">Pronto para demo executiva, opera&ccedil;&atilde;o SOC e valida&ccedil;&atilde;o t&eacute;cnica.</span>
           </article>
         </div>
       </section>
 
       <section class="auth-card">
         <span class="panel-kicker">Operator login</span>
-        <h2 class="auth-title">Entrar no painel</h2>
+        <h2 class="auth-title">Abrir SAFE Console</h2>
         <p class="auth-subtitle">
           {% if local_mode and dashboard_auth %}
             Ambiente local detectado. Entre sem expor token real; o servidor cria uma sessao local restrita ao loopback.
           {% else %}
-            Use seu token de API para acessar o command center de monitoramento.
+            Use seu token de API para acessar o SAFE Console.
           {% endif %}
         </p>
 
@@ -113,7 +113,7 @@
             <p class="field-note">6 digitos do app autenticador (Google Authenticator, 1Password, Authy).</p>
           </label>
 
-          <button type="submit" class="auth-submit" id="submit-btn">Entrar no dashboard</button>
+          <button type="submit" class="auth-submit" id="submit-btn">Entrar no SAFE Console</button>
         </form>
 
         <div class="divider-line"></div>

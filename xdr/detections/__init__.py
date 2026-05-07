@@ -1,4 +1,4 @@
-"""Rule registry for the NetGuard XDR detection engine."""
+"""Rule registry for the SAFE XDR detection engine."""
 
 from .auth_rules import (
     BruteForceAuthRule,

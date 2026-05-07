@@ -1,5 +1,5 @@
-﻿# ============================================================
-# NetGuard IDS - rodar suite de testes pytest local
+# ============================================================
+# SAFE Enterprise Defense Platform - rodar suite de testes pytest local
 # Uso: powershell -ExecutionPolicy Bypass -File .\RUN_TESTS.ps1
 # ============================================================
 
@@ -9,7 +9,7 @@ Set-Location $ProjectRoot
 
 Write-Host ""
 Write-Host "==============================================" -ForegroundColor Yellow
-Write-Host "  NetGuard IDS - pytest" -ForegroundColor Yellow
+Write-Host "  SAFE Enterprise Defense Platform - pytest" -ForegroundColor Yellow
 Write-Host "==============================================" -ForegroundColor Yellow
 Write-Host ""
 

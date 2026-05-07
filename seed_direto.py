@@ -1,5 +1,5 @@
 """
-NetGuard IDS — Seed direto no banco SQLite
+SAFE Enterprise Defense Platform — Seed direto no banco SQLite
 ==========================================
 Script autossuficiente. Usa APENAS a stdlib do Python.
 Não depende do app, do EventRepository, nem de nenhum import externo.
@@ -27,7 +27,7 @@ from datetime import datetime, timezone, timedelta
 # ── Configuração ──────────────────────────────────────────────────
 DEMO_TENANT_ID = "demo-tenant-netguard"
 DEMO_TOKEN     = "ng_DEMO00000000000000000000000000"
-DEMO_NAME      = "Empresa Demo — NetGuard IDS"
+DEMO_NAME      = "Empresa Demo — SAFE Enterprise Defense Platform"
 N_EVENTOS      = 350
 
 # Encontra o banco relativo ao script
@@ -85,7 +85,7 @@ def ts_aleatorio() -> str:
 
 def main():
     print(f"\n{'='*55}")
-    print("  NetGuard IDS — Seed Direto")
+    print("  SAFE Enterprise Defense Platform — Seed Direto")
     print(f"{'='*55}")
     print(f"  Banco: {DB_PATH}")
 

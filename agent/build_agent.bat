@@ -1,5 +1,5 @@
 @echo off
-REM NetGuard Agent build (cmd wrapper).
+REM SAFE Agent build (cmd wrapper).
 REM Uso:
 REM   build_agent.bat                 (build padrao via agent.spec)
 REM   build_agent.bat clean           (apaga build/dist antes)

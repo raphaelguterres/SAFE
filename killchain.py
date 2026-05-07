@@ -1,5 +1,5 @@
 """
-NetGuard Kill Chain Correlator v1.0
+SAFE Kill Chain Correlator v1.0
 Correlação automática de eventos em Kill Chain MITRE ATT&CK.
 
 Detecta sequências de ataque coordenadas pelo mesmo IP ao longo do tempo,

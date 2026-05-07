@@ -1,5 +1,5 @@
 """
-NetGuard — Event Model
+SAFE — Event Model
 Estrutura normalizada de evento seguindo padrão SIEM/XDR.
 Compatível com MITRE ATT&CK, ECS (Elastic Common Schema) e OCSF.
 """

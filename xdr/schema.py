@@ -1,4 +1,4 @@
-"""Structured event schema for the NetGuard EDR/XDR layer."""
+"""Structured event schema for the SAFE EDR/XDR layer."""
 
 from __future__ import annotations
 

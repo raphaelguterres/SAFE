@@ -1,5 +1,5 @@
 """
-NetGuard — Network Detection Rules
+SAFE — Network Detection Rules
 Pack completo de regras de detecção de rede.
 """
 

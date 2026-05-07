@@ -1,5 +1,5 @@
 """
-Orquestrador principal do NetGuard Agent.
+Orquestrador principal do SAFE Agent.
 
 Fluxo:
   1. Carrega config (yaml + env)
@@ -102,7 +102,7 @@ def _setup_logging(log_path: str = "") -> Path | None:
 
 class NetGuardAgent:
     """
-    Agente NetGuard. Não faz I/O no __init__; chame run() pra iniciar.
+    SAFE Agent. Não faz I/O no __init__; chame run() pra iniciar.
     """
 
     def __init__(self, config: AgentConfig | None = None):
@@ -371,7 +371,7 @@ class NetGuardAgent:
 
 def _cmd_version() -> int:
     """Print agent version and exit. Used by smoke tests and packagers."""
-    print(f"NetGuard Endpoint Agent {__version__}")
+    print(f"SAFE Agent {__version__}")
     return 0
 
 
@@ -397,7 +397,7 @@ def _cmd_selftest(config_path: str = "") -> int:
       3  identity / facts collection failed
       4  sender initialisation failed
     """
-    print(f"NetGuard Agent selftest | v={__version__}")
+    print(f"SAFE Agent selftest | v={__version__}")
     try:
         config = load_config(config_path or None)
         # Selftest is a binary smoke check, not a production config audit.
@@ -505,7 +505,7 @@ def _cmd_selftest(config_path: str = "") -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="NetGuard Endpoint Agent")
+    parser = argparse.ArgumentParser(description="SAFE Agent")
     parser.add_argument(
         "--version",
         action="store_true",

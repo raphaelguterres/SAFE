@@ -1,5 +1,5 @@
 """
-NetGuard — Process Detection Rules
+SAFE — Process Detection Rules
 Pack completo de regras de detecção de processos.
 Alinhado ao MITRE ATT&CK.
 """

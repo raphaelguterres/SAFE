@@ -1,4 +1,4 @@
-"""NetGuard incident engine backed by a repository abstraction."""
+"""SAFE incident engine backed by a repository abstraction."""
 
 from __future__ import annotations
 

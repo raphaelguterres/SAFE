@@ -1,4 +1,4 @@
-# NetGuard Endpoint Agent — config example
+# SAFE Agent — config example
 #
 # Em produção, prefira injetar api_key via env (NETGUARD_AGENT_API_KEY)
 # em vez de gravar em disco. Este arquivo serve de template.
@@ -14,7 +14,7 @@
 #   NETGUARD_AGENT_ENV=production|dev|test|local|demo
 #   NETGUARD_AGENT_ALLOW_INSECURE_TRANSPORT=true  # somente lab/self-signed
 
-# URL do endpoint /api/events do servidor NetGuard.
+# URL do endpoint /api/events do servidor SAFE.
 # Este exemplo usa loopback HTTP para demo local. Em produção, use HTTPS.
 server_url: "http://127.0.0.1:5000/api/events"
 # Producao: use HTTPS. HTTP para host remoto e verify_tls=false sao
@@ -45,12 +45,12 @@ batch_max_events: 200
 offline_buffer_max: 5000
 
 # Caminho do log. Vazio = default por OS:
-#   Windows: C:\ProgramData\NetGuard\agent.log
+#   Windows: C:\ProgramData\SAFE\agent.log
 #   Linux:   /var/log/netguard/agent.log
 log_path: ""
 
 # Caminho do credential store local. Vazio = default por OS:
-#   Windows: C:\ProgramData\NetGuard\credentials.json
+#   Windows: C:\ProgramData\SAFE\credentials.json
 #   Linux:   /var/log/netguard/credentials.json
 credential_path: ""
 

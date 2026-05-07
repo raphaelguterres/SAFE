@@ -1,4 +1,4 @@
-"""Kill Chain and MITRE ATT&CK mapping for NetGuard XDR outcomes."""
+"""Kill Chain and MITRE ATT&CK mapping for SAFE XDR outcomes."""
 
 from __future__ import annotations
 

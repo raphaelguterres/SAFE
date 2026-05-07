@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NetGuard IDS — Instalador Linux/macOS
+# SAFE Enterprise Defense Platform — Instalador Linux/macOS
 # Uso: bash install.sh [--port 5000] [--host 0.0.0.0] [--service]
 set -euo pipefail
 
@@ -27,7 +27,7 @@ FORCE=${FORCE:-false}
 clear
 echo ""
 echo -e "  ${BLUE}╔══════════════════════════════════════╗${NC}"
-echo -e "  ${BLUE}║   NetGuard IDS — Instalação Rápida   ║${NC}"
+echo -e "  ${BLUE}║   SAFE Enterprise Defense Platform — Instalação Rápida   ║${NC}"
 echo -e "  ${BLUE}╚══════════════════════════════════════╝${NC}"
 echo ""
 
@@ -96,7 +96,7 @@ if [[ "$AS_SERVICE" == "true" ]]; then
     USER_OWNER=$(stat -c '%U' "$SCRIPT_DIR")
     cat > /etc/systemd/system/netguard-ids.service <<EOF
 [Unit]
-Description=NetGuard IDS
+Description=SAFE Enterprise Defense Platform
 After=network.target
 
 [Service]
@@ -153,7 +153,7 @@ echo ""
 echo -e "  Dashboard: ${BLUE}http://${HOST}:${PORT}${NC}"
 echo ""
 
-read -rp "  Iniciar o NetGuard agora? [S/n] " RESP
+read -rp "  Iniciar o SAFE agora? [S/n] " RESP
 if [[ "$RESP" != "n" && "$RESP" != "N" ]]; then
   echo -e "  ${GREEN}Iniciando...${NC}"
   cd "$SCRIPT_DIR"

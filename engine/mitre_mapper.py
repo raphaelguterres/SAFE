@@ -6,7 +6,7 @@ The dashboard / SIEM queries / threat-hunter reports want the parent
 *tactic* too. This module provides a one-shot lookup, plus helpers for
 URL building and pretty-printing.
 
-Coverage is intentionally a curated subset relevant to NetGuard's
+Coverage is intentionally a curated subset relevant to SAFE's
 endpoint detections — not the full ATT&CK matrix. Adding entries is
 safe; missing entries fall back to "Unknown" without crashing.
 

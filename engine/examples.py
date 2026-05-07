@@ -1,5 +1,5 @@
 """
-NetGuard — Exemplo de uso do Event Engine
+SAFE — Exemplo de uso do Event Engine
 Demonstra:
   1. Como escrever regras compatíveis
   2. Como registrar no engine
@@ -305,7 +305,7 @@ if __name__ == "__main__":
     import json  # noqa: F401
 
     print("=" * 60)
-    print("NetGuard Event Engine — Demo")
+    print("SAFE Event Engine — Demo")
     print("=" * 60)
 
     # Callback para alertas HIGH/CRITICAL

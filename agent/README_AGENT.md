@@ -1,8 +1,8 @@
-# NetGuard Endpoint Agent
+# SAFE Agent
 
 Lightweight Windows / Linux endpoint agent that ships host telemetry —
 processes, network connections, security indicators — to a central
-NetGuard server over HTTPS.
+SAFE server over HTTPS.
 
 The agent is a single Python package that runs natively (`python -m
 agent`) **and** ships as a standalone Windows binary (`agent.exe`)
@@ -12,7 +12,7 @@ built with PyInstaller.
 
 ## Features
 
-- **Stable host identity** — UUIDv4 persisted under `C:\ProgramData\NetGuard\host_id`
+- **Stable host identity** — UUIDv4 persisted under `C:\ProgramData\SAFE\host_id`
   (Windows) or `/var/lib/netguard/host_id` (Linux). Survives reboot and reinstall.
 - **Delta telemetry** — only emits *new* processes / connections per cycle,
   not the full snapshot every time. Drastically reduces bandwidth.
@@ -52,7 +52,7 @@ $env:NETGUARD_AGENT_API_KEY = "nga_xxx..."
 python -m agent
 ```
 
-The agent logs to stdout and to `C:\ProgramData\NetGuard\agent.log`
+The agent logs to stdout and to `C:\ProgramData\SAFE\agent.log`
 (rotating 5 MB × 5).
 
 ---
@@ -183,7 +183,7 @@ powershell -ExecutionPolicy Bypass -File .\uninstall_agent.ps1
 ```
 
 `install_agent.ps1` copies `agent.exe` and `config.yaml` into
-`C:\Program Files\NetGuard\Agent`, creates a state directory, locks the ACL to
+`C:\Program Files\SAFE\Agent`, creates a state directory, locks the ACL to
 `SYSTEM` and local `Administrators`, sets machine-level
 `NETGUARD_AGENT_CONFIG` / `NETGUARD_AGENT_HOME`, installs the Windows service,
 and optionally starts it.
@@ -272,7 +272,7 @@ Production installs should use `https://.../api/events` with `verify_tls: true`.
 ## Event schema
 
 Every event posted to the server matches this shape (canonical per the
-NetGuard EDR/XDR spec):
+SAFE EDR/XDR spec):
 
 ```json
 {
@@ -318,9 +318,9 @@ on the next service start.
 
 **"`POST falhou (network error: ConnectionError)`"**
 Server unreachable. Events are buffered in
-`C:\ProgramData\NetGuard\agent_buffer.db`; the drain thread will
+`C:\ProgramData\SAFE\agent_buffer.db`; the drain thread will
 flush them once connectivity returns. Check buffer growth:
-`Get-Item "C:\ProgramData\NetGuard\agent_buffer.db" | Select Length`.
+`Get-Item "C:\ProgramData\SAFE\agent_buffer.db" | Select Length`.
 
 **"`net_connections sem permissão`" in agent.log**
 Agent is running unprivileged. On Windows, install as service
@@ -340,7 +340,7 @@ Bump `interval_seconds` to 60+, disable `collect_connections` on
 network-heavy hosts. Each cycle is O(processes + connections); a busy
 build server with 5000 procs will see ~3% CPU at 30s interval.
 
-**Logs not appearing in `C:\ProgramData\NetGuard\agent.log`**
+**Logs not appearing in `C:\ProgramData\SAFE\agent.log`**
 Service running as a non-admin user can't write there. Either run as
 `LocalSystem` or set `NETGUARD_AGENT_LOG_PATH=C:\Users\Public\netguard.log`.
 
@@ -370,7 +370,7 @@ agent/
 - API key is never logged in full — only the first 8 chars + a length
   marker (`nga_xxxx... (44)`).
 - `host_id` file is `chmod 600` on POSIX; Windows ACL inherits from
-  `ProgramData\NetGuard`.
+  `ProgramData\SAFE`.
 - Buffer DB (`agent_buffer.db`) holds *unencrypted* events on disk while
   offline. If the host has Bitlocker / LUKS / FileVault this is fine; on
   a stolen unencrypted disk an attacker can read pending telemetry.

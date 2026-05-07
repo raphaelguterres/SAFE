@@ -1,4 +1,4 @@
-"""Local production-readiness and secrets hygiene checks for NetGuard."""
+"""Local production-readiness and secrets hygiene checks for SAFE."""
 
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ def _docs_do_not_contain_tokens(base: Path) -> SelfCheck:
             findings.append(path.name)
     if findings:
         return SelfCheck("docs_secret_scan", "fail", f"Potential token examples in: {', '.join(findings)}", "critical")
-    return SelfCheck("docs_secret_scan", "pass", "No NetGuard token patterns found in main docs.")
+    return SelfCheck("docs_secret_scan", "pass", "No legacy token patterns found in main docs.")
 
 
 def _hmac_secret_configured(env: dict[str, str]) -> SelfCheck:

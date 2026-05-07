@@ -1,5 +1,5 @@
 """
-NetGuard — Honeypot Inteligente
+SAFE — Honeypot Inteligente
 Abre portas falsas e captura fingerprint de atacantes.
 
 Portas monitoradas:
@@ -41,7 +41,7 @@ BANNERS = {
     3306: b"\x4a\x00\x00\x00\x0a\x38\x2e\x30",   # MySQL greeting
     3389: b"\x03\x00\x00\x13\x0e\xd0\x00\x00",   # RDP cookie
     5900: b"RFB 003.008\n",                        # VNC
-    8080: b"HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"NetGuard\"\r\nContent-Length: 0\r\n\r\n",
+    8080: b"HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"SAFE\"\r\nContent-Length: 0\r\n\r\n",
 }
 
 SERVICE_NAMES = {

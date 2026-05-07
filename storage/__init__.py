@@ -1,6 +1,6 @@
-# NetGuard Storage
+# SAFE Storage
 """
-Storage layer for the NetGuard EDR/SOC platform.
+Storage layer for the SAFE EDR/SOC platform.
 
 Public surface:
 

@@ -1,5 +1,5 @@
 """
-Storage abstraction for the NetGuard EDR/SOC platform.
+Storage abstraction for the SAFE EDR/SOC platform.
 
 Provides an ABC (`Repository`) describing the persistence operations the
 detection / correlation / risk engines and the SOC dashboard depend on,

@@ -1,4 +1,4 @@
-# NetGuard Endpoint Agent — Build Guide (`agent.exe`)
+# SAFE Agent — Build Guide (`agent.exe`)
 
 This guide is for the engineer or release manager who needs to produce a
 clean, distributable `agent.exe` for Windows endpoints. For runtime
@@ -251,7 +251,7 @@ loads -- temporarily allowlist `dist\agent.exe` and rebuild.
 Two common causes:
 
 1. **UPX compression.** Confirm `ENABLE_UPX = False` in `agent.spec` and that you're not passing `--upx-dir` to PyInstaller anywhere.
-2. **No file metadata.** Confirm `version="version_info.txt"` is present in `agent.spec` (without it the .exe looks generic-packed). Re-build, then re-check `(Get-Item .\agent.exe).VersionInfo` — `CompanyName` should read `NetGuard`.
+2. **No file metadata.** Confirm `version="version_info.txt"` is present in `agent.spec` (without it the .exe looks generic-packed). Re-build, then re-check `(Get-Item .\agent.exe).VersionInfo` — `CompanyName` should read `SAFE`.
 
 For corporate environments, the long-term fix is **code signing**. Get
 an Authenticode cert and sign with `signtool sign /tr <ts> /td sha256

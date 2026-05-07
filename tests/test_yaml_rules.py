@@ -69,7 +69,7 @@ class TestYamlRuleLoader(unittest.TestCase):
                 title: Sigma Style Encoded PowerShell
                 id: NG-SIGMA-001
                 status: test
-                author: NetGuard Labs
+                author: SAFE Labs
                 level: high
                 logsource:
                   product: windows
@@ -118,7 +118,7 @@ class TestYamlRuleLoader(unittest.TestCase):
             )[0]
             detections = {item.rule_id: item for item in outcome.detections}
             self.assertIn("NG-SIGMA-001", detections)
-            self.assertEqual(detections["NG-SIGMA-001"].details["metadata"]["author"], "NetGuard Labs")
+            self.assertEqual(detections["NG-SIGMA-001"].details["metadata"]["author"], "SAFE Labs")
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 

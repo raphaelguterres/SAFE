@@ -1,5 +1,5 @@
-﻿# ============================================================
-# NetGuard IDS - commit + push das mudancas de design
+# ============================================================
+# SAFE Enterprise Defense Platform - commit + push das mudancas de design
 # Uso: powershell -ExecutionPolicy Bypass -File .\PUSH.ps1
 # ============================================================
 
@@ -8,7 +8,7 @@ Set-Location $PSScriptRoot
 
 Write-Host ""
 Write-Host "==============================================" -ForegroundColor Yellow
-Write-Host "  NetGuard - git commit + push" -ForegroundColor Yellow
+Write-Host "  SAFE - git commit + push" -ForegroundColor Yellow
 Write-Host "==============================================" -ForegroundColor Yellow
 Write-Host ""
 

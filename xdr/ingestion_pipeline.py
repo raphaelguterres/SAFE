@@ -1,4 +1,4 @@
-"""Scalable bounded ingestion pipeline for NetGuard XDR telemetry."""
+"""Scalable bounded ingestion pipeline for SAFE XDR telemetry."""
 
 from __future__ import annotations
 

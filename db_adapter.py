@@ -1,5 +1,5 @@
 """
-NetGuard IDS — Database Adapter
+SAFE Enterprise Defense Platform — Database Adapter
 Abstrai SQLite (dev/padrão) e PostgreSQL (produção) via DATABASE_URL.
 
 Uso:

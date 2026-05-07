@@ -1,5 +1,5 @@
 """
-NetGuard — DNS Monitoring + DGA Detection
+SAFE — DNS Monitoring + DGA Detection
 Monitora queries DNS e detecta padrões maliciosos.
 
 Detecta:

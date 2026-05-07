@@ -1,4 +1,4 @@
-# NetGuard Agent -- build script (PowerShell, Windows)
+# SAFE Agent -- build script (PowerShell, Windows)
 #
 # Gera dist\agent.exe via PyInstaller. Roda do diretorio /agent.
 #
@@ -42,7 +42,7 @@ param(
 $ErrorActionPreference = "Stop"
 Set-Location -Path (Split-Path -Parent $MyInvocation.MyCommand.Path)
 
-Write-Host "=== NetGuard Agent build ===" -ForegroundColor Cyan
+Write-Host "=== SAFE Agent build ===" -ForegroundColor Cyan
 Write-Host "CWD: $(Get-Location)"
 
 # ===== 1. Sanity checks =============================================

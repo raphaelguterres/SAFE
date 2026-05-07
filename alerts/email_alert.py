@@ -1,5 +1,5 @@
 """
-NetGuard IDS — Alertas de Ameaça por E-mail
+SAFE Enterprise Defense Platform — Alertas de Ameaça por E-mail
 ============================================
 Envia e-mail HTML quando um evento CRITICAL ou HIGH é detectado.
 
@@ -84,7 +84,7 @@ def _build_html(
                display:flex;align-items:center;">
       <span style="display:inline-block;width:10px;height:10px;border-radius:50%;
                    background:#1f6feb;margin-right:10px;"></span>
-      <span style="color:#e6edf3;font-weight:700;font-size:15px;">NetGuard IDS</span>
+      <span style="color:#e6edf3;font-weight:700;font-size:15px;">SAFE Enterprise Defense Platform</span>
       <span style="color:#8b949e;font-size:13px;margin-left:12px;">Sistema de Detecção de Intrusão</span>
     </td>
   </tr>
@@ -188,7 +188,7 @@ def _build_html(
     <td style="background:#0d1117;border:1px solid #30363d;border-top:none;
                border-radius:0 0 12px 12px;padding:16px 28px;text-align:center;">
       <p style="color:#8b949e;font-size:11px;margin:0 0 4px">
-        Este alerta foi gerado automaticamente pelo NetGuard IDS em {ts_fmt}
+        Este alerta foi gerado automaticamente pelo SAFE Enterprise Defense Platform em {ts_fmt}
       </p>
       <p style="color:#8b949e;font-size:11px;margin:0">
         Para desativar alertas por e-mail, acesse as configurações do seu tenant.
@@ -257,12 +257,12 @@ class AlertManager:
         """Envia e-mail de teste imediatamente (síncrono). Útil para /api/alerts/test."""
         fake_event = {
             "severity":   "HIGH",
-            "rule_name":  "Teste de Alerta — NetGuard IDS",
+            "rule_name":  "Teste de Alerta — SAFE Enterprise Defense Platform",
             "event_type": "test_alert",
             "source":     "203.0.113.42",
             "host_id":    "srv-teste-01",
             "timestamp":  datetime.now(timezone.utc).isoformat(),
-            "raw":        "Este é um e-mail de teste do sistema de alertas NetGuard IDS.",
+            "raw":        "Este é um e-mail de teste do sistema de alertas SAFE Enterprise Defense Platform.",
         }
         fake_tenant = {"email": to_email, "name": tenant_name, "tenant_id": "test"}
         try:
@@ -333,7 +333,7 @@ class AlertManager:
         dashboard_url = os.environ.get("DASHBOARD_URL", "http://localhost:5000")
         sev_emoji     = {"CRITICAL": "🔴", "HIGH": "🟠"}.get(sev, "🟡")
         subject       = (
-            f"[NetGuard IDS] {sev_emoji} {sev} — {rule_name} | {tenant_name}"
+            f"[SAFE Enterprise Defense Platform] {sev_emoji} {sev} — {rule_name} | {tenant_name}"
         )
 
         html = _build_html(
@@ -347,7 +347,7 @@ class AlertManager:
 
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"]    = f"NetGuard IDS <{SMTP_FROM}>"
+        msg["From"]    = f"SAFE Enterprise Defense Platform <{SMTP_FROM}>"
         msg["To"]      = to_email
         msg["X-NetGuard-Tenant"] = tenant_id
         msg.attach(MIMEText(html, "html", "utf-8"))

@@ -1,5 +1,5 @@
 """
-NetGuard — Lateral Movement Detector
+SAFE — Lateral Movement Detector
 Correlaciona eventos ENTRE máquinas para detectar movimentação lateral.
 
 Padrões detectados:

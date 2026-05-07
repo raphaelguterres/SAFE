@@ -1,5 +1,5 @@
 """
-NetGuard — Correlation Engine
+SAFE — Correlation Engine
 Detecta padrões de ataque complexos correlacionando eventos ao longo do tempo.
 
 Conceito: igual ao Elastic SIEM Correlation Rules / Splunk ES Correlation Searches.

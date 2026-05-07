@@ -1,5 +1,5 @@
 """
-NetGuard SOC Engine v1.0
+SAFE Security Operations Engine v1.0
 Motor de detecção SIEM/XDR — arquivo único, sem dependências internas.
 12 regras SOC baseadas em comportamento, alinhadas ao MITRE ATT&CK.
 """

@@ -1,5 +1,5 @@
 """
-NetGuard IDS — EDR Sentinel
+SAFE Enterprise Defense Platform — EDR Sentinel
 Monitoramento contínuo de processos com scoring comportamental e auto-resposta.
 Nível: EDR profissional (CrowdStrike-inspired) em Python puro.
 """

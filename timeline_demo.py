@@ -2,7 +2,7 @@ import requests
 from engine.attack_timeline import AttackTimelineEngine
 
 NETGUARD_API = "http://127.0.0.1:5000"
-TOKEN = input("Cole seu token do NetGuard: ").strip()
+TOKEN = input("Cole seu token do SAFE: ").strip()
 
 engine = AttackTimelineEngine()
 

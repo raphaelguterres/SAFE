@@ -498,10 +498,10 @@ class TestFlaskRoutes(unittest.TestCase):
         r = self.client.get("/")
         self.assertEqual(r.status_code, 200)
 
-    def test_landing_page_contem_netguard(self):
+    def test_landing_page_contem_safe_brand(self):
         self._skip_if_no_client()
         r = self.client.get("/")
-        self.assertIn(b"NetGuard", r.data)
+        self.assertIn(b"SAFE", r.data)
 
     def test_landing_page_contem_cta_trial(self):
         self._skip_if_no_client()

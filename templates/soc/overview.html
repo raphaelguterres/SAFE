@@ -8,7 +8,7 @@
 {% set protection = data.host_protection_state|default({}) %}
 {% set queue = data.response_queue|default({}) %}
 
-{% block title %}NetGuard SOC | Overview{% endblock %}
+{% block title %}SAFE Security Operations | Overview{% endblock %}
 
 {% block page %}
 <header class="soc-page-header soc-page-header-airy">
@@ -81,7 +81,7 @@
     <div class="soc-stat-foot">{{ protection.needs_approval|default(0) }} hosts need approval review.</div>
   </article>
   <article class="soc-card soc-stat-card">
-    <div class="soc-stat-label">Response Queue</div>
+    <div class="soc-stat-label">Pending security actions</div>
     <div class="soc-stat-value soc-stat-value-sm">{{ queue.pending_approvals|default(0) }}</div>
     <div class="soc-stat-foot">
       {{ queue.mode|default("manual_approval")|replace("_", " ")|title }} mode.

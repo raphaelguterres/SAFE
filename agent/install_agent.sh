@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# NetGuard Agent Linux/systemd installer.
+# SAFE Agent Linux/systemd installer.
 #
 # Run as root from the repository's agent/ directory:
 #   sudo sh ./install_agent.sh --start
@@ -120,7 +120,7 @@ chmod 0640 "$ENV_FILE"
 
 cat > "$UNIT_PATH" <<EOF
 [Unit]
-Description=NetGuard Endpoint Agent
+Description=SAFE Agent
 Documentation=https://github.com/raphaelguterres/netguard-ids
 Wants=network-online.target
 After=network-online.target
@@ -153,7 +153,7 @@ if [ "$START_SERVICE" = "true" ]; then
     systemctl restart "${SERVICE_NAME}.service"
 fi
 
-echo "NetGuard Agent installed."
+echo "SAFE Agent installed."
 echo "Service: ${SERVICE_NAME}.service"
 echo "Package: ${TARGET_PACKAGE}"
 echo "Config:  ${TARGET_CONFIG}"

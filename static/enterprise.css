@@ -1,5 +1,5 @@
 /* ============================================================
-   NetGuard IDS — Enterprise Design System v2
+   SAFE Enterprise Defense Platform — Enterprise Design System v2
    Refined hybrid: midnight navy + champagne gold
    Tone: editorial, restrained, technical
    ============================================================ */
@@ -2345,7 +2345,7 @@ body.theme-light .site-nav a:hover {
   background: transparent !important;
 }
 
-/* brand-stack strong = NetGuard IDS — must be black in light */
+/* brand-stack strong = SAFE Enterprise Defense Platform — must be black in light */
 [data-theme="light"] .brand-stack strong,
 body.theme-light .brand-stack strong {
   color: #1d1d1f !important;

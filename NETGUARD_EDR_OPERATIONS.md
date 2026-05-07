@@ -1,7 +1,7 @@
-# NetGuard EDR Operations
+# SAFE EDR Operations
 
-This guide describes the defensive SOC workflow for the NetGuard Enterprise
-Defense Core. NetGuard is a defensive EDR/SOC lab platform. It does not provide
+This guide describes the defensive SOC workflow for the SAFE Enterprise
+Defense Core. SAFE is a defensive EDR/SOC lab platform. It does not provide
 offensive bypass, stealth, credential dumping, malware behavior, or destructive
 automation.
 
@@ -68,8 +68,8 @@ Host isolation is designed to be reversible and conservative.
 2. Policy Engine returns a short-lived decision.
 3. Server queues an approved endpoint action.
 4. Agent validates tenant, host, action type, nonce, expiry, and signature.
-5. Agent applies only NetGuard-owned firewall rules.
-6. Agent preserves localhost and NetGuard server connectivity.
+5. Agent applies only SAFE-owned firewall rules.
+6. Agent preserves localhost and SAFE server connectivity.
 7. Agent writes a local JSONL audit event.
 
 Dry-run remains the safest default for local testing.
@@ -80,7 +80,7 @@ Rollback is also policy-signed.
 
 1. Analyst selects rollback for the contained host.
 2. Agent validates signed policy.
-3. Agent removes only `NetGuard Isolation ...` rules.
+3. Agent removes only `SAFE Isolation ...` rules.
 4. Agent restores a known-safe firewall policy.
 5. Agent writes a local audit event.
 
@@ -91,7 +91,7 @@ Quarantine never permanently deletes files.
 1. Agent validates path, SHA256, and signature/origin check.
 2. Agent rejects path traversal.
 3. Agent rejects files outside allowed roots unless explicit approval exists.
-4. File is moved to `C:\ProgramData\NetGuard\Quarantine`.
+4. File is moved to `C:\ProgramData\SAFE\Quarantine`.
 5. Metadata JSON records original path, quarantine path, hash, host, tenant, and
    timestamps.
 6. Restore moves the file back after explicit operator action.

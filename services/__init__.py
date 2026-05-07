@@ -1,1 +1,1 @@
-"""Application services used by the NetGuard UI and API layers."""
+"""Application services used by the SAFE UI and API layers."""

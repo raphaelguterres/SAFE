@@ -1,5 +1,5 @@
 """
-NetGuard IDS — Trial Token Engine
+SAFE Enterprise Defense Platform — Trial Token Engine
 Gera links de demonstração com tempo limitado para clientes em potencial.
 """
 from __future__ import annotations  # noqa: F401

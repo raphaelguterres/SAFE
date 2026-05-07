@@ -1,5 +1,5 @@
 """
-NetGuard IDS — ML Anomaly Detection (Isolation Forest)
+SAFE Enterprise Defense Platform — ML Anomaly Detection (Isolation Forest)
 Detecta anomalias comportamentais usando machine learning real.
 
 Diferente do ml_baseline.py (z-score estatístico), este módulo usa

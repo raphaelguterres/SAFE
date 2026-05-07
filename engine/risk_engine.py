@@ -1,5 +1,5 @@
 """
-NetGuard — Risk Engine
+SAFE — Risk Engine
 Risk Score por host estilo CrowdStrike / Microsoft Defender / Elastic.
 
 Calcula score 0-100 por host baseado em:

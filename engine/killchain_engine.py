@@ -1,4 +1,4 @@
-"""Cyber Kill Chain engine for NetGuard EDR.
+"""Cyber Kill Chain engine for SAFE EDR.
 
 This module gives the product a first-class Lockheed-style kill chain API
 without replacing the existing MITRE ATT&CK detection layer. It accepts raw

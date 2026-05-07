@@ -1,5 +1,5 @@
 """
-NetGuard — Event Engine
+SAFE — Event Engine
 Orquestrador principal do pipeline de detecção.
 
 Pipeline:
@@ -221,7 +221,7 @@ def persist_if_needed(event: dict, alerts: list, store: Optional[Any] = None) ->
 # ── Main orchestrator ─────────────────────────────────────────────
 class EventEngine:
     """
-    Orquestrador principal do pipeline de detecção NetGuard.
+    Orquestrador principal do pipeline de detecção SAFE.
 
     Uso:
         engine = EventEngine()

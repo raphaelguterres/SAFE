@@ -1,12 +1,12 @@
 # ─────────────────────────────────────────────────────────────────
-#  NetGuard IDS v3.0 — Dockerfile
+#  SAFE Enterprise Defense Platform v3.0 — Dockerfile
 #  Base: Python 3.11 slim (menor imagem possível)
 # ─────────────────────────────────────────────────────────────────
 FROM python:3.11-slim
 
 # Metadados
 LABEL maintainer="raphaelguterres"
-LABEL description="NetGuard IDS — Real-time SOC/SIEM platform"
+LABEL description="SAFE Enterprise Defense Platform — Real-time SOC/SIEM platform"
 LABEL version="3.0"
 
 # Evita prompts interativos durante apt

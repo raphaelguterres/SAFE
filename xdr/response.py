@@ -1,4 +1,4 @@
-"""Response planning for NetGuard XDR."""
+"""Response planning for SAFE XDR."""
 
 from __future__ import annotations
 

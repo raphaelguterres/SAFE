@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}NetGuard SOC{% endblock %}</title>
+  <title>{% block title %}SAFE Security Operations{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='soc-dashboard.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/netguard.css') }}">
   <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
@@ -16,7 +16,7 @@
       <section class="soc-page">
         <div class="soc-preview-banner">
           <span class="soc-preview-banner-kicker">SOC Workspace</span>
-          <span class="soc-preview-banner-copy">This is the primary NetGuard SOC/XDR surface: cleaner hierarchy, lower noise, incident triage, and host-first investigation.</span>
+          <span class="soc-preview-banner-copy">SAFE Console prioritizes the next decision: risk, affected host, security activity, and recommended action.</span>
         </div>
         {% block page %}{% endblock %}
       </section>

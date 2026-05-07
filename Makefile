@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════
-#  NetGuard IDS — Makefile
+#  SAFE Enterprise Defense Platform — Makefile
 #  Uso: make <target>
 # ══════════════════════════════════════════════════════════════════
 
@@ -26,7 +26,7 @@ endif
 .PHONY: help
 help:
 	@echo ""
-	@echo "  NetGuard IDS — Comandos disponíveis"
+	@echo "  SAFE Enterprise Defense Platform — Comandos disponíveis"
 	@echo "  ════════════════════════════════════"
 	@echo ""
 	@echo "  Desenvolvimento"
@@ -40,8 +40,8 @@ help:
 	@echo "    make prod-saas    Sobe produção + Stripe billing ativo"
 	@echo ""
 	@echo "  Docker"
-	@echo "    make docker       Build + sobe container NetGuard (SQLite)"
-	@echo "    make docker-saas  Sobe stack completa: NetGuard + PG + Prometheus + Grafana"
+	@echo "    make docker       Build + sobe container SAFE (SQLite)"
+	@echo "    make docker-saas  Sobe stack completa: SAFE + PG + Prometheus + Grafana"
 	@echo "    make docker-down  Para todos os containers"
 	@echo "    make docker-logs  Mostra logs do container netguard"
 	@echo "    make docker-build Apenas build da imagem"
@@ -61,7 +61,7 @@ help:
 # ── Desenvolvimento ───────────────────────────────────────────────
 .PHONY: dev
 dev:
-	@echo "▶ Subindo NetGuard IDS em modo desenvolvimento..."
+	@echo "▶ Subindo SAFE Enterprise Defense Platform em modo desenvolvimento..."
 	FLASK_ENV=development FLASK_DEBUG=1 $(PYTHON) $(APP)
 
 .PHONY: dev-auth
@@ -77,7 +77,7 @@ open:
 # ── Produção ──────────────────────────────────────────────────────
 .PHONY: prod
 prod:
-	@echo "▶ Subindo NetGuard IDS em modo produção..."
+	@echo "▶ Subindo SAFE Enterprise Defense Platform em modo produção..."
 	IDS_LOG_LEVEL=INFO $(PYTHON) $(APP)
 
 .PHONY: prod-auth
@@ -94,12 +94,12 @@ prod-saas:
 # ── Docker ────────────────────────────────────────────────────────
 .PHONY: docker
 docker: docker-build
-	@echo "▶ Subindo container NetGuard (SQLite)..."
+	@echo "▶ Subindo container SAFE (SQLite)..."
 	$(DC) up netguard
 
 .PHONY: docker-saas
 docker-saas:
-	@echo "▶ Subindo stack completa: NetGuard + PostgreSQL + Prometheus + Grafana..."
+	@echo "▶ Subindo stack completa: SAFE + PostgreSQL + Prometheus + Grafana..."
 	$(DC) --profile saas up -d
 	@echo ""
 	@echo "  Dashboard:   http://localhost:5000"

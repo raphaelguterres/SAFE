@@ -1,4 +1,4 @@
-# NetGuard IDS — Security Report
+# SAFE Enterprise Defense Platform — Security Report
 
 **Data:** 2026-04-25
 **Escopo:** Pentest #1 (já patchado) + Pentest #2 (este round) + Pattern hunt

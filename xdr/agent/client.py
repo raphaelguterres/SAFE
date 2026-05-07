@@ -105,7 +105,7 @@ class XDRIngestionClient:
         data = json.dumps(payload).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": "NetGuard-Agent/2.0",
+            "User-Agent": "SAFE-Agent/2.0",
         }
         if not use_bootstrap and self.agent_key:
             headers["X-NetGuard-Agent-Key"] = self.agent_key

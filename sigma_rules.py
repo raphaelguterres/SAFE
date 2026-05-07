@@ -1,5 +1,5 @@
 """
-NetGuard Sigma Rules Engine v1.0
+SAFE Sigma Rules Engine v1.0
 Carrega e executa regras Sigma contra logs em tempo real.
 Sigma é o padrão open source para detecção em logs — equivalente ao YARA para eventos.
 
@@ -43,7 +43,7 @@ class SigmaRule:
 
 # ── Regras Sigma embutidas (top 40 mais relevantes) ───────────────
 # Fonte: SigmaHQ/sigma — Windows, Network, Web categories
-# Convertidas para formato interno do NetGuard
+# Convertidas para formato interno do SAFE
 
 BUILTIN_RULES = [
     # ── Credential Access ─────────────────────────────────────────

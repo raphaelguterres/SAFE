@@ -1,11 +1,11 @@
-# NetGuard Agent Windows service uninstaller.
+# SAFE Agent Windows service uninstaller.
 #
 # Run from an elevated PowerShell prompt on the endpoint:
 #   powershell -ExecutionPolicy Bypass -File .\uninstall_agent.ps1
 
 [CmdletBinding()]
 param(
-    [string]$InstallDir = "$env:ProgramFiles\NetGuard\Agent",
+    [string]$InstallDir = "$env:ProgramFiles\SAFE\Agent",
     [string]$ServiceName = "NetGuardAgent",
     [switch]$KeepState,
     [switch]$KeepConfig
@@ -72,6 +72,6 @@ if ((Test-Path -LiteralPath $installDirFull) -and $remaining.Count -eq 0) {
     Remove-Item -LiteralPath $installDirFull -Force
 }
 
-Write-Host "NetGuard Agent removed." -ForegroundColor Green
+Write-Host "SAFE Agent removed." -ForegroundColor Green
 if ($KeepState) { Write-Host "State kept:  $stateDir" }
 if ($KeepConfig) { Write-Host "Config kept: $targetConfig" }

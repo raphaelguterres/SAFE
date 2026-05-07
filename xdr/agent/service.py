@@ -1,4 +1,4 @@
-"""Snapshot-to-event adapter service for the lightweight NetGuard agent."""
+"""Snapshot-to-event adapter service for the lightweight SAFE agent."""
 
 from __future__ import annotations
 

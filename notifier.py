@@ -1,5 +1,5 @@
 """
-notifier.py — NetGuard IDS · Notificações de eventos de negócio
+notifier.py — SAFE Enterprise Defense Platform · Notificações de eventos de negócio
 ================================================================
 Dispara alertas via Telegram e/ou Slack para eventos críticos:
   • Novo trial criado

@@ -1,4 +1,4 @@
-# NetGuard XDR Detection Engine
+# SAFE XDR Detection Engine
 
 ## Objective
 Build a lightweight, explainable, SaaS-ready detection layer for endpoint telemetry using:

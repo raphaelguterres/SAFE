@@ -1,5 +1,5 @@
 """
-NetGuard — Rule Executor
+SAFE — Rule Executor
 Pipeline de execução de regras de detecção.
 
 Responsabilidades:

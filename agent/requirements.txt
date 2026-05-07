@@ -1,4 +1,4 @@
-# NetGuard Endpoint Agent — runtime requirements
+# SAFE Agent — runtime requirements
 #
 # Versões pinadas com >=,< para permitir patches mas evitar quebras
 # de major. Build do agent.exe via PyInstaller herda essas versões.

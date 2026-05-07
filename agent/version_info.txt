@@ -1,4 +1,4 @@
-# NetGuard Endpoint Agent — Windows version metadata.
+# SAFE Agent — Windows version metadata.
 #
 # Embedded into dist/agent.exe by PyInstaller via agent.spec
 # (version='version_info.txt'). Without this file the .exe shows
@@ -32,13 +32,13 @@ VSVersionInfo(
           # localised file properties dialogs read this code page.
           u'040904B0',
           [
-            StringStruct(u'CompanyName', u'NetGuard'),
-            StringStruct(u'FileDescription', u'NetGuard Endpoint Agent'),
+            StringStruct(u'CompanyName', u'SAFE'),
+            StringStruct(u'FileDescription', u'SAFE Agent'),
             StringStruct(u'FileVersion', u'1.0.0.0'),
             StringStruct(u'InternalName', u'agent'),
-            StringStruct(u'LegalCopyright', u'© NetGuard. All rights reserved.'),
+            StringStruct(u'LegalCopyright', u'© SAFE. All rights reserved.'),
             StringStruct(u'OriginalFilename', u'agent.exe'),
-            StringStruct(u'ProductName', u'NetGuard Endpoint Agent'),
+            StringStruct(u'ProductName', u'SAFE Agent'),
             StringStruct(u'ProductVersion', u'1.0.0.0'),
             StringStruct(u'Comments', u'Lightweight endpoint telemetry agent. https://github.com/raphaelguterres/netguard-ids'),
           ]

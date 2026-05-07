@@ -1,5 +1,5 @@
 """
-NetGuard IDS — Remote Remediation Engine
+SAFE Enterprise Defense Platform — Remote Remediation Engine
 Kill process + Isolate host. Transforma alertas em ações.
 """
 from __future__ import annotations  # noqa: F401

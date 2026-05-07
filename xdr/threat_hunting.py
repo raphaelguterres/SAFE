@@ -1,4 +1,4 @@
-"""Defensive threat hunting routines for NetGuard XDR."""
+"""Defensive threat hunting routines for SAFE XDR."""
 
 from __future__ import annotations
 

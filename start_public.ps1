@@ -1,4 +1,4 @@
-# NetGuard IDS - Iniciar com tunel publico (ngrok)
+# SAFE Enterprise Defense Platform - Iniciar com tunel publico (ngrok)
 # Uso: .\start_public.ps1
 # Requer ngrok instalado: winget install ngrok.ngrok
 #   ou baixe em https://ngrok.com/download
@@ -62,7 +62,7 @@ if (-not $authEnabled) {
 }
 
 # -- Inicia Flask em background -------------------------------------
-Write-Step "Iniciando NetGuard IDS na porta $Port"
+Write-Step "Iniciando SAFE Enterprise Defense Platform na porta $Port"
 $env:IDS_PORT = $Port
 $env:IDS_HOST = "127.0.0.1"
 $flaskJob = Start-Process $python -ArgumentList "$projectDir\app.py" `
@@ -92,7 +92,7 @@ if (-not $publicUrl) {
 } else {
     Write-OK "URL publica obtida"
     Write-Host ""
-    Write-Host "  NetGuard IDS esta acessivel publicamente." -ForegroundColor Green
+    Write-Host "  SAFE Enterprise Defense Platform esta acessivel publicamente." -ForegroundColor Green
     Write-Host ""
     Write-Host "  URL publica:   $publicUrl" -ForegroundColor Blue
     Write-Host "  Link de trial: $publicUrl/trial/<token>" -ForegroundColor Cyan

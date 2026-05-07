@@ -1,5 +1,5 @@
 """
-NetGuard IDS — Webhook Alert Engine
+SAFE Enterprise Defense Platform — Webhook Alert Engine
 Envia alertas críticos para Slack, Teams, Discord, Telegram, WhatsApp ou qualquer HTTP endpoint.
 """
 from __future__ import annotations  # noqa: F401
@@ -132,7 +132,7 @@ def _fmt_slack(event: dict, webhook: dict) -> dict:
               "medium":   "#d29922", "low":  "#3fb950", "info": "#58a6ff"}
     icons  = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢", "info": "🔵"}
     return {
-        "username": "NetGuard IDS",
+        "username": "SAFE Enterprise Defense Platform",
         "icon_emoji": ":shield:",
         "attachments": [{
             "color":  colors.get(sev, "#8b949e"),
@@ -144,7 +144,7 @@ def _fmt_slack(event: dict, webhook: dict) -> dict:
                 {"title": "Tipo",       "value": event.get("event_type", "—"),  "short": True},
                 {"title": "Horário",    "value": event.get("timestamp", "—"),   "short": True},
             ],
-            "footer": "NetGuard IDS",
+            "footer": "SAFE Enterprise Defense Platform",
             "ts":     int(time.time()),
         }]
     }
@@ -159,7 +159,7 @@ def _fmt_teams(event: dict, webhook: dict) -> dict:
         "@context":   "http://schema.org/extensions",
         "themeColor": {"critical": "f85149", "high": "f0883e",
                        "medium":   "d29922", "low":  "3fb950"}.get(sev, "58a6ff"),
-        "summary":    event.get("threat", "Alerta NetGuard"),
+        "summary":    event.get("threat", "Alerta SAFE"),
         "sections":   [{
             "activityTitle":    f"**[{sev.upper()}]** {event.get('threat','Alerta de segurança')}",
             "activitySubtitle": event.get("details", {}).get("description", ""),
@@ -178,7 +178,7 @@ def _fmt_discord(event: dict, webhook: dict) -> dict:
     int_colors = {"critical": 0xf85149, "high": 0xf0883e,
                   "medium":   0xd29922, "low":  0x3fb950, "info": 0x58a6ff}
     return {
-        "username": "NetGuard IDS",
+        "username": "SAFE Enterprise Defense Platform",
         "embeds": [{
             "title":       f"[{sev.upper()}] {event.get('threat','Alerta de segurança')}",
             "description": event.get("details", {}).get("description", event.get("msg", "")),
@@ -188,7 +188,7 @@ def _fmt_discord(event: dict, webhook: dict) -> dict:
                 {"name": "Host",       "value": event.get("hostname", "—"),   "inline": True},
                 {"name": "Tipo",       "value": event.get("event_type", "—"), "inline": True},
             ],
-            "footer": {"text": "NetGuard IDS"},
+            "footer": {"text": "SAFE Enterprise Defense Platform"},
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }]
     }
@@ -213,7 +213,7 @@ def _fmt_telegram(event: dict, webhook: dict) -> dict:
     A URL do webhook deve ser:
         https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}
 
-    O NetGuard monta o payload como JSON enviado via POST.
+    O SAFE monta o payload como JSON enviado via POST.
     """
     sev   = event.get("severity", "info")
     icons = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢", "info": "🔵"}
@@ -258,7 +258,7 @@ def _fmt_whatsapp(event: dict, webhook: dict) -> dict:
     subtype = (webhook.get("secret") or "").lower()
 
     msg = (
-        f"{icon} *[{sev.upper()}] {event.get('threat', 'Alerta NetGuard')}*\n"
+        f"{icon} *[{sev.upper()}] {event.get('threat', 'Alerta SAFE')}*\n"
         f"IP: {event.get('source_ip', '—')} | Host: {event.get('hostname', '—')}\n"
         f"Tipo: {event.get('event_type', '—')} | {ts}\n\n"
         f"{desc}"
@@ -462,7 +462,7 @@ class WebhookEngine:
         fmt     = FORMATTERS.get(wtype, _fmt_generic)
         body    = fmt(event, wh)
         url     = wh["url"]
-        headers = {"Content-Type": "application/json", "User-Agent": "NetGuard-IDS/3.0"}
+        headers = {"Content-Type": "application/json", "User-Agent": "SAFE-XDR/3.0"}
 
         # Telegram: injeta chat_id na URL se ainda não estiver lá
         if wtype == "telegram" and "chat_id=" not in url:
@@ -525,7 +525,7 @@ class WebhookEngine:
             return {"ok": False, "error": "Webhook não encontrado"}
         test_event = {
             "severity":   "high",
-            "threat":     "Teste de Webhook — NetGuard IDS",
+            "threat":     "Teste de Webhook — SAFE Enterprise Defense Platform",
             "event_type": "test",
             "source_ip":  "192.168.1.100",
             "hostname":   "netguard-host",
@@ -533,7 +533,7 @@ class WebhookEngine:
             "timestamp":  datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "details":    {
                 "description": (
-                    "✅ Integração funcionando! Este é um evento de teste gerado pelo NetGuard IDS. "
+                    "✅ Integração funcionando! Este é um evento de teste gerado pelo SAFE Enterprise Defense Platform. "
                     f"Canal: {wh.get('type','generic').upper()}"
                 )
             },

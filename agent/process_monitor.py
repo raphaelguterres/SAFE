@@ -1,4 +1,4 @@
-"""Defensive process telemetry collector for the NetGuard endpoint agent."""
+"""Defensive process telemetry collector for the SAFE endpoint agent."""
 
 from __future__ import annotations
 

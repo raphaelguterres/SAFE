@@ -1,5 +1,5 @@
 """
-NetGuard IDS — Custom Detection Rules
+SAFE Enterprise Defense Platform — Custom Detection Rules
 Permite que clientes criem, editem e ativem regras de detecção personalizadas.
 
 Formato de regra:

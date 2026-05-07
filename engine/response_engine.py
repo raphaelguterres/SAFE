@@ -1,4 +1,4 @@
-"""Active defense response engine for NetGuard EDR.
+"""Active defense response engine for SAFE EDR.
 
 The existing project already has low-level remediation primitives
 (`auto_block.py`, `remediation_engine.py`, and server-to-agent actions). This

@@ -121,7 +121,7 @@ def _dpapi_protect(data: bytes) -> bytes:
     out_blob = DATA_BLOB()
     ok = ctypes.windll.crypt32.CryptProtectData(
         ctypes.byref(in_blob),
-        "NetGuard Agent API key",
+        "SAFE Agent API key",
         None,
         None,
         None,

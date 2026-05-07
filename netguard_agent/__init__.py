@@ -1,4 +1,4 @@
-"""NetGuard agent package."""
+"""SAFE agent package."""
 
 from .service import NetGuardAgent, main
 

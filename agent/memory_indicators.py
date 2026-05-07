@@ -1,4 +1,4 @@
-"""Memory-safe defensive indicators for NetGuard endpoint telemetry."""
+"""Memory-safe defensive indicators for SAFE endpoint telemetry."""
 
 from __future__ import annotations
 

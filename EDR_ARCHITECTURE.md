@@ -1,4 +1,4 @@
-# NetGuard EDR Architecture — current state
+# SAFE EDR Architecture — current state
 
 > Auditoria contra o plano "EDR enterprise-grade based on Cyber Kill Chain principles".
 > **Veredicto:** ~80% do plano já está implementado. O projeto não é IDS, é EDR/XDR maduro

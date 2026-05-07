@@ -1,7 +1,7 @@
 """
 tests/test_integration.py
 =========================
-Testes de integração end-to-end do NetGuard IDS.
+Testes de integração end-to-end do SAFE Enterprise Defense Platform.
 
 Cobrem o fluxo completo sem dependências externas (SMTP, Telegram, Stripe):
   1. Self-serve trial (POST /trial)
@@ -553,7 +553,7 @@ class TestPublicRoutes(BaseIntegration):
     def test_landing_page_200(self):
         r = self.client.get("/")
         self.assertEqual(r.status_code, 200)
-        self.assertIn(b"NetGuard", r.data)
+        self.assertIn(b"SAFE", r.data)
 
     def test_pricing_page_200(self):
         r = self.client.get("/pricing")

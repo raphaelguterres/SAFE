@@ -1,1 +1,1 @@
-# NetGuard Rules
+# SAFE Rules

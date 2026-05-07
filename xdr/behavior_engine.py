@@ -1,4 +1,4 @@
-"""Enterprise behavioral detections for NetGuard XDR.
+"""Enterprise behavioral detections for SAFE XDR.
 
 The engine only produces defensive findings. It does not execute response
 actions and it avoids offensive memory/process behavior.

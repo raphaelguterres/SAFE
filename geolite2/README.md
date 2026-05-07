@@ -1,6 +1,6 @@
 # GeoLite2 — bases de geolocalização (opcional)
 
-NetGuard usa MaxMind GeoLite2 quando os arquivos `.mmdb` estiverem aqui.
+SAFE usa MaxMind GeoLite2 quando os arquivos `.mmdb` estiverem aqui.
 Sem eles, cai pro prefix DB embutido (`geo_ip.GEO_DB`) — funciona, mas
 cobre só os ranges curados.
 

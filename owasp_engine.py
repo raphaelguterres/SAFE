@@ -1,5 +1,5 @@
 """
-NetGuard OWASP Engine v1.0
+SAFE OWASP Engine v1.0
 Detecção baseada em OWASP Top 10, CRS (ModSecurity Core Rule Set),
 ASVS (Application Security Verification Standard) e Testing Guide.
 

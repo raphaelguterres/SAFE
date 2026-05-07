@@ -1,5 +1,5 @@
-﻿# ============================================================
-# NetGuard IDS - start local
+# ============================================================
+# SAFE Enterprise Defense Platform - start local
 # Uso: powershell -ExecutionPolicy Bypass -File .\RUN_LOCAL.ps1
 # ============================================================
 
@@ -9,7 +9,7 @@ Set-Location $ProjectRoot
 
 Write-Host ""
 Write-Host "==============================================" -ForegroundColor Yellow
-Write-Host "  NetGuard IDS - boot local" -ForegroundColor Yellow
+Write-Host "  SAFE Enterprise Defense Platform - boot local" -ForegroundColor Yellow
 Write-Host "==============================================" -ForegroundColor Yellow
 Write-Host ""
 

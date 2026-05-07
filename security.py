@@ -1,5 +1,5 @@
 """
-security.py — NetGuard IDS · Módulo central de segurança
+security.py — SAFE Enterprise Defense Platform · Módulo central de segurança
 =========================================================
 Primitivas de segurança enterprise reutilizáveis em toda a aplicação.
 Zero dependências externas além da stdlib Python.
@@ -68,7 +68,7 @@ def _load_signing_key() -> bytes:
     if not _is_dev_or_test_runtime():
         raise RuntimeError(
             "TOKEN_SIGNING_SECRET e obrigatorio fora de desenvolvimento/testes. "
-            "Configure um segredo forte no ambiente antes de iniciar o NetGuard."
+            "Configure um segredo forte no ambiente antes de iniciar o SAFE."
         )
 
     fallback_secret = os.environ.get("SECRET_KEY", "").strip() or INSECURE_DEV_SIGNING_KEY
@@ -574,7 +574,7 @@ def role_level(role: str) -> int:
 
 # Padrões de dados sensíveis para mascarar
 _SENSITIVE_PATTERNS = [
-    # Tokens NetGuard completos (ng_ + 43 chars base64url)
+    # Tokens SAFE completos (ng_ + 43 chars base64url)
     (re.compile(r'\bng_[A-Za-z0-9_-]{20,}\b'), lambda m: m.group()[:8] + "***"),
     # Tokens admin (token hex longo)
     (re.compile(r'\b[a-f0-9]{40,}\b'), lambda m: m.group()[:8] + "***"),

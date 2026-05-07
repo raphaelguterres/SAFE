@@ -1,4 +1,4 @@
-# NetGuard IDS — Security Report (T14: Host Triage View + Operator Inbox)
+# SAFE Enterprise Defense Platform — Security Report (T14: Host Triage View + Operator Inbox)
 
 **Data:** 2026-04-26
 **Escopo:** Nova superfície adicionada em T14 — Host Triage View (HTV) + Operator Inbox + deep-link

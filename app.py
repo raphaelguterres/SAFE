@@ -1,5 +1,5 @@
 """
-NetGuard IDS v3.0 — Servidor completo
+SAFE Enterprise Defense Platform v3.0 — Servidor completo
 Monitor de rede real + API REST + Dashboard executivo.
 Um único processo. Sem simulador. Sem dados falsos.
 """
@@ -712,7 +712,7 @@ def create_app() -> Flask:
     """
     Compatibility application factory.
 
-    NetGuard still bootstraps a module-level singleton for backwards
+    SAFE still bootstraps a module-level singleton for backwards
     compatibility with the current test suite and `python app.py`, but exposing
     a factory contract lets us migrate route groups and service wiring in
     incremental slices.
@@ -2745,7 +2745,7 @@ def _build_soc_host_detail_context(host_id: str, context: dict | None = None):
         ("Tenant", context["tenant_name"]),
         ("Operating System", selected_host.get("operating_system", "Unknown")),
         ("Status", str(selected_host.get("status", "offline")).title()),
-        ("Sensor", "NetGuard Agent / XDR Pipeline" if registered_host else "XDR Pipeline"),
+        ("Sensor", "SAFE Agent / XDR Pipeline" if registered_host else "XDR Pipeline"),
         ("Risk Score", f"{selected_host.get('risk_score', 0)}/100"),
         ("Protection State", protection_state.replace("_", " ").title()),
     ]
@@ -5963,7 +5963,7 @@ def prometheus_metrics():
     uptime = time.time() - _metrics_start_time
 
     # ── Info / Uptime ─────────────────────────────────────────────
-    g("netguard_info", "Informações estáticas do NetGuard IDS", "gauge")
+    g("netguard_info", "Informações estáticas do SAFE Enterprise Defense Platform", "gauge")
     m("netguard_info", 1, {"version": "3.0", "host": REAL_HOSTNAME})
 
     g("netguard_uptime_seconds", "Tempo em segundos desde o início do servidor", "counter")
@@ -7160,7 +7160,7 @@ def _admin_only(f):
 #   ataque ficar observável (ADMIN_RATE_LIMITED aparece no audit log).
 #
 # POR QUE IN-MEMORY E NÃO REDIS:
-#   Deploy do NetGuard é single-process Flask. Adicionar Redis só pra
+#   Deploy do SAFE é single-process Flask. Adicionar Redis só pra
 #   isso é over-engineering. Quando virar multi-worker (gunicorn -w N),
 #   trocar pra storage externo — cada worker ter seu contador
 #   sobrestima o limite real por Nx.
@@ -7438,7 +7438,7 @@ def report_monthly():
 
     month   = request.args.get("month")
     name    = request.args.get("name", "Cliente")
-    company = request.args.get("company", "NetGuard IDS")
+    company = request.args.get("company", "SAFE Enterprise Defense Platform")
 
     # Detecta tenant do cookie — usa query param como fallback
     tenant_id = _resolve_tenant_id(request.args.get("tenant_id"))
@@ -7483,7 +7483,7 @@ def report_monthly_preview():
 
     month     = request.args.get("month")
     name      = request.args.get("name", "Cliente")
-    company   = request.args.get("company", "NetGuard IDS")
+    company   = request.args.get("company", "SAFE Enterprise Defense Platform")
     tenant_id = _resolve_tenant_id(request.args.get("tenant_id"))
 
     try:
@@ -7806,7 +7806,7 @@ def report_compliance():
     if not month:
         from datetime import datetime, timezone
         month = datetime.now(timezone.utc).strftime("%Y-%m")
-    filename = f"NetGuard-{fw_label}-{month}.pdf"
+    filename = f"SAFE-{fw_label}-{month}.pdf"
 
     return Response(
         pdf_bytes,
@@ -9683,7 +9683,7 @@ def _render_trial_expired(trial: dict) -> str:
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Trial Expirado — NetGuard IDS</title>
+<title>Trial Expirado — SAFE Enterprise Defense Platform</title>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#e6edf3;
@@ -9704,7 +9704,7 @@ p{{color:#8b949e;line-height:1.7;margin-bottom:1.5rem}}
   <div class="icon">⏱</div>
   <h1>Seu trial expirou</h1>
   <p>O acesso de demonstração para <span class="highlight">{company}</span> chegou ao fim.
-     Você teve acesso completo ao NetGuard IDS — detecção em tempo real, ML Anomaly,
+     Você teve acesso completo ao SAFE Enterprise Defense Platform — detecção em tempo real, ML Anomaly,
      Compliance PDF e muito mais.</p>
   <p>Assine agora e continue protegendo sua infraestrutura sem interrupção.</p>
   <a href="/pricing" class="btn">Ver planos e assinar →</a>
@@ -10196,7 +10196,7 @@ def admin_totp_setup():
         "ok":     True,
         "secret": secret,
         "uri":    uri,
-        "issuer":  os.environ.get("IDS_TOTP_ISSUER", "NetGuard IDS"),
+        "issuer":  os.environ.get("IDS_TOTP_ISSUER", "SAFE Enterprise Defense Platform"),
         "account": os.environ.get("IDS_TOTP_ACCOUNT", "admin"),
         "warning": "Salve no app autenticador AGORA. Sem este código você "
                    "não conseguirá logar como admin.",

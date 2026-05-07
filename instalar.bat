@@ -1,6 +1,6 @@
 @echo off
 echo ============================================
-echo  NetGuard IDS v3.0 - Instalacao de dependencias
+echo  SAFE Enterprise Defense Platform v3.0 - Instalacao de dependencias
 echo ============================================
 echo.
 

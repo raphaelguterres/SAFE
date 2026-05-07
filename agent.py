@@ -1,4 +1,4 @@
-"""Compatibility wrapper for the modular NetGuard agent package."""
+"""Compatibility wrapper for the modular SAFE agent package."""
 
 from netguard_agent import NetGuardAgent, main
 

@@ -1,5 +1,5 @@
 """
-mailer.py — NetGuard IDS · Módulo de envio de e-mail
+mailer.py — SAFE Enterprise Defense Platform · Módulo de envio de e-mail
 =====================================================
 Envia e-mails transacionais via SMTP genérico (Gmail, SendGrid,
 Mailgun, AWS SES, Resend, Brevo…) usando apenas a stdlib Python.
@@ -67,10 +67,10 @@ def _send(to_email: str, to_name: str, subject: str,
 
     msg = MIMEMultipart("mixed")
     msg["Subject"] = subject
-    msg["From"]    = formataddr(("NetGuard IDS", from_raw))
+    msg["From"]    = formataddr(("SAFE Enterprise Defense Platform", from_raw))
     msg["To"]      = formataddr((to_name, to_email))
     msg["Date"]    = formatdate(localtime=False)
-    msg["X-Mailer"] = "NetGuard-IDS/3.0"
+    msg["X-Mailer"] = "SAFE-XDR/3.0"
 
     alt = MIMEMultipart("alternative")
     alt.attach(MIMEText(plain, "plain", "utf-8"))
@@ -215,7 +215,7 @@ def _welcome_html(name: str, email: str, token: str,
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bem-vindo ao NetGuard IDS</title>
+  <title>Bem-vindo ao SAFE Enterprise Defense Platform</title>
 </head>
 <body style="margin:0;padding:0;background:#0d1117;font-family:'Segoe UI',Arial,sans-serif;color:#e6edf3;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#0d1117;padding:40px 16px;">
@@ -235,7 +235,7 @@ def _welcome_html(name: str, email: str, token: str,
                   </svg>
                 </td>
                 <td style="font-size:18px;font-weight:800;color:#58a6ff;letter-spacing:-.02em;">
-                  NetGuard IDS
+                  SAFE Enterprise Defense Platform
                 </td>
                 <td style="padding-left:16px;">
                   <span style="background:{plan_color}22;color:{plan_color};font-size:11px;
@@ -256,7 +256,7 @@ def _welcome_html(name: str, email: str, token: str,
               Bem-vindo, {name}! 🎉
             </p>
             <p style="color:#8b949e;font-size:15px;margin:0 0 28px;line-height:1.6;">
-              Sua conta NetGuard IDS foi criada com sucesso. Abaixo está
+              Sua conta SAFE Enterprise Defense Platform foi criada com sucesso. Abaixo está
               seu token de API — guarde-o em segurança, ele é sua chave de acesso.
             </p>
 
@@ -362,7 +362,7 @@ def _welcome_html(name: str, email: str, token: str,
             <p style="color:#8b949e;font-size:12px;margin:0;line-height:1.6;">
               Dúvidas? Responda este e-mail ou acesse nossa
               <a href="{app_url}" style="color:#58a6ff;">documentação</a>.<br>
-              Você recebeu este e-mail porque criou uma conta em NetGuard IDS.<br>
+              Você recebeu este e-mail porque criou uma conta em SAFE Enterprise Defense Platform.<br>
               <span style="color:#484f58;">{email}</span>
             </p>
           </td>
@@ -378,7 +378,7 @@ def _welcome_html(name: str, email: str, token: str,
 def _welcome_plain(name: str, email: str, token: str,
                    plan: str, app_url: str) -> str:
     plan_label = _PLAN_LABELS.get(plan, plan.title())
-    return f"""Bem-vindo ao NetGuard IDS, {name}!
+    return f"""Bem-vindo ao SAFE Enterprise Defense Platform, {name}!
 
 Sua conta ({plan_label}) foi criada com sucesso.
 
@@ -402,7 +402,7 @@ Como começar:
 
 Dúvidas? Responda este e-mail.
 
-— Equipe NetGuard IDS
+— Equipe SAFE Enterprise Defense Platform
 """
 
 
@@ -428,7 +428,7 @@ def send_welcome(name: str, email: str, token: str,
     url = (app_url or _cfg("APP_URL") or "http://localhost:5000").rstrip("/")
 
     plan_label = _PLAN_LABELS.get(plan, plan.title())
-    subject    = f"🚀 Bem-vindo ao NetGuard IDS — plano {plan_label}"
+    subject    = f"🚀 Bem-vindo ao SAFE Enterprise Defense Platform — plano {plan_label}"
 
     html  = _welcome_html(name, email, token, plan, url)
     plain = _welcome_plain(name, email, token, plan, url)
@@ -448,11 +448,11 @@ def send_trial_invite(name: str, email: str, company: str,
     url      = (_cfg("APP_URL") or "http://localhost:5000").rstrip("/")
     duration_label = (f"{duration_h // 24} dias" if duration_h >= 24
                       else f"{duration_h} horas")
-    subject  = f"🔑 Seu acesso de {duration_label} ao NetGuard IDS está pronto"
+    subject  = f"🔑 Seu acesso de {duration_label} ao SAFE Enterprise Defense Platform está pronto"
 
     plain = f"""Olá, {name}!
 
-Preparamos um acesso exclusivo ao NetGuard IDS para {company}.
+Preparamos um acesso exclusivo ao SAFE Enterprise Defense Platform para {company}.
 
 ══ SEU LINK DE ACESSO ({duration_label}) ══════════════
 {trial_url}
@@ -469,7 +469,7 @@ O que você vai encontrar:
 
 Qualquer dúvida, responda este e-mail.
 
-— Equipe NetGuard IDS
+— Equipe SAFE Enterprise Defense Platform
 """
 
     html = f"""<!DOCTYPE html>
@@ -477,7 +477,7 @@ Qualquer dúvida, responda este e-mail.
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Seu acesso ao NetGuard IDS</title>
+  <title>Seu acesso ao SAFE Enterprise Defense Platform</title>
 </head>
 <body style="margin:0;padding:0;background:#0d1117;font-family:'Segoe UI',Arial,sans-serif;color:#e6edf3;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#0d1117;padding:40px 16px;">
@@ -494,7 +494,7 @@ Qualquer dúvida, responda este e-mail.
                   <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/>
                 </svg>
               </td>
-              <td style="font-size:17px;font-weight:800;color:#58a6ff;">NetGuard IDS</td>
+              <td style="font-size:17px;font-weight:800;color:#58a6ff;">SAFE Enterprise Defense Platform</td>
               <td style="padding-left:16px;">
                 <span style="background:#1f6feb22;color:#58a6ff;font-size:11px;font-weight:700;
                              padding:3px 10px;border-radius:999px;border:1px solid #1f6feb44;">
@@ -512,7 +512,7 @@ Qualquer dúvida, responda este e-mail.
           </p>
           <p style="color:#8b949e;font-size:14px;line-height:1.6;margin:0 0 24px;">
             Preparamos um acesso exclusivo de <strong style="color:#e6edf3;">{duration_label}</strong>
-            ao NetGuard IDS para <strong style="color:#e6edf3;">{company}</strong>.
+            ao SAFE Enterprise Defense Platform para <strong style="color:#e6edf3;">{company}</strong>.
             Clique no botão abaixo para entrar direto no dashboard — sem cadastro, sem cartão.
           </p>
 
@@ -522,7 +522,7 @@ Qualquer dúvida, responda este e-mail.
               <a href="{trial_url}"
                  style="display:block;padding:14px 32px;font-size:15px;font-weight:700;
                         color:#fff;text-decoration:none;">
-                Acessar o NetGuard IDS →
+                Acessar o SAFE Enterprise Defense Platform →
               </a>
             </td></tr>
           </table>
@@ -556,7 +556,7 @@ Qualquer dúvida, responda este e-mail.
           <p style="color:#8b949e;font-size:12px;margin:0;line-height:1.6;">
             Dúvidas? Responda este e-mail ou acesse
             <a href="{url}" style="color:#58a6ff;">netguard.io</a>.<br>
-            Você recebeu este e-mail porque foi convidado para um trial do NetGuard IDS.
+            Você recebeu este e-mail porque foi convidado para um trial do SAFE Enterprise Defense Platform.
           </p>
         </td></tr>
 
@@ -579,7 +579,7 @@ def send_contact_confirmation(name: str, email: str,
 
     url        = (_cfg("APP_URL") or "http://localhost:5000").rstrip("/")
     plan_label = _PLAN_LABELS.get(plan, plan.title())
-    subject    = f"✉️ Recebemos seu contato — NetGuard IDS {plan_label}"
+    subject    = f"✉️ Recebemos seu contato — SAFE Enterprise Defense Platform {plan_label}"
 
     plain = f"""Olá, {name}!
 
@@ -589,7 +589,7 @@ Nossa equipe retornará em até 1 dia útil.
 Enquanto isso, você pode conhecer melhor o produto:
 {url}
 
-— Equipe NetGuard IDS
+— Equipe SAFE Enterprise Defense Platform
 """
 
     html = f"""<!DOCTYPE html>
@@ -615,7 +615,7 @@ Enquanto isso, você pode conhecer melhor o produto:
     </td></tr>
     <tr><td style="padding:16px 36px;background:#0d1117;border-top:1px solid #30363d;">
       <p style="color:#484f58;font-size:12px;margin:0;">
-        NetGuard IDS · {url}
+        SAFE Enterprise Defense Platform · {url}
       </p>
     </td></tr>
   </table>
@@ -642,11 +642,11 @@ def send_trial_expiry_reminder(name: str, email: str, company: str,
     hours_left   = int(remaining_h)
     urgency_label = f"{hours_left}h restantes" if hours_left > 1 else "menos de 1h restante"
 
-    subject = f"⚠️ Seu trial do NetGuard IDS expira em {urgency_label}"
+    subject = f"⚠️ Seu trial do SAFE Enterprise Defense Platform expira em {urgency_label}"
 
     plain = f"""Olá, {name}!
 
-Seu período de avaliação do NetGuard IDS para {company} está chegando ao fim.
+Seu período de avaliação do SAFE Enterprise Defense Platform para {company} está chegando ao fim.
 
 Tempo restante: {urgency_label}
 
@@ -666,7 +666,7 @@ Planos a partir de R$990/mês:
 
 Ficou com dúvidas? Responda este e-mail.
 
-— Equipe NetGuard IDS
+— Equipe SAFE Enterprise Defense Platform
 """
 
     html = f"""<!DOCTYPE html>
@@ -699,7 +699,7 @@ Ficou com dúvidas? Responda este e-mail.
                   <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/>
                 </svg>
               </td>
-              <td style="font-size:16px;font-weight:800;color:#58a6ff;">NetGuard IDS</td>
+              <td style="font-size:16px;font-weight:800;color:#58a6ff;">SAFE Enterprise Defense Platform</td>
             </tr></table>
           </td>
         </tr>
@@ -721,7 +721,7 @@ Ficou com dúvidas? Responda este e-mail.
               <a href="{upgrade_url}"
                  style="display:block;padding:14px 32px;font-size:15px;font-weight:700;
                         color:#fff;text-decoration:none;">
-                🔒 Assinar NetGuard IDS →
+                🔒 Assinar SAFE Enterprise Defense Platform →
               </a>
             </td></tr>
           </table>

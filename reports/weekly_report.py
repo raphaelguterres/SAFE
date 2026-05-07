@@ -1,4 +1,4 @@
-"""Weekly security reports for NetGuard."""
+"""Weekly security reports for SAFE."""
 
 from __future__ import annotations
 
@@ -144,7 +144,7 @@ def generate_weekly_report(
     *,
     tenant_id: str,
     tenant_name: str = "Cliente",
-    company_name: str = "NetGuard IDS",
+    company_name: str = "SAFE Enterprise Defense Platform",
     now: datetime | None = None,
     timezone_name: str = "America/Sao_Paulo",
 ) -> tuple[bytes, dict]:
@@ -168,7 +168,7 @@ def generate_weekly_report(
     tiny = ParagraphStyle("tiny", parent=styles["BodyText"], fontName="Helvetica", fontSize=8, leading=11, textColor=colors.HexColor("#64748b"))
 
     story = [
-        Paragraph("NetGuard Weekly Security Report", title),
+        Paragraph("SAFE Weekly Security Report", title),
         Spacer(1, 0.2 * cm),
         Paragraph(f"{tenant_name} • {window['label']}", body),
         Paragraph(f"Prepared by {company_name}", tiny),
@@ -356,7 +356,7 @@ class WeeklyReportScheduler:
         *,
         repo: EventRepository,
         app_url: str,
-        company_name: str = "NetGuard IDS",
+        company_name: str = "SAFE Enterprise Defense Platform",
         timezone_name: str | None = None,
         check_interval: int = 60,
         report_hour: int = 8,
@@ -436,7 +436,7 @@ class WeeklyReportScheduler:
         if not force and self._state.was_sent(tenant_id, week_key):
             return {"ok": True, "already_sent": True, "week_key": week_key, "recipient": recipient}
 
-        subject = f"[NetGuard] Weekly security report - {meta['label']}"
+        subject = f"[SAFE] Weekly security report - {meta['label']}"
         html = (
             f"<p>Weekly security report for <strong>{tenant.get('name') or tenant_id}</strong>.</p>"
             f"<p>Window: <strong>{meta['label']}</strong></p>"

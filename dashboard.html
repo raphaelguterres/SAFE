@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NetGuard IDS | Command Center</title>
+<title>SAFE Enterprise Defense Platform | Command Center</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -2204,7 +2204,7 @@ th.sortable:hover{color:var(--cyn)}
 <!-- TRIAL / DEMO BANNER -->
 <div id="banner-stack">
   <div id="trial-banner" class="notice-banner trial-banner" style="display:none">
-    <span>🔑 Trial NetGuard IDS</span>
+    <span>🔑 Trial SAFE Enterprise Defense Platform</span>
     <span id="trial-company" class="trial-company"></span>
     <span class="trial-countdown-pill">⏱ <span id="trial-countdown">--:--:--</span> restantes</span>
     <a href="/pricing" class="trial-link">Assinar agora →</a>
@@ -3131,7 +3131,7 @@ th.sortable:hover{color:var(--cyn)}
   <!-- Warning -->
   <div style="background:rgba(255,180,0,.06);border:1px solid rgba(255,180,0,.2);border-radius:3px;padding:10px 14px;font-family:var(--mono);font-size:9px;color:var(--yel)">
     ⚠ O bloqueio requer privilégios de administrador para aplicar regras no Windows Firewall.
-    Execute o NetGuard como administrador para que o bloqueio funcione no firewall.
+    Execute o SAFE como administrador para que o bloqueio funcione no firewall.
     Mesmo sem privilégios, os IPs são registrados e o dashboard mostra o status.
   </div>
 
@@ -3399,7 +3399,7 @@ th.sortable:hover{color:var(--cyn)}
 
     <!-- Header -->
     <div class="onboard-head">
-      <div class="onboard-title">🛡 Bem-vindo ao NetGuard IDS</div>
+      <div class="onboard-title">🛡 Bem-vindo ao SAFE Enterprise Defense Platform</div>
       <div class="onboard-sub">Configure em 3 passos para começar a monitorar sua rede</div>
       <button type="button" onclick="obClose()" aria-label="Fechar onboarding" class="onboard-close">x</button>
       <div class="onboard-steps" id="onboard-steps-bar">
@@ -3411,7 +3411,7 @@ th.sortable:hover{color:var(--cyn)}
 
     <!-- Step 1 -->
     <div class="ob-page onboard-page" id="ob-p1">
-      <div class="onboard-title-sm">O que o NetGuard monitora?</div>
+      <div class="onboard-title-sm">O que o SAFE monitora?</div>
       <div class="onboard-grid">
         <div class="onboard-card">
           <div class="onboard-card-icon">🔍</div><div class="onboard-card-title">Detecção em tempo real</div>
@@ -3476,7 +3476,7 @@ th.sortable:hover{color:var(--cyn)}
     <!-- Step 3 -->
     <div class="ob-page onboard-page center" id="ob-p3" style="display:none">
       <div class="onboard-success">✅</div>
-      <div style="font-size:1.2rem;font-weight:700;margin-bottom:8px">NetGuard está ativo!</div>
+      <div style="font-size:1.2rem;font-weight:700;margin-bottom:8px">SAFE está ativo!</div>
       <div class="onboard-copy-narrow">
         O monitoramento já começou. Acesse as abas para explorar detecções, Kill Chain, Risk Score e muito mais.
       </div>
@@ -4034,7 +4034,7 @@ function setTabGroup(group,trigger){
     const label = document.querySelector('#trial-banner span');
     const link  = document.querySelector('#trial-banner a');
     if(ban){ ban.style.display = 'flex'; }
-    if(label){ label.textContent = config.label || 'Trial NetGuard IDS'; }
+    if(label){ label.textContent = config.label || 'Trial SAFE Enterprise Defense Platform'; }
     if(co){ co.textContent = config.company || ''; }
     if(link){
       link.href = config.linkHref || '/pricing';
@@ -4047,7 +4047,7 @@ function setTabGroup(group,trigger){
         document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0d1117;color:#e6edf3;text-align:center;flex-direction:column;gap:16px;font-family:system-ui">
           <div style="font-size:3rem">!</div>
           <h2>${config.expiredTitle || 'Sua sessao expirou'}</h2>
-          <p style="color:#8b949e">${config.expiredMessage || 'Entre novamente para continuar usando o NetGuard IDS.'}</p>
+          <p style="color:#8b949e">${config.expiredMessage || 'Entre novamente para continuar usando o SAFE Enterprise Defense Platform.'}</p>
           <a href="${config.expiredHref || '/login'}" style="background:#1f6feb;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600">${config.expiredCta || 'Entrar novamente ->'}</a>
         </div>`;
         return;
@@ -4068,13 +4068,13 @@ function setTabGroup(group,trigger){
   if(window.__TRIAL__){
     const t   = window.__TRIAL__;
     renderTimedBanner({
-      label: t.label || 'Trial NetGuard IDS',
+      label: t.label || 'Trial SAFE Enterprise Defense Platform',
       company: t.company || t.name || t.email,
       remainingSeconds: t.remainingSeconds,
       linkHref: t.linkHref || '/pricing',
       linkLabel: t.linkLabel || 'Assinar agora ->',
       expiredTitle: t.expiredTitle || 'Seu trial expirou',
-      expiredMessage: t.expiredMessage || 'Assine para continuar usando o NetGuard IDS.',
+      expiredMessage: t.expiredMessage || 'Assine para continuar usando o SAFE Enterprise Defense Platform.',
       expiredHref: t.expiredHref || '/pricing',
       expiredCta: t.expiredCta || 'Ver planos ->',
     });
@@ -6982,7 +6982,7 @@ function loadCompliance(){
     <div class="module-title">📋 Relatórios de Conformidade</div>
     <div class="module-copy">
       Gere relatórios PDF detalhados de conformidade com os principais frameworks de segurança.
-      Cada relatório avalia controles específicos do framework com base nos eventos monitorados pelo NetGuard IDS.
+      Cada relatório avalia controles específicos do framework com base nos eventos monitorados pelo SAFE Enterprise Defense Platform.
     </div>
     <div class="card-grid-3">
       ${[
@@ -7006,8 +7006,8 @@ function loadCompliance(){
         </div>`).join('')}
     </div>
     <div class="info-note">
-      ℹ️ Os relatórios são gerados com base nos eventos registrados pelo NetGuard IDS no período selecionado.
-      Para uma avaliação completa de conformidade, combine o relatório NetGuard com evidências adicionais (políticas, contratos BAA, etc.).
+      ℹ️ Os relatórios são gerados com base nos eventos registrados pelo SAFE Enterprise Defense Platform no período selecionado.
+      Para uma avaliação completa de conformidade, combine o relatório SAFE com evidências adicionais (políticas, contratos BAA, etc.).
     </div>
   </div>`;
 }
@@ -7201,7 +7201,7 @@ async function loadWebhooks(){
   if(!list) return;
   const whs = r?.webhooks || [];
   if(!whs.length){
-    list.innerHTML = `<div class="panel-card module-empty tall"><span>🔔 Nenhum webhook configurado. Conecte o NetGuard ao Slack, Teams, Discord, Telegram ou WhatsApp para receber alertas críticos em tempo real.</span></div>`;
+    list.innerHTML = `<div class="panel-card module-empty tall"><span>🔔 Nenhum webhook configurado. Conecte o SAFE ao Slack, Teams, Discord, Telegram ou WhatsApp para receber alertas críticos em tempo real.</span></div>`;
     return;
   }
   const typeIcon = {
@@ -7329,7 +7329,7 @@ async function downloadReportPDF(){
   const status = document.getElementById('stats-dl-status');
   if(status) status.textContent = '⏳ Gerando PDF…';
   try {
-    const params = new URLSearchParams({ month, name: 'Cliente', company: 'NetGuard IDS' });
+    const params = new URLSearchParams({ month, name: 'Cliente', company: 'SAFE Enterprise Defense Platform' });
     const resp   = await fetch(`/api/report/monthly?${params}`, {
       headers: { 'X-API-Key': window._apiKey || '' }
     });
@@ -7407,7 +7407,7 @@ async function obSaveWebhook(){
   const secret = document.getElementById('ob-wh-secret')?.value.trim();
   if(!url){ toast('Cole a URL do webhook','err'); return; }
   const r = await api('/webhooks',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({name:`${type} — NetGuard Alerts`,url,type,min_severity:'high',secret})});
+    body:JSON.stringify({name:`${type} — SAFE Alerts`,url,type,min_severity:'high',secret})});
   if(r?.id || r?.ok !== false){
     toast('Webhook salvo!','ok');
     obNext(3);

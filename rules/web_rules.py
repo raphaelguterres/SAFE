@@ -1,5 +1,5 @@
 """
-NetGuard — Web Detection Rules
+SAFE — Web Detection Rules
 Pack completo de regras de detecção web.
 """
 

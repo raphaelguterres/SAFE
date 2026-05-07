@@ -1,5 +1,5 @@
 """
-SQLite implementation of the NetGuard `Repository` interface.
+SQLite implementation of the SAFE `Repository` interface.
 
 Notes:
 

@@ -1,4 +1,4 @@
-# NetGuard IDS — dependências para Docker/CI (Linux, sem display)
+# SAFE Enterprise Defense Platform — dependências para Docker/CI (Linux, sem display)
 # Versões pinadas — alinhe com requirements.txt ao atualizar
 
 # Core web

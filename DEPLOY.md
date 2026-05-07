@@ -1,6 +1,6 @@
-# NetGuard IDS - Production Deploy Guide
+# SAFE Enterprise Defense Platform - Production Deploy Guide
 
-Use this guide when you want NetGuard running as a serious demo, portfolio environment, small SOC lab, or early SaaS deployment.
+Use this guide when you want SAFE running as a serious demo, portfolio environment, small SOC lab, or early SaaS deployment.
 
 ## Production baseline
 
@@ -304,7 +304,7 @@ Expected checks:
 
 ## Background jobs and startup behavior
 
-NetGuard now avoids dangerous side effects on import.
+SAFE now avoids dangerous side effects on import.
 
 By default:
 

@@ -1,6 +1,6 @@
-# NetGuard Enterprise Hardening & Trust Core
+# SAFE Enterprise Hardening & Trust Core
 
-This phase strengthens NetGuard for enterprise-like EDR/XDR operation. The
+This phase strengthens SAFE for enterprise-like EDR/XDR operation. The
 focus is trust, tenant isolation, auditability, replay resistance, and safe
 production readiness. It is defensive only: no bypass, no evasion, no malware
 behavior, and no destructive endpoint action without explicit policy approval.

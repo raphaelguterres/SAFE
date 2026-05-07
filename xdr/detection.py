@@ -1,4 +1,4 @@
-"""Behavior-based detection engine orchestration for NetGuard XDR."""
+"""Behavior-based detection engine orchestration for SAFE XDR."""
 
 from __future__ import annotations
 

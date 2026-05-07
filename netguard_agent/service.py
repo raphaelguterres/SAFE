@@ -98,7 +98,7 @@ class NetGuardAgent:
         data = json.dumps(snapshot).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": f"NetGuard-Agent/2.0 ({self.host_id})",
+            "User-Agent": f"SAFE-Agent/2.0 ({self.host_id})",
         }
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
@@ -166,7 +166,7 @@ class NetGuardAgent:
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="NetGuard endpoint agent")
+    parser = argparse.ArgumentParser(description="SAFE endpoint agent")
     parser.add_argument("--hub", required=True, help="Server base URL, e.g. http://127.0.0.1:5000")
     parser.add_argument("--token", default="", help="Bootstrap tenant/admin API token")
     parser.add_argument("--agent-key", default="", help="Previously issued host API key")

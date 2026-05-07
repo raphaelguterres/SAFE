@@ -287,7 +287,7 @@ class EventSender:
     def _headers(self) -> dict:
         return {
             "Content-Type": "application/json",
-            "User-Agent": "NetGuard-Agent/1.0",
+            "User-Agent": "SAFE-Agent/1.0",
             "X-API-Key": self.api_key,
             "X-NetGuard-Agent-Key": self.api_key,
         }

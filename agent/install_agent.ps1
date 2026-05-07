@@ -1,11 +1,11 @@
-# NetGuard Agent Windows service installer.
+# SAFE Agent Windows service installer.
 #
 # Run from an elevated PowerShell prompt on the endpoint:
 #   powershell -ExecutionPolicy Bypass -File .\install_agent.ps1 -Start
 
 [CmdletBinding()]
 param(
-    [string]$InstallDir = "$env:ProgramFiles\NetGuard\Agent",
+    [string]$InstallDir = "$env:ProgramFiles\SAFE\Agent",
     [string]$ExePath = "",
     [string]$ConfigPath = ".\config.yaml",
     [string]$ServiceName = "NetGuardAgent",
@@ -90,13 +90,13 @@ if (-not $existing) {
 }
 
 & sc.exe config $ServiceName start= delayed-auto | Out-Null
-& sc.exe description $ServiceName "NetGuard Endpoint Agent telemetry and response sensor" | Out-Null
+& sc.exe description $ServiceName "SAFE Agent telemetry and response sensor" | Out-Null
 
 if ($Start) {
     Start-Service -Name $ServiceName
 }
 
-Write-Host "NetGuard Agent installed." -ForegroundColor Green
+Write-Host "SAFE Agent installed." -ForegroundColor Green
 Write-Host "Service: $ServiceName"
 Write-Host "Binary:  $targetExe"
 Write-Host "Config:  $targetConfig"

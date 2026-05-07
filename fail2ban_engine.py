@@ -1,5 +1,5 @@
 """
-NetGuard Fail2Ban Engine v1.0
+SAFE Fail2Ban Engine v1.0
 Inspirado no Fail2Ban original — mas nativo no Windows via Windows Firewall.
 
 Funcionalidades:

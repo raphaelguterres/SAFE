@@ -1,5 +1,5 @@
 """
-NetGuard Packet Capture v1.0
+SAFE Packet Capture v1.0
 Captura pacotes reais da interface Ethernet em tempo real.
 Detecta: SYN flood, port scan, ARP spoofing, DNS poisoning,
          payloads suspeitos em HTTP, conexões para C2.

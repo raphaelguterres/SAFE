@@ -1,5 +1,5 @@
 """
-NetGuard Detection Engine — rule-based pattern detection on the
+SAFE Detection Engine — rule-based pattern detection on the
 canonical event schema.
 
 Inputs: a list of `Event`s (or plain dicts that match the schema).

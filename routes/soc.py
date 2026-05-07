@@ -110,7 +110,7 @@ def create_soc_blueprint(
                     ("Tenant", base_context["tenant_name"]),
                     ("Operating System", "Unknown"),
                     ("Status", "Offline"),
-                    ("Sensor", "NetGuard Agent / XDR Pipeline"),
+                    ("Sensor", "SAFE Agent / XDR Pipeline"),
                 ],
             }
         return render_template("soc/host_detail.html", **context)

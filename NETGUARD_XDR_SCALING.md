@@ -1,6 +1,6 @@
-# NetGuard XDR Scaling Architecture
+# SAFE XDR Scaling Architecture
 
-This document describes the Scalable XDR Platform Core added to NetGuard. The
+This document describes the Scalable XDR Platform Core added to SAFE. The
 goal is to let the platform handle multiple endpoints, noisy telemetry, and SOC
 response workflows without unbounded queues or cross-tenant data leakage.
 

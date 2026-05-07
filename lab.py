@@ -1,5 +1,5 @@
 """
-NetGuard Lab v3.0 — Laboratório de Testes e Bloqueio
+SAFE Lab v3.0 — Laboratório de Testes e Bloqueio
 Testa assinaturas, valida falsos positivos, gerencia bloqueios.
 Roda junto com o app.py (terminal separado).
 """
@@ -172,7 +172,7 @@ def menu_manual():
 def main():
     print(f"\n{B}{C}")
     print("  ╔══════════════════════════════════════════════════╗")
-    print("  ║  NetGuard Lab v3.0 — Testes e Bloqueios         ║")
+    print("  ║  SAFE Lab v3.0 — Testes e Bloqueios         ║")
     print(f"  ║  IP de lab: {IP_LAB}                      ║")
     print("  ╚══════════════════════════════════════════════════╝")
     print(E)

@@ -1,4 +1,4 @@
-"""Bounded nonce replay protection for NetGuard agent trust."""
+"""Bounded nonce replay protection for SAFE agent trust."""
 
 from __future__ import annotations
 

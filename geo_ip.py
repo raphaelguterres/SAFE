@@ -1,5 +1,5 @@
 """
-NetGuard GeoIP — geolocalização de IP, sem chamada externa.
+SAFE GeoIP — geolocalização de IP, sem chamada externa.
 
 Estratégia em 2 camadas (a primeira que responder ganha):
 

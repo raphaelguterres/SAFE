@@ -1,5 +1,5 @@
 """
-NetGuard IDS — Gerador de Relatório Mensal em PDF
+SAFE Enterprise Defense Platform — Gerador de Relatório Mensal em PDF
 Produz um relatório executivo pronto para o MSSP enviar ao cliente.
 
 Uso:
@@ -27,7 +27,7 @@ from reportlab.platypus import (
 from reportlab.graphics.shapes import Drawing
 from reportlab.graphics.charts.barcharts import VerticalBarChart
 
-# ── Paleta NetGuard ───────────────────────────────────────────────
+# ── Paleta SAFE ───────────────────────────────────────────────
 C_BG       = colors.HexColor("#0d1117")
 C_SURFACE  = colors.HexColor("#161b22")
 C_BORDER   = colors.HexColor("#30363d")
@@ -254,7 +254,7 @@ class _PageDecorator:
 
         canvas.setFont("Helvetica-Bold", 8)
         canvas.setFillColor(C_TEXT)
-        canvas.drawString(0.7*cm, h - 0.72*cm, "NetGuard IDS")
+        canvas.drawString(0.7*cm, h - 0.72*cm, "SAFE Enterprise Defense Platform")
         canvas.setFont("Helvetica", 8)
         canvas.setFillColor(C_MUTED)
         canvas.drawString(3.5*cm, h - 0.72*cm,
@@ -270,7 +270,7 @@ class _PageDecorator:
         canvas.setFillColor(C_MUTED)
         canvas.setFont("Helvetica", 7)
         canvas.drawCentredString(w/2, 0.7*cm,
-            f"Página {doc.page}  |  Documento confidencial — uso exclusivo do cliente  |  NetGuard IDS")
+            f"Página {doc.page}  |  Documento confidencial — uso exclusivo do cliente  |  SAFE Enterprise Defense Platform")
         canvas.setStrokeColor(C_BORDER)
         canvas.line(0.5*cm, 1.1*cm, w - 0.5*cm, 1.1*cm)
 
@@ -347,7 +347,7 @@ def generate_monthly_report(
     tenant_id: str = "default",
     month: Optional[str] = None,
     tenant_name: str = "Cliente",
-    company_name: str = "NetGuard IDS",
+    company_name: str = "SAFE Enterprise Defense Platform",
 ) -> bytes:
     """
     Gera o relatório mensal em PDF e retorna os bytes.
@@ -613,7 +613,7 @@ def generate_monthly_report(
     story.append(HRFlowable(width=W, color=C_BORDER, thickness=0.4))
     story.append(Spacer(1, 0.3*cm))
     story.append(Paragraph(
-        f"Este relatório foi gerado automaticamente pelo NetGuard IDS em {generated}. "
+        f"Este relatório foi gerado automaticamente pelo SAFE Enterprise Defense Platform em {generated}. "
         "Os dados refletem as detecções registradas no período indicado. "
         "Para análise forense detalhada, acesse o dashboard em tempo real.",
         styles["footer"],

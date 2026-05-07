@@ -11,7 +11,7 @@ SOC_DASHBOARD_HTML = r"""<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NetGuard SOC</title>
+  <title>SAFE Security Operations</title>
   <style>
     :root {
       --bg-0: #0a0e14;
@@ -394,7 +394,7 @@ SOC_DASHBOARD_HTML = r"""<!doctype html>
   </section>
 
   <div class="footer">
-    NetGuard EDR · refreshes every 30s ·
+    SAFE EDR · refreshes every 30s ·
     <a href="https://attack.mitre.org" target="_blank" rel="noopener" style="color:var(--accent)">MITRE ATT&CK</a>
   </div>
 

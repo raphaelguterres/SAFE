@@ -1,5 +1,5 @@
 """
-NetGuard Endpoint Agent (T18).
+SAFE Agent (T18).
 
 Pacote do agente Windows / Linux. Empacotável em agent.exe via PyInstaller.
 Conversa com o servidor central por POST /api/events autenticado por

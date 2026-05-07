@@ -1,5 +1,5 @@
 """
-NetGuard — VirusTotal Integration
+SAFE — VirusTotal Integration
 Lookup automático de hashes de processos suspeitos.
 
 API gratuita: 4 requests/minuto, 500/dia.

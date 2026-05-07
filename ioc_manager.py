@@ -1,5 +1,5 @@
 """
-NetGuard IDS - IOC Manager
+SAFE Enterprise Defense Platform - IOC Manager
 Manages custom indicators of compromise per tenant.
 """
 from __future__ import annotations

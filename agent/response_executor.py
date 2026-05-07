@@ -1,4 +1,4 @@
-"""Defensive endpoint response executor for NetGuard agents.
+"""Defensive endpoint response executor for SAFE agents.
 
 This module intentionally implements guarded, auditable defensive actions only.
 It is not a remote shell and it never deletes evidence permanently.

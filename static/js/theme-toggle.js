@@ -1,4 +1,4 @@
-/* NetGuard theme toggle — persistent dark/light switch */
+/* SAFE theme toggle — persistent dark/light switch */
 (function () {
   "use strict";
 

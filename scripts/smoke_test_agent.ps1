@@ -1,4 +1,4 @@
-# NetGuard Agent -- post-build smoke test (PowerShell, Windows).
+# SAFE Agent -- post-build smoke test (PowerShell, Windows).
 #
 # IMPORTANTE: arquivo estritamente ASCII. Veja a nota equivalente em
 # agent/build_agent.ps1 -- PowerShell 5.1 sem BOM le como Windows-1252
@@ -71,7 +71,7 @@ if ($exeFile.Length -lt 4MB) {
 Section "2. Metadados Windows"
 try {
     $ver = $exeFile.VersionInfo
-    if ($ver.CompanyName -eq "NetGuard" -and $ver.ProductName -like "NetGuard*") {
+    if ($ver.CompanyName -eq "SAFE" -and $ver.ProductName -like "SAFE*") {
         Pass "VersionInfo: Company=$($ver.CompanyName) Product='$($ver.ProductName)' v=$($ver.FileVersion)"
     } else {
         Fail "VersionInfo ausente ou errado (Company='$($ver.CompanyName)' Product='$($ver.ProductName)'). Confirme version_info.txt no agent.spec."
@@ -105,7 +105,7 @@ try {
         $out = Receive-Job $job
         Remove-Job $job -Force
         $line = ($out | Out-String).Trim()
-        if ($line -match "NetGuard Endpoint Agent\s+\d+\.\d+\.\d+") {
+        if ($line -match "SAFE Agent\s+\d+\.\d+\.\d+") {
             Pass "stdout: $line"
         } else {
             Fail "Output inesperado: '$line'"

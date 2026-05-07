@@ -1,5 +1,5 @@
 """
-NetGuard — Auto Block Engine
+SAFE — Auto Block Engine
 Bloqueio automático de IPs por Risk Score + opção de reverter.
 
 Fluxo:

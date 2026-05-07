@@ -1,5 +1,5 @@
 """
-NetGuard IDS — Seed de dados de demonstração
+SAFE Enterprise Defense Platform — Seed de dados de demonstração
 Popula um tenant de demo com 30 dias de eventos realistas.
 
 Uso:
@@ -20,7 +20,7 @@ from datetime import datetime, timezone, timedelta
 # ── Config ────────────────────────────────────────────────────────
 DEMO_TENANT_ID = "demo-tenant-netguard"
 DEMO_TOKEN     = "ng_DEMO00000000000000000000000000"
-DEMO_NAME      = "Empresa Demo — NetGuard IDS"
+DEMO_NAME      = "Empresa Demo — SAFE Enterprise Defense Platform"
 DEMO_PLAN      = "pro"
 
 # ── Dados realistas ───────────────────────────────────────────────
@@ -700,7 +700,7 @@ def clear_demo(repo, verbose: bool = True) -> None:
 
 # ── CLI ───────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="NetGuard Demo Seed")
+    parser = argparse.ArgumentParser(description="SAFE Demo Seed")
     parser.add_argument("--clear", action="store_true",
                         help="Remove eventos do tenant demo antes de inserir")
     parser.add_argument("--only-clear", action="store_true",

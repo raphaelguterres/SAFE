@@ -1,4 +1,4 @@
-"""Host protection state evaluation for NetGuard Enterprise Defense Core."""
+"""Host protection state evaluation for SAFE Defense Core."""
 
 from __future__ import annotations
 

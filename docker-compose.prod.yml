@@ -1,7 +1,7 @@
 version: "3.9"
 
 # ─────────────────────────────────────────────────────────────────
-#  NetGuard IDS — docker-compose de PRODUÇÃO
+#  SAFE Enterprise Defense Platform — docker-compose de PRODUÇÃO
 #
 #  Pré-requisitos:
 #    1. Domínio apontando para o IP do servidor

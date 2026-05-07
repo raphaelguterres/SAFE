@@ -1,5 +1,5 @@
 """
-NetGuard — Threat Hunting Engine
+SAFE — Threat Hunting Engine
 Query language para busca em eventos históricos.
 
 Sintaxe:

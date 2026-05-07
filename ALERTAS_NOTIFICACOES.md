@@ -1,4 +1,4 @@
-# 🔔 NetGuard IDS — Alertas & Notificações
+# 🔔 SAFE Enterprise Defense Platform — Alertas & Notificações
 
 Guia completo para configurar cada canal de alerta suportado.
 Todos os canais são configurados via **Webhooks** — sem necessidade de reiniciar o servidor.
@@ -24,7 +24,7 @@ Todos os canais são configurados via **Webhooks** — sem necessidade de reinic
 
 ## Como funciona
 
-O NetGuard IDS dispara alertas em background (sem bloquear a detecção) para cada webhook cadastrado que atenda os critérios de severidade e tipo de evento.
+O SAFE Enterprise Defense Platform dispara alertas em background (sem bloquear a detecção) para cada webhook cadastrado que atenda os critérios de severidade e tipo de evento.
 
 ```
 Detecção de ameaça
@@ -77,7 +77,7 @@ Ao cadastrar um webhook você define:
 1. Inicie uma conversa com seu bot
 2. Acesse o mesmo URL acima e pegue o `id` dentro de `"chat"`
 
-### 3. Cadastrar no NetGuard
+### 3. Cadastrar no SAFE
 
 ```bash
 curl -X POST http://localhost:5000/api/webhooks \
@@ -125,7 +125,7 @@ curl -X POST http://localhost:5000/api/webhooks \
 
 O número destino vai no endpoint da URL. Formato: `5511999999999` (DDI + DDD + número, sem `+` ou espaços).
 
-### 3. Cadastrar no NetGuard
+### 3. Cadastrar no SAFE
 
 ```bash
 curl -X POST http://localhost:5000/api/webhooks \
@@ -164,7 +164,7 @@ curl -X POST http://localhost:5000/api/webhooks \
 3. Copie: **Account SID** e **Auth Token**
 4. Note o número Twilio no formato `whatsapp:+14155238886`
 
-### 2. Cadastrar no NetGuard
+### 2. Cadastrar no SAFE
 
 ```bash
 curl -X POST http://localhost:5000/api/webhooks \
@@ -193,7 +193,7 @@ curl -X POST http://localhost:5000/api/webhooks \
 2. Vá em **Incoming Webhooks** → ative → **Add New Webhook to Workspace**
 3. Selecione o canal e copie a URL gerada
 
-### 2. Cadastrar no NetGuard
+### 2. Cadastrar no SAFE
 
 ```bash
 curl -X POST http://localhost:5000/api/webhooks \
@@ -219,7 +219,7 @@ curl -X POST http://localhost:5000/api/webhooks \
 2. Clique em **Novo Webhook**, defina nome e ícone
 3. Copie a **URL do Webhook**
 
-### 2. Cadastrar no NetGuard
+### 2. Cadastrar no SAFE
 
 ```bash
 curl -X POST http://localhost:5000/api/webhooks \
@@ -245,7 +245,7 @@ curl -X POST http://localhost:5000/api/webhooks \
 2. Pesquise **Incoming Webhook** → **Configurar**
 3. Dê um nome, faça upload de ícone (opcional) e copie a URL
 
-### 2. Cadastrar no NetGuard
+### 2. Cadastrar no SAFE
 
 ```bash
 curl -X POST http://localhost:5000/api/webhooks \

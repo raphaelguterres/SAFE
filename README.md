@@ -1,572 +1,215 @@
-# NetGuard IDS
+# SAFE
 
-A host-centric **Intrusion Detection / EDR / SIEM hybrid** built in Python — single-binary SOC dashboard, multi-tenant SaaS layer, deterministic risk scoring, and a one-click Host Triage View that gets the operator from "something is wrong" to "this is the next action" in a single click.
+**Enterprise XDR / EDR Platform**
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)](https://python.org)
-[![Flask](https://img.shields.io/badge/Flask-3.x-000000?logo=flask)](https://flask.palletsprojects.com/)
-[![MITRE ATT&CK](https://img.shields.io/badge/MITRE-ATT%26CK%20Aligned-red)](https://attack.mitre.org)
-[![Pentest](https://img.shields.io/badge/pentest-34%2F34%20passing-brightgreen)](run_pentest_audit.py)
-[![License](https://img.shields.io/badge/License-MIT-lightgrey)](LICENSE)
-[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker)](DOCKER.md)
+SAFE is an enterprise-style defense platform built from the original IDS codebase. It combines endpoint telemetry, XDR ingestion, deterministic detection, MITRE ATT&CK mapping, Kill Chain context, tenant-aware SOC workflows, incident lifecycle, and guarded response actions in one Python/Flask platform.
 
-> **Status:** active solo project, ~135 commits. The codebase is shipped through small T-rounds (T6 → T15) — each round adds a feature **and** a regression test in `run_pentest_audit.py`. Every merge to `main` keeps the suite at green.
+The project keeps the existing technical contracts for compatibility while presenting a cleaner SAFE product identity:
 
----
+- **SAFE Core:** Flask server, auth, RBAC, multi-tenant routing, audit, and APIs.
+- **SAFE Agent:** Windows-first endpoint runtime with service mode, offline buffer, telemetry collection, and guarded response executor.
+- **SAFE Console:** admin, SOC, host triage, incidents, live response, and performance views.
+- **SAFE Telemetry:** `/api/events`, `/api/agent/events`, and `/api/xdr/events` ingestion paths.
+- **SAFE Defense Engine:** detection, correlation, Kill Chain, behavior, risk, and response policy engines.
+- **SAFE Orchestration:** response queue, approvals, action signing, and safe rollback-oriented controls.
 
-## Why this exists
+> Compatibility note: legacy API headers and environment variables such as `X-NetGuard-Agent-Key` and `NETGUARD_*` remain supported so existing agents and tests do not break during the rebrand.
 
-Most open IDS/EDR tools either (a) drown an analyst in raw events with no priority, or (b) hide the *why* of a verdict behind a black-box ML model. NetGuard takes the opposite stance:
+## Architecture
 
-- **Determinist risk scoring.** Every host risk number ships with its own breakdown (`"3× CRITICAL = +60 (cap)"`). No ML, no caixa-preta — auditors and SOC leads can reproduce the score from rules.
-- **One-click triage.** Operator opens *Host Triage View* → sees risk + 50-event timeline + a single recommended next action with rationale. No multi-tab dance.
-- **Cross-tenant inbox.** Admins get a single pane that ranks the worst hosts across **all** tenants by score — built for a small MSSP-style operator running 5–50 customers from one console.
-
-If you build a SOC for a small org and don't want to pay $30k/year for a SaaS that hides its math, this is the shape of tool you'd reach for.
-
----
-
-## What's inside
-
-| Capability | Where |
-|---|---|
-| Multi-tenant SaaS (admin god-view + tenant drilldown) | `app.py` admin routes + `templates/admin_dashboard.html` |
-| **Host Triage View** — risk score, next action, 50-event timeline | `/admin/host/<tenant>/<host>` ([T14](SECURITY_REPORT_T14.md)) |
-| **Operator Inbox** — cross-tenant ranking by risk | `/admin/inbox` |
-| Deterministic risk scoring + rule-based "next action" | `_host_risk_score`, `_host_next_action` in `app.py` |
-| World-map view of threat sources (GeoLite2 + prefix DB) | `admin.html` god-view, [T10](SECURITY_REPORT_2026-04-25.md) |
-| XDR-style endpoint ingest with strict event whitelist | `/api/events`, `/api/xdr/events`, `/api/agent/events` |
-| Sigma-like YAML rules with aggregation windows | `rules/yaml/` + `rules/yaml_loader.py` |
-| Incident lifecycle (status, severity, assign, comments) | `engine/incident_engine.py` |
-| RBAC (admin / analyst / viewer) + audit log | `auth.py` + `audit.log()` calls across `app.py` |
-| BruteForceGuard with escalating lockout | `auth.py` |
-| CSRF (cookie + `X-CSRFToken` header) on every destructive admin endpoint | covered by `t11a` regression |
-| SameSite cookie posture (Strict admin / Lax tenant) | covered by `t12b`, `t13a` |
-
----
-
-## Screenshots
-
-> Captured live from the running app at `127.0.0.1:5000` on a seeded multi-tenant database (~614 active clients across ~20 tenants).
-
-### God View — multi-tenant overview
-
-![God View](docs/screenshots/netguard-01-godview.png)
-
-Top of the admin dashboard: every tenant ranked by critical/high event count in the last 24h, total active clients, and a single "worst tenants" leaderboard. Built for a small MSSP-style operator running 5–50 customers from one console.
-
-### Tenant drilldown — timeline + threat origins
-
-![Tenant drilldown](docs/screenshots/netguard-02-tenant-drilldown.png)
-
-Per-tenant view: events-by-hour bar chart and a world map plotting attack source IPs against managed hosts (GeoLite2 + prefix DB). The red dot on the right is a single attack origin from this tenant's last 24h window.
-
-### Operator Inbox — cross-tenant ranking
-
-![Operator Inbox](docs/screenshots/netguard-03-operator-inbox.png)
-
-`/admin/inbox` — every host across every tenant ranked by deterministic risk score, with a single "Próxima Ação" column already filled in. The inbox is the answer to "I have 60 customers, where do I look first."
-
-### Host Triage View — risk + next action + 50-event timeline
-
-![Host Triage View](docs/screenshots/netguard-04-host-triage.png)
-
-`/admin/host/<tenant>/<host>` — the centerpiece of T14 + T15. Risk score with full breakdown (`6× CRITICAL = +60 (cap)`, `6× HIGH = +40`, `1× MEDIUM = +3`), a single recommended next action with rationale, and the enriched 50-event timeline (process_name, command_line, source_ip on each row). One click from the inbox to here, no multi-tab dance.
-
----
-
-## Quick start
-
-```bash
-git clone https://github.com/raphaelguterres/netguard-ids.git
-cd netguard-ids
-python -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-python app.py
+```text
+SAFE Agent / External Producers
+        |
+        v
+SAFE Telemetry API
+  /api/events
+  /api/agent/events
+  /api/xdr/events
+        |
+        v
+SAFE Defense Engine
+  normalize -> detect -> correlate
+  -> behavior -> Kill Chain -> risk
+        |
+        v
+Policy + Orchestration
+  approvals -> signed actions -> agent executor
+        |
+        v
+Storage + SOC
+  SQLite local/demo
+  PostgreSQL-ready repositories
+  SAFE Console / incidents / exports / audit
 ```
 
-Open:
+## Core Capabilities
 
-- **Admin dashboard:** `http://127.0.0.1:5000/admin` (token in `.netguard_token`)
-- **Tenant SOC:** `http://127.0.0.1:5000/soc-preview`
-- **Health:** `http://127.0.0.1:5000/api/health`
+- **Endpoint telemetry:** process, network, host, memory-safe indicators, file quarantine metadata, heartbeat, and agent liveness.
+- **Detection engineering:** built-in XDR detections plus Sigma-like YAML rules in `rules/yaml/`.
+- **Threat correlation:** deterministic correlations across process, network, auth, persistence, and repeated alert patterns.
+- **Kill Chain and MITRE mapping:** host attack stages, tactic/technique context, progression score, and attack story generation.
+- **Risk-based triage:** host score, highest severity, recommended next action, and Operator Inbox prioritization.
+- **Incident workflow:** create, list, assign, comment, update severity/status, export JSON/CSV with redaction.
+- **Multi-tenant operations:** tenant-scoped storage, host registry, tokens, dashboards, drilldowns, and admin overview.
+- **Live response:** safe actions, guarded actions, policy approval, signed response envelopes, and agent-side verification.
+- **Scalable ingest foundation:** bounded queues, priority lanes, deduplication, heartbeat state, orchestration, and performance metrics.
+- **Enterprise hardening:** HMAC agent trust, nonce replay guard, config validator, API abuse guard, audit integrity, and secrets self-check.
 
-Run the regression suite (static AST + grep checks across `app.py` and templates):
+## SAFE Console
 
-```bash
-python run_pentest_audit.py
-# === 34/34 passaram ===
-```
+Primary workspaces:
 
----
+- **Overview:** posture, active incidents, critical hosts, security activity, and recommended next action.
+- **Operator Inbox:** highest-risk hosts ordered by risk and operational priority.
+- **Host Triage:** host profile, attack timeline, risk explanation, related signals, and response actions.
+- **Incidents:** status, severity, assignment, comments, and lifecycle updates.
+- **Agents:** host inventory, liveness, enrollment, heartbeat, and key lifecycle.
+- **Live Response:** pending security actions, approvals, containment state, MITRE context, and response queue.
+- **Performance:** ingest V2 status, queue pressure, dedup ratio, latency, dropped events, and throughput.
 
-## Endpoint agent
+## SAFE Agent
 
-NetGuard currently ships two agent tracks:
+The Windows-first endpoint runtime lives in `agent/` and can run as Python or as `agent.exe`.
 
-- `agent/`: production-oriented Windows endpoint runtime, `agent.exe`, offline buffer, service mode, canonical `POST /api/events`
-- `netguard_agent/`: compatibility runtime used by older flows and demos
-
-The new Windows/runtime-focused agent lives in `agent/`:
-
-```bash
+```powershell
 cd agent
-python -m agent
+python -m agent --config config.yaml
 ```
 
-Recommended secure enrollment flow:
-
-```bash
-# Admin/analyst creates a short-lived enrollment token.
-curl -X POST http://127.0.0.1:5000/api/agent/enrollment-token \
-  -H "X-API-Token: <admin-or-analyst-token>" \
-  -H "Content-Type: application/json" \
-  -d '{"tenant_id":"default","expires_in_seconds":3600,"max_uses":1}'
-
-# Endpoint registers once with the nge_... token and receives a host key.
-curl -X POST http://127.0.0.1:5000/api/agent/register \
-  -H "Content-Type: application/json" \
-  -d '{"host_id":"lab-win-01","platform":"windows","enrollment_token":"nge_..."}'
-```
-
-The issued `nga_...` host key is stored by the agent in its local credential
-store for unattended restarts. Windows uses DPAPI when available.
-
-If an endpoint credential must be refreshed without deleting telemetry, rotate
-the host key and update the agent credential store with the returned one-time
-`nga_...` value:
-
-```bash
-curl -X POST http://127.0.0.1:5000/api/agent/hosts/lab-win-01/rotate-key \
-  -H "X-API-Token: <admin-or-analyst-token>"
-```
-
-To build the standalone Windows binary:
+Build standalone Windows binary:
 
 ```powershell
 cd agent
 powershell -ExecutionPolicy Bypass -File .\build_agent.ps1 -Clean -WithService
-# -> dist\agent.exe
 ```
 
-The compatibility XDR collector in `netguard_agent/` still ships events with a host API key:
+The SAFE Agent supports:
 
-```bash
-python -m netguard_agent \
-  --hub http://127.0.0.1:5000 \
-  --token YOUR_BOOTSTRAP_TOKEN \
-  --host-id lab-win-01 \
-  --mode xdr
-```
+- stable host identity
+- API key authentication
+- offline buffer and retry backoff
+- process and network telemetry
+- local audit JSONL for response actions
+- guarded process kill
+- reversible quarantine
+- simulated and controlled isolation flows
 
-Or with an issued host key (`nga_...`):
+## Security Model
 
-```bash
-python -m netguard_agent \
-  --hub http://127.0.0.1:5000 \
-  --agent-key nga_ISSUED_HOST_KEY \
-  --host-id lab-win-01 \
-  --mode xdr
-```
+SAFE is defensive-only. It does not implement bypass, evasion, malware behavior, credential dumping, stealth persistence, or destructive actions by default.
 
----
+Security controls include:
 
-## Foundation already in place
+- `TOKEN_SIGNING_SECRET` required outside dev/test
+- `IDS_AUTH=true` recommended for production
+- RBAC roles: `owner`, `admin`, `responder`, `analyst`, `viewer`
+- CSRF protection on destructive session-authenticated routes
+- tenant-scoped repositories, caches, deduplication, heartbeat, and orchestration
+- signed response action envelopes
+- HMAC-signed optional Agent Trust V2 requests
+- replay protection with timestamp and nonce
+- audit log integrity verification
+- API abuse protection for ingest surfaces
+- redacted incident export
 
-- Flask server with REST API and SOC dashboard
-- Modular `/agent` runtime with `agent.exe`, Windows service, and Linux systemd install paths
-- Modular endpoint agent (`netguard_agent/`) with legacy and XDR transport modes
-- Host enrollment and inventory registry
-- Structured endpoint event ingest (`/api/events`, `/api/agent/events`, `/api/xdr/events`)
-- RBAC-aware auth model (`admin`, `analyst`, `viewer`)
-- Incident lifecycle API with status, severity, assignment, and comments
-- SQLite-first storage for local/demo, with repositories written to be PostgreSQL-ready
-- Sigma-like YAML rules loaded from `rules/yaml/`
-
-The project still runs locally with the current app entrypoint, but it is organized to support a more professional Agent + Server model.
-
-## Enterprise Protection Layer
-
-NetGuard now includes an EDR-lite protection layer focused on defensive triage,
-safe containment planning, and auditability. It does not implement malware,
-bypass, stealth, evasion, credential theft, or arbitrary remote command
-execution.
-
-```text
-Agent telemetry
-  -> Event ingest
-  -> Detection engine
-  -> Correlation engine
-  -> Kill Chain mapping
-  -> Policy engine
-  -> Response queue / approval
-  -> Agent response executor
-  -> Audit event
-```
-
-Protection rules are fail-closed by design:
-
-- Kill Chain findings map telemetry into MITRE-style stages such as execution, persistence, credential access, command and control, exfiltration, and impact.
-- The policy engine supports `monitor_only`, `manual_approval`, `semi_auto`, and `full_auto_containment`.
-- Safe telemetry actions such as `ping`, `flush_buffer`, and `collect_diagnostics` can run automatically when policy allows.
-- Guarded actions such as host isolation, process termination, IP blocking, and file quarantine require short-lived signed policy approval.
-- `delete_file` stays disabled by default. Quarantine moves evidence to a safe folder and never performs permanent deletion.
-- The agent refuses unsigned actions and refuses protected Windows processes such as `system`, `wininit`, `csrss`, `lsass`, and `services`.
-
-## Enterprise EDR Defense Core
-
-The Enterprise Defense Core extends the EDR foundation with host-centric
-protection state, behavioral detection, safe endpoint response, and live SOC
-workflow.
-
-What it adds:
-
-- **Host defense state:** `monitored`, `suspicious`, `elevated_risk`, `contained`, `isolated`, and `recovery_mode`.
-- **Behavioral detection:** encoded PowerShell, LOLBIN abuse, parent/child anomalies, credential dumping indicators, mass file changes, beaconing, process spawning loops, and persistence signals.
-- **Threat hunting:** repeated lateral movement indicators, beaconing, rare process execution, uncommon admin activity, rare outbound domains, and suspicious authentication chains.
-- **Safe host isolation:** policy-signed, auditable, reversible firewall isolation that preserves NetGuard server connectivity and never blocks localhost.
-- **Process telemetry:** process name, PID, parent PID, command line, SHA256 when safely available, signer status, execution timestamp, user, and integrity indicator.
-- **Quarantine system:** reversible move into `C:\ProgramData\NetGuard\Quarantine` with metadata JSON and SHA256 tracking. No permanent delete.
-- **Memory-safe indicators:** only coarse defensive indicators such as memory spikes and handle anomalies. No credential dumps, no invasive memory reads.
-- **Live Response Console:** `/soc/live-response` shows response queue, pending approvals, host containment state, Kill Chain progression, MITRE context, and threat hunts.
-
-Core APIs:
-
-```text
-GET /api/soc/host/<host_id>
-GET /api/soc/incidents
-GET /api/soc/threat-hunts
-GET /api/soc/live-response
-GET /api/soc/killchain/<host_id>
-```
-
-The Defense Core remains fail-closed: destructive actions are not automatic,
-endpoint actions require signed policy, protected Windows processes are denied,
-and rollback is part of containment design.
-
-## Scalable XDR Platform
-
-NetGuard now includes a scalable XDR platform core designed for multiple hosts,
-high-volume endpoint telemetry, and safer SOC operations under load.
-
-Core additions:
-
-- **Bounded telemetry ingestion:** `xdr/ingestion_pipeline.py` provides bounded priority queues, async consumers, batch processing, backpressure handling, and queue metrics. It is built to fail closed instead of allowing unbounded memory growth.
-- **Priority lanes:** `xdr/priority_engine.py` classifies telemetry into `P0` through `P3`, ensuring credential access, ransomware/impact, privilege escalation, persistence, suspicious PowerShell, and beaconing are processed before low-risk telemetry.
-- **Deduplication:** `xdr/dedup_engine.py` suppresses repeated process, authentication, network, and alert floods using tenant-scoped rolling-window fingerprints with TTL.
-- **Storage adapter:** `storage/storage_adapter.py` separates hot events, incidents, audit logs, and telemetry history with SQLite as the local backend and PostgreSQL-ready SQL paths for production.
-- **Heartbeat engine:** `xdr/heartbeat_engine.py` evaluates host freshness as `healthy`, `degraded`, `delayed`, `offline`, or `isolated`.
-- **Response orchestration:** `xdr/orchestration_engine.py` coordinates staged multi-host containment, approvals, retries, timeouts, and rollback actions.
-- **Performance observability:** `/admin/performance` and `/api/admin/performance` expose events/sec, queue depth, worker status, latency, dropped events, dedup ratio, V2 feature-flag state, and tenant-safe counters.
-- **Agent buffer optimization:** `agent/sender.py` chunks large envelopes, keeps an offline cache cap, exposes buffer stats, and includes a compression preview helper for future compatible transports.
-
-The current `/api/xdr/events` path remains synchronous for compatibility, but
-records performance metrics and is ready to be fronted by the bounded ingestion
-pipeline when deployment scale requires it.
-
-To enable the bounded V2 path for `/api/xdr/events`:
-
-```bash
-NETGUARD_XDR_INGEST_V2=true
-NETGUARD_XDR_QUEUE_MAX=5000
-NETGUARD_XDR_BATCH_SIZE=100
-NETGUARD_XDR_CONSUMERS=1
-```
-
-When enabled, the endpoint returns `202 Accepted` with queue status instead of
-inline detection details. Leave it disabled for demos or integrations that
-expect the original synchronous response contract.
-
-Admin operators can inspect and safely control the queue from `/admin/performance`
-or via `POST /api/admin/ingest-v2/control` with `start`, `stop`, or `drain`.
-The start action is blocked unless `NETGUARD_XDR_INGEST_V2=true`; all mutating
-controls remain admin-gated, CSRF-protected, rate-limited, and audited.
-
-See [NETGUARD_XDR_SCALING.md](NETGUARD_XDR_SCALING.md) for the scaling model,
-queue behavior, retention strategy, and rollout guidance.
-
-## Enterprise Hardening & Trust Model
-
-NetGuard now includes an enterprise hardening layer focused on trust, replay
-resistance, tenant isolation, audit integrity, and production-readiness checks.
-
-Core additions:
-
-- **Agent Trust V2:** optional HMAC-signed agent requests with tenant id, host id, agent id, timestamp, nonce, and anti-replay validation.
-- **Replay guard:** bounded nonce cache scoped by tenant and agent, rejecting reused nonces inside a 60 second trust window.
-- **Action Signing V2:** response actions include a signed envelope binding action id, tenant, host, action type, parameters hash, approval id, policy mode, and expiry.
-- **RBAC approvals:** `owner`, `admin`, `responder`, `analyst`, and `viewer` now model response approval boundaries more clearly.
-- **API abuse guard:** ingest routes enforce payload size, batch size, event type whitelist, and tenant/agent-scoped rate limits.
-- **Audit integrity:** `/api/admin/audit/integrity` verifies audit chain integrity over current and rotated audit logs.
-- **Config status:** `/api/admin/config/status` reports production-readiness posture without exposing secrets.
-- **Secure exports:** `/api/incidents/export` exports tenant-scoped JSON/CSV with secret-field redaction and audit logging.
-
-Enable strict agent request signing with:
+Strict agent request signing can be enabled with:
 
 ```bash
 NETGUARD_AGENT_TRUST_V2=true
 ```
 
-For production, configure strong values for `TOKEN_SIGNING_SECRET`,
-`SECRET_KEY`, `NETGUARD_RESPONSE_POLICY_SECRET`, and optionally
-`NETGUARD_RESPONSE_ACTION_SECRET`. NetGuard remains defensive-only: no bypass,
-no evasion, and no destructive endpoint action without approval.
+## Agent Trust Model
 
-See [NETGUARD_ENTERPRISE_HARDENING.md](NETGUARD_ENTERPRISE_HARDENING.md) for
-the full trust model and production checklist.
+Agent Trust V2 validates:
 
-## Operating Modes
+- tenant id
+- host id
+- agent id
+- timestamp within a 60 second window
+- nonce uniqueness
+- active registered host
+- HMAC signature over the canonical request
 
-| Mode | Storage | Auth posture | Typical use |
-|------|---------|--------------|-------------|
-| Local dev | SQLite | `IDS_AUTH=false` on loopback only | Fast desktop iteration |
-| Demo / preview | SQLite | Token or preview flow | Portfolio demos and customer preview |
-| Production | PostgreSQL recommended | `IDS_AUTH=true`, dashboard auth, reverse proxy/TLS | VPS, cloud, small SaaS deployment |
+The legacy host API key model remains available for compatibility.
 
-Important hardening already enforced:
+## Deployment
 
-- `TOKEN_SIGNING_SECRET` is mandatory outside `dev/test`
-- Startup fails closed if `IDS_AUTH=false` is exposed outside loopback unless explicitly bypassed
-- Admin rate limiting uses shared SQLite storage per host
-- Modular `/api/events` can use a shared SQLite rate-limit bucket for multi-worker single-host deploys
-- Modular `/api/events` can use Redis for multi-node ingest rate limiting
-- Audit logs rotate and retain automatically
-- Background jobs do not autostart on import in WSGI/Gunicorn mode
+Local demo:
 
-## Architecture
-
-See the full architecture note in [NETGUARD_AGENT_SERVER_ARCHITECTURE.md](NETGUARD_AGENT_SERVER_ARCHITECTURE.md).
-
-High-level flow:
-
-```text
-netguard_agent / external producers
-        |
-        +--> POST /api/events
-        +--> POST /api/agent/register
-        +--> POST /api/agent/heartbeat
-        +--> POST /api/agent/events
-        +--> POST /api/xdr/events
-                    |
-                    v
-             XDR pipeline
-     normalize -> detect -> correlate
-        -> score host -> persist events
-        -> create response actions
-        -> feed incidents / SOC views
-                    |
-                    v
-     repositories (SQLite local, PostgreSQL-ready)
-        - EventRepository
-        - HostRepository
-        - IncidentRepository
-                    |
-                    v
-      SOC dashboard + incidents + reporting APIs
+```bash
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+python app.py
 ```
 
-Core building blocks:
+Open:
 
-- `agent/`: Windows-first endpoint runtime, offline buffer, service wrapper, PyInstaller build
-- `netguard_agent/`: compatibility endpoint collector and transport runtime
-- `server/agent_service.py`: host enrollment and agent auth rules
-- `server/api.py`: modular API blueprint for `POST /api/events`
-- `storage/event_repository.py`: event/tenant storage abstraction
-- `storage/host_repository.py`: enrolled host registry and API key validation
-- `storage/incident_repository.py`: incident lifecycle persistence
-- `engine/incident_engine.py`: incident business logic
-- `rules/yaml_loader.py`: Sigma-like YAML rule loading and validation
-- `xdr/`: endpoint schema, detections, pipeline, and agent-side transport helpers
+- `http://127.0.0.1:5000/admin`
+- `http://127.0.0.1:5000/soc`
+- `http://127.0.0.1:5000/soc/live-response`
+- `http://127.0.0.1:5000/admin/performance`
 
-## Authentication and Authorization
+Production posture:
 
-NetGuard now supports multiple access models:
+- use `IDS_AUTH=true`
+- configure strong `TOKEN_SIGNING_SECRET` and `SECRET_KEY`
+- place the app behind TLS/reverse proxy
+- use PostgreSQL for production-scale storage
+- keep rate limiting enabled
+- enable Agent Trust V2 for enterprise agent flows
+- rotate host keys and response signing secrets
 
-- Admin token from `.netguard_token`
-- Tenant tokens (`ng_...`) stored in the repository
-- Host API keys (`nga_...`) for enrolled agents
+## Important APIs
 
-RBAC is enforced across sensitive flows:
-
-- `admin`: full platform access
-- `analyst`: operational access to incidents, hosts, and agent enrollment
-- `viewer`: read-oriented access, no host enrollment or incident mutation
-
-Tenant tokens can also carry explicit scopes. Missing scopes preserve the
-legacy role defaults; explicit scopes allow narrower tokens such as
-`events:write` for ingest-only automation, `hosts:manage` for enrollment/key
-lifecycle, and `response:queue` for server-to-agent actions.
-
-Sensitive actions emit audit entries, and incident changes are timeline-backed.
-
-## Detection and Rule Model
-
-The project now supports two complementary rule layers:
-
-- Built-in behavioral/XDR detections in `xdr/detections/`
-- Folder-backed YAML rules in `rules/yaml/`
-
-Included YAML examples:
-
-- `rules/yaml/suspicious_powershell.yml`
-- `rules/yaml/bruteforce.yml`
-- `rules/yaml/port_scan.yml`
-
-These rules support:
-
-- field matching (`equals`, `contains`, `regex`, numeric comparisons)
-- `all` / `any` matching blocks
-- simple aggregation windows (`count`, `within_seconds`, `group_by`, `distinct_field`)
-- Sigma-like metadata (`level`, `status`, `references`, `falsepositives`, `logsource`)
-- Sigma-like selections such as `detection.selection` with `condition: selection`
-- common Sigma field modifiers (`CommandLine|contains`, `Image|endswith`, `field|regex`)
-
-The Sigma compatibility layer is intentionally conservative. It supports the subset needed for portable endpoint/process/network/auth rules while rejecting ambiguous mixed logical expressions instead of silently weakening detections.
-
-Operators can inspect loaded built-in and YAML detection content through `/api/detection/rules`, including MITRE coverage, event-type coverage, and YAML files skipped during validation.
-
-## Main Endpoints
-
-### Agent and ingest
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/events` | `POST` | Canonical EDR ingest endpoint secured by `X-API-Key` |
-| `/api/agent/enrollment-token` | `POST` | Create a short-lived one-time/semi-bulk enrollment token |
-| `/api/agent/enrollment-token/revoke` | `POST` | Revoke an unused enrollment token by raw value |
-| `/api/agent/register` | `POST` | Enroll a host and issue a host API key |
-| `/api/agent/hosts/<host_id>/rotate-key` | `POST` | Rotate a host key and return the new secret once |
-| `/api/agent/hosts/<host_id>/revoke` | `POST` | Revoke a host key while preserving telemetry/history |
-| `/api/agent/hosts/<host_id>/actions` | `POST` | Queue a response action for an enrolled host |
-| `/api/agent/actions/<action_id>/cancel` | `POST` | Cancel a pending/leased response action |
-| `/api/agent/actions` | `GET` | Agent polling endpoint for leased response actions |
-| `/api/agent/actions/<action_id>/ack` | `POST` | Agent ACK endpoint for completed/refused/failed actions |
-| `/api/agent/heartbeat` | `POST` | Update host liveness, version, and metadata |
-| `/api/agent/events` | `POST` | Ingest agent events using host key or token |
-| `/api/xdr/events` | `POST` | Generic structured endpoint event ingest |
-| `/api/agent/status` | `GET` | Agent inventory status view |
-| `/api/detection/rules` | `GET` | Detection rule catalog, MITRE/event coverage, YAML load health |
-
-### Incidents and SOC
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/incidents` | `GET` | List incidents and summary stats |
-| `/api/incidents` | `POST` | Create incident manually or from `event_id` |
-| `/api/incidents/<id>` | `GET` | Incident details and timeline |
-| `/api/incidents/<id>/status` | `PATCH` | Update status (`open`, `investigating`, `resolved`, etc.) |
-| `/api/incidents/<id>/severity` | `PATCH` | Update severity |
-| `/api/incidents/<id>/comments` | `POST` | Add analyst comment |
-| `/api/incidents/<id>/assign` | `POST` | Assign an owner |
-| `/soc-preview` | `GET` | Public preview of the SOC experience |
-| `/soc/incidents` | `GET` | Authenticated incidents queue |
-| `/soc/hosts/<host_id>/actions` | `POST` | Queue safe host response actions from the SOC host detail view |
-| `/soc/hosts/<host_id>/actions/<action_id>/cancel` | `POST` | Cancel a pending/leased host response action from SOC |
-| `/soc/grid` | `GET` | Integrated EDR/SOC grid with host risk, agent liveness, and modular repository data |
-| `/soc/grid/api/rules` | `GET` | SOC-grid detection coverage and YAML health feed |
-
-Incident creation is idempotent for active incidents linked to the same
-`event_id`; repeat create requests return the existing incident with
-`deduplicated=true`. Incident list calls can also filter by `host_id`.
-
-SOC host detail currently exposes only safe response actions by default:
-`ping`, `collect_diagnostics`, and `flush_buffer`. Destructive endpoint
-actions such as isolation, process kill, IP block, and file deletion are
-blocked server-side unless an admin supplies a short-lived HMAC policy
-approval using `NETGUARD_RESPONSE_POLICY_SECRET`. The agent also verifies
-the queued policy with `NETGUARD_AGENT_RESPONSE_POLICY_SECRET` before any
-guarded handler can run; destructive handlers remain disabled/not implemented
-by default.
-
-`collect_diagnostics` is intentionally non-destructive: it returns runtime
-health, buffer state, collection toggles, transport posture, and response-action
-configuration without echoing API keys, policy secrets, query strings, or URL
-userinfo.
-
-### Platform
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/health` | `GET` | Health and subsystem status |
-| `/api/hosts` | `GET` | Host-centric inventory, risk, and telemetry summary |
-| `/metrics` | `GET` | Prometheus metrics |
-| `/demo` | `GET` | Demo bootstrap flow |
-| `/trial/<token>` | `GET` | Trial access flow |
-
-## Storage Strategy
-
-NetGuard keeps SQLite as the default local/demo backend, but the storage layer is now structured so production can move to PostgreSQL without rewriting business logic.
-
-Current repository abstractions:
-
-- `EventRepository`: events, tenants, onboarding artifacts
-- `HostRepository`: managed hosts, API key hashes, heartbeat metadata
-- `IncidentRepository`: incidents and incident timeline records
-- modular EDR `Repository`: schema version, migration history, and checksum-backed migration status
-
-This makes it easier to:
-
-- keep desktop demos frictionless
-- move SaaS or VPS installs to PostgreSQL
-- write tests against business logic without coupling every feature to `app.py`
-- detect pending or drifted EDR storage migrations before production rollout
+```text
+POST /api/events
+POST /api/agent/register
+POST /api/agent/heartbeat
+POST /api/agent/events
+POST /api/xdr/events
+GET  /api/detection/rules
+GET  /api/detection/coverage
+GET  /api/host/<tenant_id>/<host_id>/attack-timeline
+GET  /api/incidents
+GET  /api/incidents/export
+GET  /api/soc/live-response
+GET  /api/admin/performance
+GET  /api/admin/config/status
+GET  /api/admin/audit/integrity
+```
 
 ## Testing
 
-Run the focused regression suite for the new architecture:
-
 ```bash
-python -m pytest \
-  tests/test_agent.py \
-  tests/test_agent_xdr.py \
-  tests/test_xdr_pipeline.py \
-  tests/test_agent_server.py \
-  tests/test_incident_engine.py \
-  tests/test_incidents_api.py \
-  tests/test_yaml_rules.py \
-  tests/test_api_endpoints.py \
-  tests/test_integration.py \
-  tests/test_security.py -q
+python run_pentest_audit.py
+python -m pytest tests/ -v
 ```
 
-The new coverage adds checks for:
+Current quality gates cover auth, RBAC, CSRF, tenant isolation, agent flows, XDR pipeline, incident lifecycle, YAML rules, response executor safety, replay protection, action signing, API guard, config validator, and secure export.
 
-- agent registration, heartbeat, and event ingest
-- agent RBAC enforcement
-- incident engine lifecycle and grouped EDR alerts
-- incident API create/update/comment flows
-- YAML rule loading and aggregation behavior
-
-## Production and Ops Docs
+## Documentation
 
 - [DEPLOY.md](DEPLOY.md): deployment patterns and production checklist
-- [SECURITY.md](SECURITY.md): hardening notes and security posture
-- [NETGUARD_AGENT_SERVER_ARCHITECTURE.md](NETGUARD_AGENT_SERVER_ARCHITECTURE.md): Agent + Server architecture
-- [NETGUARD_ENTERPRISE_HARDENING.md](NETGUARD_ENTERPRISE_HARDENING.md): Agent Trust V2, action signing, tenant isolation, audit integrity
+- [SECURITY.md](SECURITY.md): security model and hardening posture
+- [NETGUARD_AGENT_SERVER_ARCHITECTURE.md](NETGUARD_AGENT_SERVER_ARCHITECTURE.md): Agent + Server compatibility architecture
 - [NETGUARD_XDR_SCALING.md](NETGUARD_XDR_SCALING.md): scalable XDR pipeline and bounded ingestion
-- [DOCKER.md](DOCKER.md): containerized execution
+- [NETGUARD_ENTERPRISE_HARDENING.md](NETGUARD_ENTERPRISE_HARDENING.md): Agent Trust V2, action signing, replay protection, and audit integrity
+- [NETGUARD_EDR_OPERATIONS.md](NETGUARD_EDR_OPERATIONS.md): SOC operations and response workflows
 
-## Realistic Roadmap
+## Roadmap
 
-- [x] Agent + Server foundation with host enrollment and structured endpoint ingest
-- [x] Incident API with severity, status, assignment, and comments
-- [x] YAML rule loader with bundled examples
-- [x] Repository abstraction for hosts and incidents
-- [x] Persistent host-key credential store, short-lived enrollment tokens, and host key rotation/revocation
-- [x] Server-to-agent response action queue with polling, ACK, and safe agent executor
-- [x] Server-side signed policy gate for destructive response action queuing
-- [x] Endpoint-side signed policy verification before guarded response handlers
-- [x] Shared SQLite rate limiting for the modular EDR ingest API
-- [x] Versioned EDR storage migration metadata with checksums/status reporting
-- [x] Tenant-scoped API tokens with narrower operational scopes for agent flows
-- [x] Redis rate-limit backend for multi-node EDR ingest deployments
-- [x] Legacy event/tenant repository migration metadata with checksum/status reporting
-- [x] Scalable XDR platform core with bounded ingest, deduplication, priority lanes, heartbeat, orchestration, and performance dashboard
-- [x] Enterprise hardening and trust core with Agent Trust V2, replay guard, action signing V2, config status, audit integrity, API abuse guard, and secure incident export
-- [ ] Client Dashboard Clean Experience: premium executive/technical client views, clean design-system tokens, host protection cards, incident cards, empty states, and responsive UX
-- [ ] Full domain migrations for all legacy app tables
-- [x] Agent packaging as service/daemon for Windows and Linux
-- [ ] Endpoint-side destructive response handlers beyond fail-closed stubs
+- [x] SAFE Agent + Server foundation
+- [x] Structured XDR telemetry ingest
+- [x] Incident lifecycle and SOC workflows
+- [x] YAML/Sigma-like rule support
+- [x] MITRE and Kill Chain context
+- [x] Guarded response queue and SAFE Agent executor
+- [x] Scalable XDR platform core
+- [x] Enterprise hardening and trust core
+- [ ] Client Dashboard Clean Experience with executive and technical modes
+- [ ] Full production PostgreSQL migration set for legacy tables
+- [ ] Fleet-grade agent rollout, update, and policy management
 
 ## License
 

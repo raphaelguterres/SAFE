@@ -47,10 +47,10 @@ except ImportError:
 
 
 SERVICE_NAME = "NetGuardAgent"
-SERVICE_DISPLAY_NAME = "NetGuard Endpoint Agent"
+SERVICE_DISPLAY_NAME = "SAFE Agent"
 SERVICE_DESCRIPTION = (
     "Coleta telemetria de endpoint (processos, conexões, indicadores "
-    "de segurança) e envia ao servidor central NetGuard."
+    "de segurança) e envia ao servidor central SAFE."
 )
 
 

@@ -1,5 +1,5 @@
 """
-NetGuard — IP Enrichment Engine
+SAFE — IP Enrichment Engine
 Shodan + WHOIS + ASN + Geolocation enrichment.
 
 Dados coletados por IP:
@@ -41,7 +41,7 @@ def _fetch(url: str, timeout: int = 6) -> Optional[dict]:
     try:
         req = urllib.request.Request(
             url,
-            headers={"User-Agent": "NetGuard-IDS/3.0 (security research)"}
+            headers={"User-Agent": "SAFE-XDR/3.0 (security research)"}
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8", errors="replace"))

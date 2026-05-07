@@ -1,4 +1,4 @@
-"""NetGuard EDR/XDR pipeline orchestration."""
+"""SAFE EDR/XDR pipeline orchestration."""
 
 from __future__ import annotations
 

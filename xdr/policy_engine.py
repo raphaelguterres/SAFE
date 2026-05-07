@@ -1,4 +1,4 @@
-"""Policy decisions for safe NetGuard endpoint response."""
+"""Policy decisions for safe SAFE endpoint response."""
 
 from __future__ import annotations
 

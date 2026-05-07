@@ -1,5 +1,5 @@
 """
-NetGuard — ML Baseline Engine
+SAFE — ML Baseline Engine
 Detecta anomalias de comportamento usando Isolation Forest (scikit-learn).
 
 Conceito: aprende o padrão normal do sistema nas primeiras N amostras,

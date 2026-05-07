@@ -1,5 +1,5 @@
 """
-NetGuard — Baseline Engine
+SAFE — Baseline Engine
 Rastreia o que é "normal" no host: processos, IPs, portas.
 Detecta quando algo novo aparece pela primeira vez.
 

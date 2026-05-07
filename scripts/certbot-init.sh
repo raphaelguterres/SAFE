@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────
-#  NetGuard IDS — Emissão inicial do certificado Let's Encrypt
+#  SAFE Enterprise Defense Platform — Emissão inicial do certificado Let's Encrypt
 #
 #  Uso: ./scripts/certbot-init.sh seu.dominio.com
 #

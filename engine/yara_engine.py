@@ -1,5 +1,5 @@
 """
-NetGuard — YARA Rules Engine
+SAFE — YARA Rules Engine
 Detecção de malware por padrões em arquivos e strings.
 
 Suporte a:
@@ -47,7 +47,7 @@ rule Mimikatz_Strings {
         description = "Detecta strings características do Mimikatz"
         severity    = "CRITICAL"
         mitre       = "T1003.001"
-        author      = "NetGuard"
+        author      = "SAFE"
     strings:
         $s1 = "sekurlsa" nocase
         $s2 = "kerberos" nocase

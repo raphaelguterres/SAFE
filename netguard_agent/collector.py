@@ -1,4 +1,4 @@
-"""Snapshot collection helpers for the NetGuard agent."""
+"""Snapshot collection helpers for the SAFE agent."""
 
 from __future__ import annotations
 

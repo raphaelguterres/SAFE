@@ -1,7 +1,7 @@
-# NetGuard SOC Dashboard Design
+# SAFE Security Operations Dashboard Design
 
 ## Design Objective
-Build a CrowdStrike-inspired SOC experience for NetGuard that feels:
+Build a CrowdStrike-inspired SOC experience for SAFE that feels:
 
 - precise
 - credible
@@ -17,7 +17,7 @@ This dashboard should communicate:
 - operational confidence
 
 ## Design Direction
-NetGuard should use a dark, disciplined command-center look with:
+SAFE should use a dark, disciplined command-center look with:
 
 - deep graphite backgrounds
 - restrained electric-cyan primary accent
@@ -41,7 +41,7 @@ Primary navigation:
 5. Timeline
 6. Settings / Tenant / Integrations
 
-Recommended initial NetGuard scope:
+Recommended initial SAFE scope:
 
 - Overview
 - Hosts
@@ -277,7 +277,7 @@ This gives:
 - strong section identity
 - fast mental mapping for analysts
 
-## Integration Approach With Current NetGuard
+## Integration Approach With Current SAFE
 Current state:
 
 - `dashboard.html` is a large single-file app shell

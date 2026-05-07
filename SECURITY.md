@@ -1,6 +1,6 @@
-# NetGuard IDS — Security Model
+# SAFE Enterprise Defense Platform — Security Model
 
-Documento de referência da postura de segurança do NetGuard IDS. Leia antes de
+Documento de referência da postura de segurança do SAFE Enterprise Defense Platform. Leia antes de
 expor a instância em rede não-confiável ou subir pra produção.
 
 ---
@@ -11,7 +11,7 @@ O servidor tem dois níveis de acesso mutuamente exclusivos:
 
 | Nível       | Quem acessa                | Prefixo de rota         | Identificação                 |
 |-------------|----------------------------|-------------------------|-------------------------------|
-| **Admin**   | Operador do NetGuard       | `/admin`, `/api/admin/*`| Bearer token em `.netguard_token` |
+| **Admin**   | Operador do SAFE       | `/admin`, `/api/admin/*`| Bearer token em `.netguard_token` |
 | **Tenant**  | Cliente SaaS (isolado)     | `/api/tenant/*`         | Bearer token per-tenant            |
 
 Um token tenant **não consegue** acessar endpoints admin (decorator

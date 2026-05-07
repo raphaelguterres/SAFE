@@ -1,4 +1,4 @@
-"""HTTP client utilities for the NetGuard agent."""
+"""HTTP client utilities for the SAFE agent."""
 
 from __future__ import annotations
 

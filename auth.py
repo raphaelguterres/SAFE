@@ -1,5 +1,5 @@
 """
-NetGuard — Autenticação e HTTPS
+SAFE — Autenticação e HTTPS
 Token-based auth + certificado self-signed para HTTPS local.
 
 Uso:
@@ -209,7 +209,7 @@ def ensure_safe_startup(
         return
 
     raise RuntimeError(
-        "Refusing to start NetGuard with IDS_AUTH=false on a non-loopback bind "
+        "Refusing to start SAFE with IDS_AUTH=false on a non-loopback bind "
         f"('{host}'). Set IDS_AUTH=true, bind IDS_HOST to 127.0.0.1/localhost, "
         "or set IDS_ALLOW_INSECURE_DEV=true only for isolated labs."
     )
@@ -459,8 +459,8 @@ def generate_self_signed_cert() -> tuple:
 
         # Cria certificado
         subject = issuer = x509.Name([
-            x509.NameAttribute(NameOID.COMMON_NAME, "NetGuard IDS"),
-            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "NetGuard"),
+            x509.NameAttribute(NameOID.COMMON_NAME, "SAFE Enterprise Defense Platform"),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "SAFE"),
         ])
 
         cert = (
@@ -575,7 +575,7 @@ def print_startup_info(host: str = "127.0.0.1"):
 #   como 'false' desativa.
 
 TOTP_FILE        = pathlib.Path(__file__).parent / ".netguard_totp"
-TOTP_ISSUER      = os.environ.get("IDS_TOTP_ISSUER", "NetGuard IDS")
+TOTP_ISSUER      = os.environ.get("IDS_TOTP_ISSUER", "SAFE Enterprise Defense Platform")
 TOTP_ACCOUNT     = os.environ.get("IDS_TOTP_ACCOUNT", "admin")
 # Janela de tolerância — aceita código do período anterior/posterior.
 # Por que ±1: relógios de celulares dessincronizam em segundos; sem janela
@@ -734,8 +734,8 @@ def totp_provisioning_uri(secret_b32: str = None, account: str = None, issuer: s
     leem do label (colon-separated), apps novos leem do query. Passar nos
     dois maximiza compat (Authy antigo, Microsoft Authenticator, etc).
 
-    URL-encoda issuer/account pra suportar espaços ("NetGuard IDS" vira
-    "NetGuard%20IDS") — senão o app quebra ou mostra label truncado.
+    URL-encoda issuer/account pra suportar espaços ("SAFE Enterprise Defense Platform" vira
+    "SAFE%20Enterprise%20Defense%20Platform") — senão o app quebra ou mostra label truncado.
     """
     from urllib.parse import quote
     s = (secret_b32 or totp_get_secret()).replace("=", "")
