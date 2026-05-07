@@ -10,6 +10,10 @@ Módulos públicos:
   - config        : carregamento de config.yaml
   - collector     : coleta de telemetria (host, processos, conexões, segurança)
   - sender        : transporte HTTPS com retry + buffer offline
+  - process_monitor : telemetria defensiva de processos
+  - quarantine_manager : quarentena reversivel sem delete permanente
+  - memory_indicators : indicadores defensivos sem leitura ofensiva de memoria
+  - response_executor : executor defensivo com policy assinada
   - agent         : orquestrador do loop principal
   - service       : wrapper Windows service (pywin32)
 """

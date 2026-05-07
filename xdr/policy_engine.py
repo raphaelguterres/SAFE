@@ -17,7 +17,14 @@ class ResponseMode(str, Enum):
 
 SAFE_AUTOMATIC_ACTIONS = {"collect_diagnostics", "flush_buffer", "ping"}
 SERVER_AUTOMATIC_ACTIONS = {"generate_incident_ticket", "tag_host_risk", "escalate_alert"}
-APPROVAL_REQUIRED_ACTIONS = {"isolate_host", "isolate_host_simulated", "kill_process", "kill_process_guarded"}
+APPROVAL_REQUIRED_ACTIONS = {
+    "isolate_host",
+    "isolate_host_simulated",
+    "safe_host_isolation",
+    "rollback_host_isolation",
+    "kill_process",
+    "kill_process_guarded",
+}
 APPROVAL_REQUIRED_ACTIONS.update({"block_execution_pattern"})
 DISABLED_ACTIONS = {"delete_file", "delete_file_guarded"}
 
@@ -89,13 +96,22 @@ class ResponsePolicyEngine:
                 ["audit_required", "no_system_modification"],
                 expires_at,
             )
-        if action in {"isolate_host", "isolate_host_simulated"}:
+        if action in {"isolate_host", "isolate_host_simulated", "safe_host_isolation"}:
             return self._decision(
                 action,
                 self.mode == ResponseMode.FULL_AUTO_CONTAINMENT and confidence_value >= 0.95,
                 "host isolation requires explicit approval unless full-auto high-confidence containment is enabled",
                 not (self.mode == ResponseMode.FULL_AUTO_CONTAINMENT and confidence_value >= 0.95),
-                ["signed_policy_required", "short_ttl_required", "read_only_route_only"],
+                ["signed_policy_required", "short_ttl_required", "rollback_required", "netguard_server_allowlist_required"],
+                expires_at,
+            )
+        if action == "rollback_host_isolation":
+            return self._decision(
+                action,
+                False,
+                "isolation rollback is restorative but still requires explicit approval and audit",
+                True,
+                ["signed_policy_required", "audit_required", "netguard_owned_rules_only"],
                 expires_at,
             )
         if action in {"kill_process", "kill_process_guarded"}:

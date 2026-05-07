@@ -18,6 +18,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urlparse
 
 from server.response_policy import verify_response_policy
 
@@ -37,6 +38,8 @@ SUPPORTED_ACTIONS = {
     "flush_buffer",
     "ping",
     "isolate_host_simulated",
+    "safe_host_isolation",
+    "rollback_host_isolation",
     "block_ip_windows_firewall",
     "rollback_firewall_rule",
     "kill_process_guarded",
@@ -120,6 +123,10 @@ class EndpointResponseExecutor:
                         "message": "Host isolation simulation recorded; no firewall state was changed.",
                     },
                 )
+            if action_type == "safe_host_isolation":
+                return self._safe_host_isolation(payload)
+            if action_type == "rollback_host_isolation":
+                return self._rollback_host_isolation(payload)
             if action_type == "block_ip_windows_firewall":
                 return self._block_ip(payload)
             if action_type == "rollback_firewall_rule":
@@ -244,6 +251,131 @@ class EndpointResponseExecutor:
         if completed.returncode != 0:
             return self._result("failed", "rollback_firewall_rule", {"error": "netsh_delete_failed", "returncode": completed.returncode})
         return self._result("success", "rollback_firewall_rule", {"rule_name": rule_name})
+
+    def _safe_host_isolation(self, payload: dict[str, Any]) -> EndpointResponseResult:
+        allowed_ips = _allowed_isolation_ips(payload)
+        non_loopback_allowed = [ip for ip in allowed_ips if not ipaddress.ip_address(ip).is_loopback]
+        if not non_loopback_allowed:
+            return self._result("refused", "safe_host_isolation", {"error": "netguard_server_ip_required"})
+        planned_rules = [f"NetGuard Isolation Allow {ip}" for ip in non_loopback_allowed]
+        planned_rules.append("NetGuard Isolation Default Outbound Block")
+        if self.dry_run:
+            return self._result(
+                "skipped",
+                "safe_host_isolation",
+                {
+                    "dry_run": True,
+                    "allowed_ips": allowed_ips,
+                    "planned_rules": planned_rules,
+                    "rollback_action": "rollback_host_isolation",
+                },
+            )
+        if platform.system().lower() != "windows":
+            return self._result("skipped", "safe_host_isolation", {"error": "windows_only", "allowed_ips": allowed_ips})
+        if not payload.get("explicit_approval"):
+            return self._result("refused", "safe_host_isolation", {"error": "explicit_approval_required"})
+
+        previous_policy = _netsh_capture(["netsh", "advfirewall", "show", "currentprofile", "firewallpolicy"])
+        created_rules: list[str] = []
+        for ip in non_loopback_allowed:
+            rule_name = f"NetGuard Isolation Allow {ip}"
+            completed = subprocess.run(
+                [
+                    "netsh",
+                    "advfirewall",
+                    "firewall",
+                    "add",
+                    "rule",
+                    f"name={rule_name}",
+                    "dir=out",
+                    "action=allow",
+                    f"remoteip={ip}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
+            if completed.returncode != 0:
+                return self._result(
+                    "failed",
+                    "safe_host_isolation",
+                    {"error": "netsh_allow_rule_failed", "returncode": completed.returncode, "created_rules": created_rules},
+                )
+            created_rules.append(rule_name)
+
+        completed = subprocess.run(
+            ["netsh", "advfirewall", "set", "currentprofile", "firewallpolicy", "blockinbound,blockoutbound"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        if completed.returncode != 0:
+            return self._result(
+                "failed",
+                "safe_host_isolation",
+                {"error": "netsh_isolation_policy_failed", "returncode": completed.returncode, "created_rules": created_rules},
+            )
+        return self._result(
+            "success",
+            "safe_host_isolation",
+            {
+                "allowed_ips": allowed_ips,
+                "created_rules": created_rules,
+                "previous_policy": previous_policy,
+                "rollback_action": "rollback_host_isolation",
+            },
+        )
+
+    def _rollback_host_isolation(self, payload: dict[str, Any]) -> EndpointResponseResult:
+        allowed_ips = _allowed_isolation_ips(payload)
+        rule_names = [
+            str(item).strip()
+            for item in (payload.get("rule_names") or payload.get("created_rules") or [])
+            if str(item).strip()
+        ]
+        if not rule_names or any(key in payload for key in ("server_ip", "netguard_server_ip", "allowed_ips", "dns_ips", "dns_ip")):
+            for ip in allowed_ips:
+                if ipaddress.ip_address(ip).is_loopback:
+                    continue
+                rule_names.append(f"NetGuard Isolation Allow {ip}")
+        rule_names = [item for item in dict.fromkeys(rule_names) if item.startswith("NetGuard Isolation ")]
+        if self.dry_run:
+            return self._result("skipped", "rollback_host_isolation", {"dry_run": True, "rule_names": rule_names})
+        if platform.system().lower() != "windows":
+            return self._result("skipped", "rollback_host_isolation", {"error": "windows_only", "rule_names": rule_names})
+        if not payload.get("explicit_approval"):
+            return self._result("refused", "rollback_host_isolation", {"error": "explicit_approval_required"})
+
+        deleted: list[str] = []
+        for rule_name in rule_names:
+            completed = subprocess.run(
+                ["netsh", "advfirewall", "firewall", "delete", "rule", f"name={rule_name}"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
+            if completed.returncode == 0:
+                deleted.append(rule_name)
+        restore_policy = str(payload.get("restore_policy") or "blockinbound,allowoutbound").strip().lower()
+        if restore_policy not in {"blockinbound,allowoutbound", "blockinbound,blockoutbound", "allowinbound,allowoutbound"}:
+            return self._result("refused", "rollback_host_isolation", {"error": "invalid_restore_policy", "deleted_rules": deleted})
+        completed = subprocess.run(
+            ["netsh", "advfirewall", "set", "currentprofile", "firewallpolicy", restore_policy],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        if completed.returncode != 0:
+            return self._result(
+                "failed",
+                "rollback_host_isolation",
+                {"error": "netsh_restore_policy_failed", "returncode": completed.returncode, "deleted_rules": deleted},
+            )
+        return self._result("success", "rollback_host_isolation", {"deleted_rules": deleted, "restore_policy": restore_policy})
 
     def _kill_process(self, payload: dict[str, Any]) -> EndpointResponseResult:
         process_name = _clean_process_name(payload.get("process_name"))
@@ -383,3 +515,41 @@ def _is_relative_to(path: Path, root: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def _allowed_isolation_ips(payload: dict[str, Any]) -> list[str]:
+    candidates: list[Any] = []
+    for key in ("server_ip", "netguard_server_ip", "dns_ip"):
+        if payload.get(key):
+            candidates.append(payload.get(key))
+    for key in ("allowed_ips", "dns_ips"):
+        values = payload.get(key)
+        if isinstance(values, list):
+            candidates.extend(values)
+    server_url = str(payload.get("server_url") or "").strip()
+    if server_url:
+        host = urlparse(server_url).hostname or ""
+        candidates.append(host)
+    candidates.extend(["127.0.0.1", "::1"])
+
+    valid: list[str] = []
+    for value in candidates:
+        raw = str(value or "").strip()
+        if not raw:
+            continue
+        try:
+            ip = ipaddress.ip_address(raw)
+        except ValueError:
+            continue
+        normalized = str(ip)
+        if normalized not in valid:
+            valid.append(normalized)
+    return valid
+
+
+def _netsh_capture(args: list[str]) -> str:
+    try:
+        completed = subprocess.run(args, capture_output=True, text=True, timeout=15, check=False)
+        return (completed.stdout or completed.stderr or "")[:1000]
+    except Exception:
+        return ""

@@ -168,3 +168,35 @@ def test_executor_firewall_rollback_is_dry_run_and_netguard_scoped():
     assert ok.status == "skipped"
     assert ok.result["rule_name"] == "NetGuard Block 8.8.8.8"
     assert refused.status == "refused"
+
+
+def test_executor_safe_host_isolation_requires_netguard_server_allowlist():
+    result = _executor().execute(_signed_action("safe_host_isolation", {"allowed_ips": ["127.0.0.1"]}))
+
+    assert result.status == "refused"
+    assert result.result["error"] == "netguard_server_ip_required"
+
+
+def test_executor_safe_host_isolation_dry_run_has_rollback_plan():
+    result = _executor().execute(
+        _signed_action(
+            "safe_host_isolation",
+            {"server_ip": "10.0.0.10", "dns_ips": ["10.0.0.53"]},
+        )
+    )
+
+    assert result.status == "skipped"
+    assert result.result["rollback_action"] == "rollback_host_isolation"
+    assert "10.0.0.10" in result.result["allowed_ips"]
+
+
+def test_executor_rollback_host_isolation_is_netguard_scoped():
+    result = _executor().execute(
+        _signed_action(
+            "rollback_host_isolation",
+            {"rule_names": ["NetGuard Isolation Allow 10.0.0.10", "Other Rule"]},
+        )
+    )
+
+    assert result.status == "skipped"
+    assert result.result["rule_names"] == ["NetGuard Isolation Allow 10.0.0.10"]
