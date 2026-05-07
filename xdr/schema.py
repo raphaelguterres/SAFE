@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, is_dataclass
 from datetime import datetime, timezone
 from typing import Any
 
@@ -250,9 +250,11 @@ class PipelineOutcome:
     correlations: list[CorrelationRecord] = field(default_factory=list)
     actions: list[ResponseAction] = field(default_factory=list)
     host_risk_score: int = 0
+    behavioral_findings: list[Any] = field(default_factory=list)
     killchain_findings: list[Any] = field(default_factory=list)
     killchain_stage_summary: dict[str, Any] = field(default_factory=dict)
     attack_progression_score: int = 0
+    host_defense_state: dict[str, Any] = field(default_factory=dict)
 
     @property
     def host_risk_level(self) -> str:
@@ -271,9 +273,11 @@ class PipelineOutcome:
             "detections": [item.to_dict() for item in self.detections],
             "correlations": [item.to_dict() for item in self.correlations],
             "actions": [item.to_dict() for item in self.actions],
+            "behavioral_findings": [_to_dict(item) for item in self.behavioral_findings],
             "killchain_findings": [_to_dict(item) for item in self.killchain_findings],
             "killchain_stage_summary": dict(self.killchain_stage_summary or {}),
             "attack_progression_score": clamp_risk(self.attack_progression_score),
+            "host_defense_state": dict(self.host_defense_state or {}),
             "host_risk_score": clamp_risk(self.host_risk_score),
             "host_risk_level": self.host_risk_level,
             "highest_severity": self.highest_severity,
@@ -340,6 +344,27 @@ class PipelineOutcome:
                     },
                 )
             )
+        for behavior in self.behavioral_findings:
+            behavior_dict = _to_dict(behavior)
+            mapping = behavior_dict.get("mitre_mapping") or {}
+            events.append(
+                self.event.to_security_event(
+                    severity=str(behavior_dict.get("severity") or self.highest_severity),
+                    rule_id=f"XDR-BEH-{str(behavior_dict.get('behavior_type') or 'behavior').upper()}",
+                    rule_name=str(behavior_dict.get("behavior_type") or "Behavioral Finding").replace("_", " ").title(),
+                    event_type_override=str(behavior_dict.get("behavior_type") or "behavioral_finding"),
+                    mitre_tactic=str(mapping.get("tactic") or ""),
+                    mitre_technique=str(mapping.get("technique") or ""),
+                    tags=["xdr", "behavioral", str(behavior_dict.get("behavior_type") or "behavior")],
+                    details={
+                        "behavior_type": behavior_dict.get("behavior_type"),
+                        "confidence": behavior_dict.get("confidence"),
+                        "evidence": behavior_dict.get("evidence"),
+                        "recommended_action": behavior_dict.get("recommended_action"),
+                        **dict(behavior_dict.get("details") or {}),
+                    },
+                )
+            )
         for finding in self.killchain_findings:
             finding_dict = _to_dict(finding)
             stage = str(finding_dict.get("stage") or "killchain")
@@ -381,6 +406,17 @@ class PipelineOutcome:
                     },
                 )
             )
+        if self.host_defense_state:
+            events.append(
+                self.event.to_security_event(
+                    severity=self.highest_severity,
+                    rule_id="XDR-HOST-DEFENSE-STATE",
+                    rule_name="Host Defense State",
+                    event_type_override="host_defense_state",
+                    tags=["xdr", "host_defense", str(self.host_defense_state.get("state") or "monitored")],
+                    details=dict(self.host_defense_state or {}),
+                )
+            )
         return events
 
 
@@ -391,6 +427,8 @@ def _to_dict(item: Any) -> dict[str, Any]:
     if callable(to_dict):
         result = to_dict()
         return result if isinstance(result, dict) else {}
+    if is_dataclass(item):
+        return asdict(item)
     if hasattr(item, "__dict__"):
         return dict(getattr(item, "__dict__", {}))
     return {}
