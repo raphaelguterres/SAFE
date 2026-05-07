@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import json
 import os
 import platform
 import shutil
@@ -37,6 +38,7 @@ SUPPORTED_ACTIONS = {
     "ping",
     "isolate_host_simulated",
     "block_ip_windows_firewall",
+    "rollback_firewall_rule",
     "kill_process_guarded",
     "quarantine_file_guarded",
 }
@@ -67,6 +69,8 @@ class EndpointResponseExecutor:
         buffer_flusher: Callable[[], Any] | None = None,
         audit_sink: Callable[[dict[str, Any]], None] | None = None,
         quarantine_dir: str | Path | None = None,
+        audit_log_path: str | Path | None = None,
+        quarantine_roots: list[str | Path] | None = None,
     ):
         self.host_id = str(host_id or "").strip()
         self.tenant_id = str(tenant_id or "").strip()
@@ -76,6 +80,19 @@ class EndpointResponseExecutor:
         self.buffer_flusher = buffer_flusher
         self.audit_sink = audit_sink
         self.quarantine_dir = Path(quarantine_dir) if quarantine_dir else Path(r"C:\ProgramData\NetGuard\Quarantine")
+        self.audit_log_path = Path(audit_log_path) if audit_log_path else Path(r"C:\ProgramData\NetGuard\response_audit.jsonl")
+        self.quarantine_roots = [
+            Path(item)
+            for item in (
+                quarantine_roots
+                or [
+                    Path.home(),
+                    Path(r"C:\ProgramData"),
+                    Path(r"C:\Windows\Temp"),
+                    Path(os.environ.get("TEMP") or os.environ.get("TMP") or "."),
+                ]
+            )
+        ]
 
     def execute(self, action: dict[str, Any]) -> EndpointResponseResult:
         action_type = str(action.get("action_type") or "").strip().lower()
@@ -105,6 +122,8 @@ class EndpointResponseExecutor:
                 )
             if action_type == "block_ip_windows_firewall":
                 return self._block_ip(payload)
+            if action_type == "rollback_firewall_rule":
+                return self._rollback_firewall_rule(payload)
             if action_type == "kill_process_guarded":
                 return self._kill_process(payload)
             if action_type == "quarantine_file_guarded":
@@ -199,6 +218,33 @@ class EndpointResponseExecutor:
             )
         return self._result("success", "block_ip_windows_firewall", {"ip": target_ip, "rule_name": rule_name})
 
+    def _rollback_firewall_rule(self, payload: dict[str, Any]) -> EndpointResponseResult:
+        rule_name = str(payload.get("rule_name") or "").strip()
+        target_ip = str(payload.get("ip") or payload.get("target") or "").strip()
+        if not rule_name:
+            try:
+                ipaddress.ip_address(target_ip)
+            except ValueError:
+                return self._result("refused", "rollback_firewall_rule", {"error": "missing_rule_name_or_valid_ip"})
+            rule_name = f"NetGuard Block {target_ip}"
+        if not rule_name.startswith("NetGuard Block "):
+            return self._result("refused", "rollback_firewall_rule", {"error": "rule_not_owned_by_netguard"})
+        if self.dry_run:
+            return self._result("skipped", "rollback_firewall_rule", {"dry_run": True, "rule_name": rule_name})
+        if platform.system().lower() != "windows":
+            return self._result("skipped", "rollback_firewall_rule", {"error": "windows_only", "rule_name": rule_name})
+
+        completed = subprocess.run(
+            ["netsh", "advfirewall", "firewall", "delete", "rule", f"name={rule_name}"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        if completed.returncode != 0:
+            return self._result("failed", "rollback_firewall_rule", {"error": "netsh_delete_failed", "returncode": completed.returncode})
+        return self._result("success", "rollback_firewall_rule", {"rule_name": rule_name})
+
     def _kill_process(self, payload: dict[str, Any]) -> EndpointResponseResult:
         process_name = _clean_process_name(payload.get("process_name"))
         try:
@@ -230,6 +276,8 @@ class EndpointResponseExecutor:
         signature_checked = bool(payload.get("signature_checked") or payload.get("origin_checked"))
         if not raw_path:
             return self._result("refused", "quarantine_file_guarded", {"error": "missing_file_path"})
+        if _has_path_traversal(raw_path):
+            return self._result("refused", "quarantine_file_guarded", {"error": "path_traversal_refused"})
         if not expected_hash:
             return self._result("refused", "quarantine_file_guarded", {"error": "missing_sha256"})
         if not signature_checked:
@@ -237,15 +285,25 @@ class EndpointResponseExecutor:
         source_path = Path(raw_path)
         if not source_path.exists() or not source_path.is_file():
             return self._result("failed", "quarantine_file_guarded", {"error": "file_not_found"})
+        resolved_source = source_path.resolve(strict=True)
+        if not self._path_in_quarantine_scope(resolved_source) and not payload.get("explicit_approval"):
+            return self._result(
+                "refused",
+                "quarantine_file_guarded",
+                {"error": "quarantine_scope_requires_explicit_approval", "path": str(resolved_source)},
+            )
         actual_hash = _sha256_file(source_path)
         if actual_hash.lower() != expected_hash:
             return self._result("refused", "quarantine_file_guarded", {"error": "sha256_mismatch"})
         if self.dry_run:
-            return self._result("skipped", "quarantine_file_guarded", {"dry_run": True, "path": str(source_path)})
+            return self._result("skipped", "quarantine_file_guarded", {"dry_run": True, "path": str(resolved_source)})
 
         self.quarantine_dir.mkdir(parents=True, exist_ok=True)
-        destination = self.quarantine_dir / f"{actual_hash[:16]}_{source_path.name}"
-        shutil.move(str(source_path), str(destination))
+        quarantine_root = self.quarantine_dir.resolve()
+        destination = (quarantine_root / f"{actual_hash[:16]}_{source_path.name}").resolve()
+        if not _is_relative_to(destination, quarantine_root):
+            return self._result("refused", "quarantine_file_guarded", {"error": "invalid_quarantine_destination"})
+        shutil.move(str(resolved_source), str(destination))
         return self._result(
             "success",
             "quarantine_file_guarded",
@@ -255,6 +313,16 @@ class EndpointResponseExecutor:
                 "deleted": False,
             },
         )
+
+    def _path_in_quarantine_scope(self, path: Path) -> bool:
+        for root in self.quarantine_roots:
+            try:
+                resolved_root = root.resolve()
+            except Exception:
+                continue
+            if _is_relative_to(path, resolved_root):
+                return True
+        return False
 
     def _result(self, status: str, action_type: str, result: dict[str, Any]) -> EndpointResponseResult:
         audit_event = {
@@ -268,7 +336,16 @@ class EndpointResponseExecutor:
         }
         if self.audit_sink:
             self.audit_sink(dict(audit_event))
+        self._write_local_audit(audit_event)
         return EndpointResponseResult(status=status, action_type=action_type, result=dict(result or {}), audit_event=audit_event)
+
+    def _write_local_audit(self, audit_event: dict[str, Any]) -> None:
+        try:
+            self.audit_log_path.parent.mkdir(parents=True, exist_ok=True)
+            with self.audit_log_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(_safe_public_dict(audit_event), sort_keys=True) + "\n")
+        except Exception:
+            return
 
 
 def _sha256_file(path: Path) -> str:
@@ -295,3 +372,14 @@ def _safe_public_dict(value: dict[str, Any]) -> dict[str, Any]:
         redacted[str(key)] = item
     return redacted
 
+
+def _has_path_traversal(value: str) -> bool:
+    return any(part == ".." for part in Path(str(value or "")).parts)
+
+
+def _is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False

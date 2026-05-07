@@ -16,7 +16,9 @@ class ResponseMode(str, Enum):
 
 
 SAFE_AUTOMATIC_ACTIONS = {"collect_diagnostics", "flush_buffer", "ping"}
+SERVER_AUTOMATIC_ACTIONS = {"generate_incident_ticket", "tag_host_risk", "escalate_alert"}
 APPROVAL_REQUIRED_ACTIONS = {"isolate_host", "isolate_host_simulated", "kill_process", "kill_process_guarded"}
+APPROVAL_REQUIRED_ACTIONS.update({"block_execution_pattern"})
 DISABLED_ACTIONS = {"delete_file", "delete_file_guarded"}
 
 
@@ -67,6 +69,15 @@ class ResponsePolicyEngine:
                 "monitor_only permits telemetry-only response actions" if allowed else "monitor_only blocks containment actions",
                 not allowed,
                 ["no_destructive_actions", "audit_required"],
+                expires_at,
+            )
+        if action in SERVER_AUTOMATIC_ACTIONS:
+            return self._decision(
+                action,
+                True,
+                "server-side SOC orchestration action may run automatically",
+                False,
+                ["server_side_only", "audit_required", "no_endpoint_mutation"],
                 expires_at,
             )
         if action in SAFE_AUTOMATIC_ACTIONS:
@@ -184,4 +195,3 @@ def _confidence(value: Any) -> float:
     if number > 1:
         number = number / 100.0
     return max(0.0, min(1.0, number))
-

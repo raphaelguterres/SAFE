@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from xdr.pipeline import XDRPipeline
 from xdr.policy_engine import ResponseMode, ResponsePolicyEngine, decide_response_action
 
 
@@ -61,3 +62,27 @@ def test_delete_file_remains_disabled():
     assert decision.allowed is False
     assert decision.required_approval is True
     assert "destructive_delete_disabled" in decision.safety_checks
+
+
+def test_response_engine_marks_dangerous_plans_as_requires_approval():
+    outcome = XDRPipeline().process_payload(
+        {
+            "host_id": "host-policy-plan",
+            "event_type": "process_execution",
+            "severity": "high",
+            "timestamp": "2026-05-06T12:00:00Z",
+            "process_name": "powershell.exe",
+            "command_line": "powershell.exe -enc AAAA",
+            "pid": 4444,
+            "source": "agent",
+            "details": {},
+        }
+    )[0]
+
+    kill = next(action for action in outcome.actions if action.action_type == "kill_process")
+    decision = kill.parameters["policy_decision"]
+
+    assert kill.automatic is False
+    assert kill.parameters["response_queue_status"] == "requires_approval"
+    assert decision["allowed"] is False
+    assert decision["required_approval"] is True

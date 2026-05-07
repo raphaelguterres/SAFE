@@ -1545,6 +1545,35 @@ def _format_soc_last_seen(dt_obj):
     return dt_obj.strftime("%d %b %H:%M UTC")
 
 
+def _summarize_response_queue(actions: list[dict], *, critical_hosts: int = 0) -> dict:
+    statuses = {
+        "pending_approvals": 0,
+        "approved": 0,
+        "refused": 0,
+        "expired": 0,
+        "executed": 0,
+        "failed": 0,
+        "queued_actions": 0,
+    }
+    for action in actions or []:
+        status = str(action.get("status") or "").strip().lower()
+        statuses["queued_actions"] += 1
+        if status == "pending":
+            statuses["pending_approvals"] += 1
+        elif status in {"leased", "running"}:
+            statuses["approved"] += 1
+        elif status == "refused":
+            statuses["refused"] += 1
+        elif status == "expired":
+            statuses["expired"] += 1
+        elif status == "failed":
+            statuses["failed"] += 1
+        elif status == "succeeded":
+            statuses["executed"] += 1
+    statuses["pending_approvals"] = max(statuses["pending_approvals"], int(critical_hosts or 0))
+    return statuses
+
+
 def _build_soc_preview_context():
     tenant_id = _current_request_tenant_id()
     try:
@@ -1717,6 +1746,14 @@ def _build_soc_preview_context():
             "rules_by_tactic": {},
             "rules_by_technique": {},
         }
+    try:
+        response_actions = _get_agent_action_repository().list_actions(
+            tenant_id=tenant_id,
+            limit=200,
+        )
+    except Exception:
+        response_actions = []
+    response_queue = _summarize_response_queue(response_actions, critical_hosts=critical_hosts)
 
     overview = {
         "total_tenants": max(1, len(tenant_ids)),
@@ -1755,8 +1792,7 @@ def _build_soc_preview_context():
             "needs_approval": critical_hosts,
         },
         "response_queue": {
-            "pending_approvals": critical_hosts,
-            "queued_actions": 0,
+            **response_queue,
             "mode": os.environ.get("NETGUARD_RESPONSE_MODE", "manual_approval"),
         },
     }
@@ -2138,6 +2174,25 @@ def _soc_pipeline_activity_rows(host_id: str) -> tuple[list[dict], list[dict]]:
                 )
             )
 
+        for finding in outcome.get("killchain_findings") or []:
+            if not isinstance(finding, dict):
+                continue
+            stage = str(finding.get("stage") or "killchain")
+            host_events.append(
+                _soc_make_timeline_item(
+                    title=f"Kill Chain: {_soc_labelize(stage)}",
+                    alert_type=f"killchain_{stage}",
+                    severity=highest_severity,
+                    timestamp=str(outcome.get("event", {}).get("timestamp") or ""),
+                    description=str(finding.get("evidence") or "Kill Chain stage observed."),
+                    technique=str(finding.get("mitre_technique") or ""),
+                    tactic=str(finding.get("mitre_tactic") or stage),
+                    chain_summary=_soc_labelize(stage),
+                    related_event_ids=[],
+                    recommended_action=str(finding.get("recommended_response") or "investigate"),
+                )
+            )
+
         for action in outcome.get("actions") or []:
             if not isinstance(action, dict):
                 continue
@@ -2471,6 +2526,48 @@ def _build_soc_host_detail_context(host_id: str, context: dict | None = None):
             if item.get("status") in {"succeeded", "failed", "refused", "expired", "cancelled"}
         ),
     }
+    host_response_queue_stats = _summarize_response_queue(
+        host_response_actions,
+        critical_hosts=1 if int(selected_host.get("risk_score") or 0) >= 80 else 0,
+    )
+    try:
+        from xdr.attack_timeline import build_attack_timeline, build_host_attack_timeline
+
+        host_attack_timeline = build_host_attack_timeline(
+            effective_host_id,
+            _get_xdr_pipeline().recent_host_activity(effective_host_id, limit=50),
+            limit=50,
+        )
+        if not host_attack_timeline.get("timeline"):
+            host_attack_timeline = build_attack_timeline(
+                host_id=effective_host_id,
+                events=host_recent,
+                limit=50,
+            )
+    except Exception:
+        host_attack_timeline = {
+            "host_id": effective_host_id,
+            "active_stages": [],
+            "highest_stage": "",
+            "progression_score": 0,
+            "timeline": [],
+            "likely_attack_story": "No active attack progression is visible for this host yet.",
+            "recommended_next_action": "Continue monitoring and wait for endpoint telemetry.",
+        }
+    contained_actions = {
+        str(item.get("action_type") or "")
+        for item in host_response_actions
+        if str(item.get("status") or "").lower() == "succeeded"
+    }
+    if contained_actions & {"isolate_host", "isolate_host_simulated", "block_ip_windows_firewall"}:
+        protection_state = "contained"
+    elif host_response_queue_stats.get("pending_approvals", 0) > 0:
+        protection_state = "needs_approval"
+    elif int(selected_host.get("risk_score") or 0) > 0 or host_alerts:
+        protection_state = "suspicious"
+    else:
+        protection_state = "monitored"
+    selected_host["protection_state"] = protection_state
 
     host_metadata = [
         ("Tenant", context["tenant_name"]),
@@ -2478,6 +2575,7 @@ def _build_soc_host_detail_context(host_id: str, context: dict | None = None):
         ("Status", str(selected_host.get("status", "offline")).title()),
         ("Sensor", "NetGuard Agent / XDR Pipeline" if registered_host else "XDR Pipeline"),
         ("Risk Score", f"{selected_host.get('risk_score', 0)}/100"),
+        ("Protection State", protection_state.replace("_", " ").title()),
     ]
     if registered_host and registered_host.get("agent_version"):
         host_metadata.append(("Agent Version", str(registered_host.get("agent_version"))))
@@ -2500,10 +2598,25 @@ def _build_soc_host_detail_context(host_id: str, context: dict | None = None):
             if str(technique).strip()
         }
     )
+    tracked_tactics = sorted(
+        {
+            str(tactic).strip()
+            for chain in attack_chains
+            for tactic in (chain.get("tactics") or [])
+            if str(tactic).strip()
+        }
+    )
+    host_mitre_coverage = {
+        "techniques": tracked_techniques,
+        "tactics": tracked_tactics,
+        "technique_count": len(tracked_techniques),
+        "tactic_count": len(tracked_tactics),
+    }
     host_summary_metrics = [
         {"label": "Attack Chains", "value": len(attack_chains), "tone": "critical" if attack_chains else "low"},
         {"label": "Open Incidents", "value": open_incidents, "tone": "high" if open_incidents else "low"},
         {"label": "Timeline Events", "value": len(filtered_host_events), "tone": "medium" if filtered_host_events else "low"},
+        {"label": "Kill Chain Score", "value": host_attack_timeline.get("progression_score", 0), "tone": "high" if int(host_attack_timeline.get("progression_score") or 0) >= 70 else "medium"},
         {"label": "MITRE Techniques", "value": len(tracked_techniques), "tone": "medium" if tracked_techniques else "low"},
     ]
 
@@ -2516,7 +2629,10 @@ def _build_soc_host_detail_context(host_id: str, context: dict | None = None):
         "host_lineage": lineage_blocks[:8],
         "host_response_actions": host_response_actions,
         "host_response_action_stats": host_response_action_stats,
+        "host_response_queue_stats": host_response_queue_stats,
         "safe_response_actions": ["ping", "collect_diagnostics", "flush_buffer"],
+        "host_attack_timeline": host_attack_timeline,
+        "host_mitre_coverage": host_mitre_coverage,
         "host_attack_chains": attack_chains,
         "selected_chain_filter": selected_chain_filter,
         "selected_chain": selected_chain,
@@ -4464,6 +4580,41 @@ def detection_coverage():
     from xdr.rule_catalog import build_detection_coverage
 
     return jsonify(build_detection_coverage())
+
+
+@app.route("/api/host/<tenant_id>/<path:host_id>/attack-timeline", methods=["GET"])
+@auth
+def host_attack_timeline_api(tenant_id, host_id):
+    """Read-only host attack timeline assembled from XDR pipeline outcomes."""
+    from xdr.attack_timeline import build_attack_timeline, build_host_attack_timeline
+
+    tenant_id = str(tenant_id or "").strip()
+    host_id = str(host_id or "").strip()
+    if not tenant_id or not host_id:
+        return jsonify({"error": "tenant_id_and_host_id_required"}), 400
+
+    try:
+        current_tenant, current_role = _resolve_tenant_with_role()
+    except Exception:
+        current_tenant, current_role = _current_request_tenant_id(), "viewer"
+    if AUTH_ENABLED and current_role != "admin" and str(current_tenant) != tenant_id:
+        return jsonify({"error": "forbidden"}), 403
+
+    limit = max(1, min(int(request.args.get("limit") or 50), 100))
+    pipeline = _get_xdr_pipeline()
+    recent_activity = pipeline.recent_host_activity(host_id, limit=limit)
+    payload = build_host_attack_timeline(host_id, recent_activity, limit=limit)
+
+    if not payload.get("timeline"):
+        try:
+            recent_events = repo.query(tenant_id=tenant_id, host_id=host_id, limit=limit)
+        except Exception:
+            recent_events = []
+        payload = build_attack_timeline(host_id=host_id, events=recent_events, limit=limit)
+
+    payload["tenant_id"] = tenant_id
+    payload["ok"] = True
+    return jsonify(payload)
 
 
 @app.route("/api/xdr/summary", methods=["GET"])

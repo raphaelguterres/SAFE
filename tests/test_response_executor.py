@@ -10,9 +10,9 @@ from server.response_policy import sign_response_policy
 SECRET = "s" * 32
 
 
-def _signed_action(action_type: str, payload: dict | None = None) -> dict:
+def _signed_action(action_type: str, payload: dict | None = None, *, expires_offset: int = 120) -> dict:
     nonce = "n" * 16
-    expires_at = int(time.time()) + 120
+    expires_at = int(time.time()) + expires_offset
     policy = {
         "tenant_id": "tenant-a",
         "host_id": "host-a",
@@ -59,6 +59,22 @@ def test_executor_accepts_signed_safe_action_and_audits():
     assert audits and audits[0]["status"] == "success"
 
 
+def test_executor_writes_local_jsonl_audit(tmp_path):
+    audit_path = tmp_path / "response_audit.jsonl"
+    result = _executor(audit_log_path=audit_path).execute(_signed_action("ping"))
+
+    assert result.status == "success"
+    assert audit_path.exists()
+    assert '"action_type": "ping"' in audit_path.read_text(encoding="utf-8")
+
+
+def test_executor_refuses_expired_policy():
+    result = _executor().execute(_signed_action("ping", expires_offset=-10))
+
+    assert result.status == "refused"
+    assert result.result["error"] == "policy_expired"
+
+
 def test_executor_redacts_sensitive_diagnostics_provider_fields():
     result = _executor(
         diagnostics_provider=lambda: {"api_key": "secret", "buffer_pending": 2}
@@ -103,3 +119,52 @@ def test_executor_quarantines_without_deleting_evidence_permanently(tmp_path):
     assert result.result["deleted"] is False
     assert not sample.exists()
     assert quarantine_dir.exists()
+
+
+def test_executor_refuses_quarantine_path_traversal(tmp_path):
+    sample = tmp_path / "sample.bin"
+    sample.write_bytes(b"netguard suspicious sample")
+    digest = hashlib.sha256(sample.read_bytes()).hexdigest()
+
+    result = _executor(quarantine_roots=[tmp_path]).execute(
+        _signed_action(
+            "quarantine_file_guarded",
+            {
+                "path": str(tmp_path / ".." / sample.name),
+                "sha256": digest,
+                "signature_checked": True,
+            },
+        )
+    )
+
+    assert result.status == "refused"
+    assert result.result["error"] == "path_traversal_refused"
+
+
+def test_executor_refuses_quarantine_outside_scope_without_explicit_approval(tmp_path):
+    sample = tmp_path / "sample.bin"
+    sample.write_bytes(b"netguard suspicious sample")
+    digest = hashlib.sha256(sample.read_bytes()).hexdigest()
+
+    result = _executor(quarantine_roots=[tmp_path / "allowed"]).execute(
+        _signed_action(
+            "quarantine_file_guarded",
+            {
+                "path": str(sample),
+                "sha256": digest,
+                "signature_checked": True,
+            },
+        )
+    )
+
+    assert result.status == "refused"
+    assert result.result["error"] == "quarantine_scope_requires_explicit_approval"
+
+
+def test_executor_firewall_rollback_is_dry_run_and_netguard_scoped():
+    ok = _executor().execute(_signed_action("rollback_firewall_rule", {"ip": "8.8.8.8"}))
+    refused = _executor().execute(_signed_action("rollback_firewall_rule", {"rule_name": "Other Vendor Rule"}))
+
+    assert ok.status == "skipped"
+    assert ok.result["rule_name"] == "NetGuard Block 8.8.8.8"
+    assert refused.status == "refused"

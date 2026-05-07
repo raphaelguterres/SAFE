@@ -83,7 +83,10 @@
   <article class="soc-card soc-stat-card">
     <div class="soc-stat-label">Response Queue</div>
     <div class="soc-stat-value soc-stat-value-sm">{{ queue.pending_approvals|default(0) }}</div>
-    <div class="soc-stat-foot">{{ queue.mode|default("manual_approval")|replace("_", " ")|title }} mode.</div>
+    <div class="soc-stat-foot">
+      {{ queue.mode|default("manual_approval")|replace("_", " ")|title }} mode.
+      {{ queue.approved|default(0) }} approved, {{ queue.refused|default(0) }} refused, {{ queue.failed|default(0) }} failed.
+    </div>
   </article>
 </section>
 

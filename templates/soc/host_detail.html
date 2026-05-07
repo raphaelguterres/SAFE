@@ -10,6 +10,9 @@
 {% set host_metadata = host_metadata if host_metadata is defined else [] %}
 {% set host_response_actions = host_response_actions if host_response_actions is defined else [] %}
 {% set host_response_action_stats = host_response_action_stats if host_response_action_stats is defined else {"pending": 0, "leased": 0, "terminal": 0} %}
+{% set host_response_queue_stats = host_response_queue_stats if host_response_queue_stats is defined else {"pending_approvals": 0, "approved": 0, "refused": 0, "expired": 0, "executed": 0, "failed": 0} %}
+{% set host_attack_timeline = host_attack_timeline if host_attack_timeline is defined else {"active_stages": [], "highest_stage": "", "progression_score": 0, "likely_attack_story": "No active attack progression is visible for this host yet.", "recommended_next_action": "Continue monitoring and wait for endpoint telemetry.", "timeline": []} %}
+{% set host_mitre_coverage = host_mitre_coverage if host_mitre_coverage is defined else {"techniques": [], "tactics": [], "technique_count": 0, "tactic_count": 0} %}
 {% set safe_response_actions = safe_response_actions if safe_response_actions is defined else ["ping", "collect_diagnostics", "flush_buffer"] %}
 {% set selected_chain_focus = selected_chain_focus if selected_chain_focus is defined else none %}
 
@@ -40,6 +43,7 @@
       <span>Last seen {{ host.last_seen|default("unknown") }}</span>
       <span class="soc-status-{{ host.status|default('offline') }}">{{ host.status|default("offline")|title }}</span>
       <span>Agent {{ host.agent_version|default("pending") }}</span>
+      <span>Protection {{ host.protection_state|default("monitored")|replace("_", " ")|title }}</span>
     </div>
   </div>
   <div class="soc-risk-gauge">
@@ -73,6 +77,49 @@
     <button class="soc-action-button" type="button" disabled title="Use the Incidents queue or API until direct host incident creation is wired here.">Create Incident</button>
     <button class="soc-action-button" type="button" disabled title="Suppression needs an audited endpoint before it can be enabled.">Suppress Host</button>
     <button class="soc-action-button" type="button" disabled title="Report export will be enabled after a safe host report route is finalized.">Export Report</button>
+  </div>
+</section>
+
+<section class="soc-panel">
+  <div class="soc-panel-header">
+    <div>
+      <h2 class="soc-panel-title">Kill Chain Timeline</h2>
+      <div class="soc-list-copy">Attack progression story generated from endpoint telemetry, detections, and correlations.</div>
+    </div>
+    <span class="soc-severity-chip {{ 'critical' if host_attack_timeline.progression_score|default(0) >= 85 else 'high' if host_attack_timeline.progression_score|default(0) >= 60 else 'medium' if host_attack_timeline.progression_score|default(0) > 0 else 'low' }}">
+      {{ host_attack_timeline.progression_score|default(0) }}/100
+    </span>
+  </div>
+  <p class="soc-next-action-copy">{{ host_attack_timeline.likely_attack_story|default("No active attack progression is visible for this host yet.") }}</p>
+  <div class="soc-token-grid">
+    {% if host_attack_timeline.active_stages %}
+      {% for stage in host_attack_timeline.active_stages %}
+      <span class="soc-token soc-token-accent">{{ stage|replace("_", " ")|title }}</span>
+      {% endfor %}
+    {% else %}
+      <span class="soc-token">No active Kill Chain stages</span>
+    {% endif %}
+  </div>
+  <div class="soc-list-copy" style="margin-top: 12px;">
+    Recommended: {{ host_attack_timeline.recommended_next_action|default("Continue monitoring and wait for endpoint telemetry.") }}
+  </div>
+  <div class="soc-timeline" style="margin-top: 16px;">
+    {% if host_attack_timeline.timeline %}
+      {% for item in host_attack_timeline.timeline[:8] %}
+      <article class="soc-timeline-item">
+        <div class="soc-list-top">
+          <span class="soc-list-title">{{ item.summary|default(item.type|default("Kill Chain signal")) }}</span>
+          <span class="soc-severity-chip {{ item.severity|default('low') }}">{{ item.stage|default(item.type|default("signal"))|replace("_", " ")|title }}</span>
+        </div>
+        <div class="soc-meta-inline">
+          {% if item.timestamp %}<span>{{ item.timestamp }}</span>{% endif %}
+          {% if item.evidence %}<span>{{ item.evidence }}</span>{% endif %}
+        </div>
+      </article>
+      {% endfor %}
+    {% else %}
+      <div class="soc-empty-state">Waiting for endpoint telemetry to build an attack timeline.</div>
+    {% endif %}
   </div>
 </section>
 
@@ -278,9 +325,12 @@
         {% endfor %}
       </div>
       <div class="soc-action-stats">
-        <span class="soc-pill">Pending {{ host_response_action_stats.pending }}</span>
-        <span class="soc-pill">Leased {{ host_response_action_stats.leased }}</span>
-        <span class="soc-pill">Closed {{ host_response_action_stats.terminal }}</span>
+        <span class="soc-pill">Pending Approvals {{ host_response_queue_stats.pending_approvals }}</span>
+        <span class="soc-pill">Approved {{ host_response_queue_stats.approved }}</span>
+        <span class="soc-pill">Refused {{ host_response_queue_stats.refused }}</span>
+        <span class="soc-pill">Expired {{ host_response_queue_stats.expired }}</span>
+        <span class="soc-pill">Executed {{ host_response_queue_stats.executed }}</span>
+        <span class="soc-pill">Failed {{ host_response_queue_stats.failed }}</span>
       </div>
       <div class="soc-list" id="soc-response-actions-list">
         {% if host_response_actions %}
@@ -314,6 +364,25 @@
           <div class="soc-empty-state">Nenhuma action enfileirada para este host.</div>
         {% endif %}
       </div>
+    </article>
+
+    <article class="soc-panel">
+      <div class="soc-panel-header">
+        <div>
+          <h2 class="soc-panel-title">MITRE Coverage</h2>
+          <div class="soc-list-copy">Techniques and tactics observed for this host.</div>
+        </div>
+        <span class="soc-severity-chip {{ 'medium' if host_mitre_coverage.technique_count|default(0) else 'low' }}">{{ host_mitre_coverage.technique_count|default(0) }}</span>
+      </div>
+      {% if host_mitre_coverage.techniques %}
+      <div class="soc-token-grid">
+        {% for technique in host_mitre_coverage.techniques[:10] %}
+        <span class="soc-mitre-badge">Technique {{ technique }}</span>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="soc-empty-state">No MITRE techniques mapped for this host yet.</div>
+      {% endif %}
     </article>
 
     <article class="soc-panel">
