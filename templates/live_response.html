@@ -1,0 +1,168 @@
+{% extends "soc/base.html" %}
+{% set active_page = "live_response" %}
+{% set queue = response_queue if response_queue is defined else {} %}
+{% set buckets = response_status_buckets if response_status_buckets is defined else {} %}
+{% set actions = response_actions if response_actions is defined else [] %}
+{% set host_states = live_host_states if live_host_states is defined else [] %}
+{% set hunts = threat_hunts if threat_hunts is defined else [] %}
+
+{% block title %}NetGuard SOC | Live Response{% endblock %}
+
+{% block page %}
+<header class="soc-page-header soc-page-header-airy">
+  <div>
+    <div class="soc-breadcrumbs">
+      <a class="soc-inline-link" href="/soc">Overview</a>
+      <span>/</span>
+      <span>Live Response</span>
+    </div>
+    <h1 class="soc-page-title">Live Response Console</h1>
+    <p class="soc-page-copy">Controlled response workflow for approvals, host containment, process triage, Kill Chain progression, and MITRE context.</p>
+  </div>
+</header>
+
+<section class="soc-kpi-grid soc-kpi-grid-compact" aria-label="Response queue summary">
+  <article class="soc-card soc-stat-card">
+    <div class="soc-stat-label">Pending Approvals</div>
+    <div class="soc-stat-value">{{ queue.pending_approvals|default(0) }}</div>
+    <div class="soc-stat-foot">Manual approval remains the default safe mode.</div>
+  </article>
+  <article class="soc-card soc-stat-card">
+    <div class="soc-stat-label">Approved</div>
+    <div class="soc-stat-value">{{ queue.approved|default(0) }}</div>
+    <div class="soc-stat-foot">Leased or running endpoint actions.</div>
+  </article>
+  <article class="soc-card soc-stat-card">
+    <div class="soc-stat-label">Executed</div>
+    <div class="soc-stat-value">{{ queue.executed|default(0) }}</div>
+    <div class="soc-stat-foot">Completed with endpoint acknowledgement.</div>
+  </article>
+  <article class="soc-card soc-stat-card">
+    <div class="soc-stat-label">Failed / Refused</div>
+    <div class="soc-stat-value soc-stat-value-sm">{{ queue.failed|default(0) }} / {{ queue.refused|default(0) }}</div>
+    <div class="soc-stat-foot">{{ queue.expired|default(0) }} expired actions.</div>
+  </article>
+</section>
+
+<section class="soc-grid-2 soc-grid-balanced">
+  <article class="soc-panel">
+    <div class="soc-panel-header">
+      <div>
+        <h2 class="soc-panel-title">Host Containment State</h2>
+        <div class="soc-list-copy">Prioritized host risk with current Defense Core state.</div>
+      </div>
+    </div>
+    <div class="soc-list soc-compact-list">
+      {% if host_states %}
+        {% for host in host_states[:8] %}
+        <a class="soc-list-item soc-list-link" href="/soc/hosts/{{ host.display_name }}">
+          <div>
+            <div class="soc-list-top">
+              <span class="soc-list-title">{{ host.display_name }}</span>
+              <span class="soc-severity-chip {{ 'critical' if host.risk_score >= 85 else 'high' if host.risk_score >= 60 else 'medium' if host.risk_score >= 30 else 'low' }}">{{ host.risk_score }}</span>
+            </div>
+            <div class="soc-meta-inline">
+              <span>{{ host.state|replace("_", " ")|title }}</span>
+              <span>Confidence {{ host.confidence|default(0) }}</span>
+            </div>
+            <div class="soc-list-copy">
+              {% if host.active_attack_stages %}
+                {{ host.active_attack_stages[:3]|join(" -> ") }}
+              {% else %}
+                No active Kill Chain progression.
+              {% endif %}
+            </div>
+          </div>
+          <span class="soc-inline-link">Triage</span>
+        </a>
+        {% endfor %}
+      {% else %}
+        <div class="soc-empty-state soc-empty-state-premium">
+          <h3>Waiting for endpoint telemetry</h3>
+          <p>Live host containment state appears after agents send XDR events.</p>
+          <a class="soc-action-button" href="/soc/hosts">View agents</a>
+        </div>
+      {% endif %}
+    </div>
+  </article>
+
+  <article class="soc-panel">
+    <div class="soc-panel-header">
+      <div>
+        <h2 class="soc-panel-title">Threat Hunts</h2>
+        <div class="soc-list-copy">Automatic hunts over recent endpoint telemetry.</div>
+      </div>
+      <a class="soc-inline-link" href="/api/soc/threat-hunts">JSON</a>
+    </div>
+    <div class="soc-list soc-compact-list">
+      {% if hunts %}
+        {% for hunt in hunts[:6] %}
+        <div class="soc-list-item">
+          <div class="soc-list-top">
+            <span class="soc-list-title">{{ hunt.hunt_name|replace("_", " ")|title }}</span>
+            <span class="soc-severity-chip {{ 'high' if hunt.confidence >= 0.8 else 'medium' }}">{{ hunt.confidence }}</span>
+          </div>
+          <div class="soc-meta-inline">
+            <span>{{ hunt.affected_hosts|length }} affected hosts</span>
+            <span>{{ hunt.recommended_investigation }}</span>
+          </div>
+          {% if hunt.evidence %}
+          <div class="soc-list-copy">{{ hunt.evidence[0] }}</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="soc-empty-state soc-empty-state-premium">
+          <h3>No hunts require action</h3>
+          <p>Hunting results stay quiet until repeated or rare patterns appear.</p>
+          <a class="soc-action-button" href="/soc">Return to overview</a>
+        </div>
+      {% endif %}
+    </div>
+  </article>
+</section>
+
+<section class="soc-panel">
+  <div class="soc-panel-header">
+    <div>
+      <h2 class="soc-panel-title">Response Queue</h2>
+      <div class="soc-list-copy">Every endpoint action remains policy-bound, auditable, and reversible.</div>
+    </div>
+  </div>
+  <div class="soc-table-wrap">
+    <table class="soc-table">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Host</th>
+          <th>Action</th>
+          <th>Reason</th>
+          <th>Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if actions %}
+          {% for action in actions[:30] %}
+          <tr>
+            <td><span class="soc-severity-chip {{ 'critical' if action.status in ['failed', 'refused'] else 'medium' if action.status in ['pending', 'leased'] else 'low' }}">{{ action.status|replace("_", " ")|title }}</span></td>
+            <td><a class="soc-inline-link" href="/soc/hosts/{{ action.host_id }}">{{ action.host_id }}</a></td>
+            <td>{{ action.action_type|replace("_", " ")|title }}</td>
+            <td>{{ action.reason|default("Policy-controlled response action.") }}</td>
+            <td>{{ action.updated_at|default(action.created_at|default("unknown")) }}</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="5">
+              <div class="soc-empty-state soc-empty-state-premium">
+                <h3>No response actions queued</h3>
+                <p>Approvals and endpoint actions will appear here after triage requests.</p>
+              </div>
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

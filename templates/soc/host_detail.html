@@ -12,6 +12,7 @@
 {% set host_response_action_stats = host_response_action_stats if host_response_action_stats is defined else {"pending": 0, "leased": 0, "terminal": 0} %}
 {% set host_response_queue_stats = host_response_queue_stats if host_response_queue_stats is defined else {"pending_approvals": 0, "approved": 0, "refused": 0, "expired": 0, "executed": 0, "failed": 0} %}
 {% set host_attack_timeline = host_attack_timeline if host_attack_timeline is defined else {"active_stages": [], "highest_stage": "", "progression_score": 0, "likely_attack_story": "No active attack progression is visible for this host yet.", "recommended_next_action": "Continue monitoring and wait for endpoint telemetry.", "timeline": []} %}
+{% set host_defense_state = host_defense_state if host_defense_state is defined else {} %}
 {% set host_mitre_coverage = host_mitre_coverage if host_mitre_coverage is defined else {"techniques": [], "tactics": [], "technique_count": 0, "tactic_count": 0} %}
 {% set safe_response_actions = safe_response_actions if safe_response_actions is defined else ["ping", "collect_diagnostics", "flush_buffer"] %}
 {% set selected_chain_focus = selected_chain_focus if selected_chain_focus is defined else none %}
@@ -91,6 +92,22 @@
     </span>
   </div>
   <p class="soc-next-action-copy">{{ host_attack_timeline.likely_attack_story|default("No active attack progression is visible for this host yet.") }}</p>
+  {% if host_defense_state %}
+  <div class="soc-guided-action priority-{{ 'critical' if host_defense_state.isolation_recommended else 'high' if host_defense_state.containment_recommended else 'info' }}" style="margin: 14px 0;">
+    <div>
+      <div class="soc-stat-label">Host Protection State</div>
+      <h2>{{ host_defense_state.state|default("monitored")|replace("_", " ")|title }}</h2>
+      <p>
+        Risk {{ host_defense_state.risk_score|default(0) }}/100,
+        confidence {{ host_defense_state.confidence|default(0) }}.
+        {% if host_defense_state.recommended_actions %}
+          Next: {{ host_defense_state.recommended_actions[0]|replace("_", " ")|title }}.
+        {% endif %}
+      </p>
+    </div>
+    <a class="soc-action-button soc-action-button-primary" href="/soc/live-response">Open Live Response</a>
+  </div>
+  {% endif %}
   <div class="soc-token-grid">
     {% if host_attack_timeline.active_stages %}
       {% for stage in host_attack_timeline.active_stages %}

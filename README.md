@@ -213,6 +213,37 @@ Protection rules are fail-closed by design:
 - `delete_file` stays disabled by default. Quarantine moves evidence to a safe folder and never performs permanent deletion.
 - The agent refuses unsigned actions and refuses protected Windows processes such as `system`, `wininit`, `csrss`, `lsass`, and `services`.
 
+## Enterprise EDR Defense Core
+
+The Enterprise Defense Core extends the EDR foundation with host-centric
+protection state, behavioral detection, safe endpoint response, and live SOC
+workflow.
+
+What it adds:
+
+- **Host defense state:** `monitored`, `suspicious`, `elevated_risk`, `contained`, `isolated`, and `recovery_mode`.
+- **Behavioral detection:** encoded PowerShell, LOLBIN abuse, parent/child anomalies, credential dumping indicators, mass file changes, beaconing, process spawning loops, and persistence signals.
+- **Threat hunting:** repeated lateral movement indicators, beaconing, rare process execution, uncommon admin activity, rare outbound domains, and suspicious authentication chains.
+- **Safe host isolation:** policy-signed, auditable, reversible firewall isolation that preserves NetGuard server connectivity and never blocks localhost.
+- **Process telemetry:** process name, PID, parent PID, command line, SHA256 when safely available, signer status, execution timestamp, user, and integrity indicator.
+- **Quarantine system:** reversible move into `C:\ProgramData\NetGuard\Quarantine` with metadata JSON and SHA256 tracking. No permanent delete.
+- **Memory-safe indicators:** only coarse defensive indicators such as memory spikes and handle anomalies. No credential dumps, no invasive memory reads.
+- **Live Response Console:** `/soc/live-response` shows response queue, pending approvals, host containment state, Kill Chain progression, MITRE context, and threat hunts.
+
+Core APIs:
+
+```text
+GET /api/soc/host/<host_id>
+GET /api/soc/incidents
+GET /api/soc/threat-hunts
+GET /api/soc/live-response
+GET /api/soc/killchain/<host_id>
+```
+
+The Defense Core remains fail-closed: destructive actions are not automatic,
+endpoint actions require signed policy, protected Windows processes are denied,
+and rollback is part of containment design.
+
 ## Operating Modes
 
 | Mode | Storage | Auth posture | Typical use |

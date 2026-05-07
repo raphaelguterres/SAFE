@@ -22,7 +22,7 @@ except ImportError:
     PSUTIL_OK = False
     logging.getLogger("ids.api").warning("psutil não instalado — instale com: pip install psutil")
 from datetime import datetime, timedelta, timezone
-from flask import Flask, jsonify, request, Response, make_response, redirect
+from flask import Flask, jsonify, request, Response, make_response, redirect, render_template
 from flask_cors import CORS
 from ids_engine import IDSEngine, LogProcessor
 from services.recommendation_service import get_recommended_route
@@ -1574,6 +1574,91 @@ def _summarize_response_queue(actions: list[dict], *, critical_hosts: int = 0) -
     return statuses
 
 
+def _recent_pipeline_outcomes(limit: int = 200) -> list[dict]:
+    pipeline = _get_xdr_pipeline()
+    outcomes: list[dict] = []
+    try:
+        with pipeline._history_lock:
+            for host_items in pipeline._host_recent_activity.values():
+                outcomes.extend(item for item in host_items if isinstance(item, dict))
+    except Exception:
+        return []
+    outcomes.sort(key=lambda item: str((item.get("event") or {}).get("timestamp") or ""), reverse=True)
+    return outcomes[: max(1, min(int(limit), 500))]
+
+
+def _latest_host_defense_state(host_id: str) -> dict:
+    for outcome in _get_xdr_pipeline().recent_host_activity(host_id, limit=20):
+        state = outcome.get("host_defense_state")
+        if isinstance(state, dict) and state:
+            return dict(state)
+    return {}
+
+
+def _build_threat_hunts_payload(limit: int = 250) -> dict:
+    from xdr.threat_hunting import ThreatHuntingEngine
+
+    records = _recent_pipeline_outcomes(limit=limit)
+    if not records:
+        try:
+            records = _get_tenant_event_repo().query(limit=limit)
+        except Exception:
+            records = []
+    hunts = [item.to_dict() for item in ThreatHuntingEngine().run_hunts(records)]
+    return {
+        "ok": True,
+        "tenant_id": _current_request_tenant_id(),
+        "hunt_count": len(hunts),
+        "hunts": hunts,
+    }
+
+
+def _build_live_response_context(base_context: dict | None = None) -> dict:
+    context = base_context or _build_soc_preview_context()
+    tenant_id = _current_request_tenant_id()
+    try:
+        actions = _get_agent_action_repository().list_actions(tenant_id=tenant_id, limit=200)
+    except Exception:
+        actions = []
+    response_queue = _summarize_response_queue(actions)
+    status_buckets = {
+        "pending": [item for item in actions if str(item.get("status") or "").lower() == "pending"],
+        "approved": [item for item in actions if str(item.get("status") or "").lower() in {"leased", "running"}],
+        "refused": [item for item in actions if str(item.get("status") or "").lower() == "refused"],
+        "expired": [item for item in actions if str(item.get("status") or "").lower() == "expired"],
+        "executed": [item for item in actions if str(item.get("status") or "").lower() == "succeeded"],
+        "failed": [item for item in actions if str(item.get("status") or "").lower() == "failed"],
+    }
+    host_states = []
+    for host in context.get("hosts", [])[:30]:
+        host_id = str(host.get("host_id") or host.get("host_name") or "").strip()
+        defense_state = _latest_host_defense_state(host_id) if host_id else {}
+        host_states.append(
+            {
+                "host_id": host_id,
+                "display_name": str(host.get("host_name") or host_id),
+                "risk_score": int(defense_state.get("risk_score") or host.get("risk_score") or 0),
+                "state": str(defense_state.get("state") or host.get("protection_state") or "monitored"),
+                "confidence": defense_state.get("confidence", 0),
+                "active_attack_stages": defense_state.get("active_attack_stages") or [],
+                "recommended_actions": defense_state.get("recommended_actions") or ["collect_diagnostics"],
+            }
+        )
+    threat_hunts = _build_threat_hunts_payload(limit=250)
+    return {
+        **context,
+        "active_page": "live_response",
+        "response_actions": actions[:100],
+        "response_queue": {
+            **response_queue,
+            "mode": os.environ.get("NETGUARD_RESPONSE_MODE", "manual_approval"),
+        },
+        "response_status_buckets": status_buckets,
+        "live_host_states": host_states,
+        "threat_hunts": threat_hunts.get("hunts", []),
+    }
+
+
 def _build_soc_preview_context():
     tenant_id = _current_request_tenant_id()
     try:
@@ -1754,6 +1839,27 @@ def _build_soc_preview_context():
     except Exception:
         response_actions = []
     response_queue = _summarize_response_queue(response_actions, critical_hosts=critical_hosts)
+    defense_state_counts = {
+        "monitored": 0,
+        "suspicious": 0,
+        "elevated_risk": 0,
+        "contained": 0,
+        "isolated": 0,
+        "recovery_mode": 0,
+        "needs_approval": response_queue.get("pending_approvals", 0),
+    }
+    for host in host_list:
+        state = _latest_host_defense_state(str(host.get("host_id") or host.get("host_name") or "")).get("state")
+        if not state:
+            risk_score = int(host.get("risk_score") or 0)
+            if risk_score >= 75:
+                state = "elevated_risk"
+            elif risk_score > 0 or int(host.get("active_alerts") or 0) > 0:
+                state = "suspicious"
+            else:
+                state = "monitored"
+        state = str(state)
+        defense_state_counts[state] = defense_state_counts.get(state, 0) + 1
 
     overview = {
         "total_tenants": max(1, len(tenant_ids)),
@@ -1785,12 +1891,7 @@ def _build_soc_preview_context():
         ],
         "timeline_24h": [{"hour": hour, "count": count} for hour, count in timeline_counts.items()],
         "mitre_coverage": mitre_coverage,
-        "host_protection_state": {
-            "monitored": online_agents,
-            "suspicious": max(0, len(host_list) - critical_hosts - offline_agents),
-            "contained": 0,
-            "needs_approval": critical_hosts,
-        },
+        "host_protection_state": defense_state_counts,
         "response_queue": {
             **response_queue,
             "mode": os.environ.get("NETGUARD_RESPONSE_MODE", "manual_approval"),
@@ -2193,6 +2294,26 @@ def _soc_pipeline_activity_rows(host_id: str) -> tuple[list[dict], list[dict]]:
                 )
             )
 
+        for behavior in outcome.get("behavioral_findings") or []:
+            if not isinstance(behavior, dict):
+                continue
+            mapping = behavior.get("mitre_mapping") or {}
+            behavior_type = str(behavior.get("behavior_type") or "behavioral_finding")
+            host_events.append(
+                _soc_make_timeline_item(
+                    title=f"Behavior: {_soc_labelize(behavior_type)}",
+                    alert_type=behavior_type,
+                    severity=str(behavior.get("severity") or highest_severity),
+                    timestamp=str(behavior.get("timestamp") or outcome.get("event", {}).get("timestamp") or ""),
+                    description=str(behavior.get("evidence") or "Behavioral finding observed."),
+                    technique=str(mapping.get("technique") or ""),
+                    tactic=str(mapping.get("tactic") or "behavior"),
+                    chain_summary=_soc_labelize(str(mapping.get("tactic") or behavior_type)),
+                    related_event_ids=[],
+                    recommended_action=str(behavior.get("recommended_action") or "investigate"),
+                )
+            )
+
         for action in outcome.get("actions") or []:
             if not isinstance(action, dict):
                 continue
@@ -2554,12 +2675,15 @@ def _build_soc_host_detail_context(host_id: str, context: dict | None = None):
             "likely_attack_story": "No active attack progression is visible for this host yet.",
             "recommended_next_action": "Continue monitoring and wait for endpoint telemetry.",
         }
+    host_defense_state = _latest_host_defense_state(effective_host_id)
     contained_actions = {
         str(item.get("action_type") or "")
         for item in host_response_actions
         if str(item.get("status") or "").lower() == "succeeded"
     }
-    if contained_actions & {"isolate_host", "isolate_host_simulated", "block_ip_windows_firewall"}:
+    if host_defense_state.get("state"):
+        protection_state = str(host_defense_state.get("state"))
+    elif contained_actions & {"isolate_host", "isolate_host_simulated", "safe_host_isolation", "block_ip_windows_firewall"}:
         protection_state = "contained"
     elif host_response_queue_stats.get("pending_approvals", 0) > 0:
         protection_state = "needs_approval"
@@ -2617,6 +2741,7 @@ def _build_soc_host_detail_context(host_id: str, context: dict | None = None):
         {"label": "Open Incidents", "value": open_incidents, "tone": "high" if open_incidents else "low"},
         {"label": "Timeline Events", "value": len(filtered_host_events), "tone": "medium" if filtered_host_events else "low"},
         {"label": "Kill Chain Score", "value": host_attack_timeline.get("progression_score", 0), "tone": "high" if int(host_attack_timeline.get("progression_score") or 0) >= 70 else "medium"},
+        {"label": "Defense State", "value": protection_state.replace("_", " ").title(), "tone": "high" if protection_state in {"elevated_risk", "contained", "isolated"} else "low"},
         {"label": "MITRE Techniques", "value": len(tracked_techniques), "tone": "medium" if tracked_techniques else "low"},
     ]
 
@@ -2632,6 +2757,7 @@ def _build_soc_host_detail_context(host_id: str, context: dict | None = None):
         "host_response_queue_stats": host_response_queue_stats,
         "safe_response_actions": ["ping", "collect_diagnostics", "flush_buffer"],
         "host_attack_timeline": host_attack_timeline,
+        "host_defense_state": host_defense_state,
         "host_mitre_coverage": host_mitre_coverage,
         "host_attack_chains": attack_chains,
         "selected_chain_filter": selected_chain_filter,
@@ -4615,6 +4741,106 @@ def host_attack_timeline_api(tenant_id, host_id):
     payload["tenant_id"] = tenant_id
     payload["ok"] = True
     return jsonify(payload)
+
+
+@app.route("/api/soc/host/<path:host_id>", methods=["GET"])
+@limiter.limit("60 per minute")
+@auth
+@csrf_protect
+@require_role("analyst", "admin")
+def soc_host_api(host_id):
+    """SOC host investigation payload for live consoles and integrations."""
+    host_id = str(host_id or "").strip()
+    if not host_id:
+        return jsonify({"error": "host_id_required"}), 400
+    context = _build_soc_host_detail_context(host_id, context=_build_soc_preview_context())
+    if not context:
+        return jsonify({"error": "host_not_found"}), 404
+    audit("SOC_API_HOST_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail=f"host={host_id}")
+    return jsonify({
+        "ok": True,
+        "tenant_id": _current_request_tenant_id(),
+        "host": context.get("selected_host"),
+        "host_defense_state": context.get("host_defense_state", {}),
+        "attack_timeline": context.get("host_attack_timeline", {}),
+        "mitre_coverage": context.get("host_mitre_coverage", {}),
+        "response_queue": context.get("host_response_queue_stats", {}),
+        "recent_events": context.get("host_events", []),
+        "incidents": context.get("host_incidents", []),
+    })
+
+
+@app.route("/api/soc/incidents", methods=["GET"])
+@limiter.limit("60 per minute")
+@auth
+@csrf_protect
+@require_role("analyst", "admin")
+def soc_incidents_api():
+    context = _build_soc_incidents_context()
+    audit("SOC_API_INCIDENTS_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="list")
+    return jsonify({
+        "ok": True,
+        "tenant_id": _current_request_tenant_id(),
+        "summary": context.get("incident_summary", {}),
+        "incidents": context.get("incident_rows", []),
+    })
+
+
+@app.route("/api/soc/threat-hunts", methods=["GET"])
+@limiter.limit("30 per minute")
+@auth
+@csrf_protect
+@require_role("analyst", "admin")
+def soc_threat_hunts_api():
+    try:
+        limit = max(1, min(int(request.args.get("limit") or 250), 500))
+    except (TypeError, ValueError):
+        limit = 250
+    payload = _build_threat_hunts_payload(limit=limit)
+    audit("SOC_API_THREAT_HUNTS_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail=f"limit={limit}")
+    return jsonify(payload)
+
+
+@app.route("/api/soc/live-response", methods=["GET"])
+@limiter.limit("60 per minute")
+@auth
+@csrf_protect
+@require_role("analyst", "admin")
+def soc_live_response_api():
+    context = _build_live_response_context()
+    audit("SOC_API_LIVE_RESPONSE_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="queue")
+    return jsonify({
+        "ok": True,
+        "tenant_id": _current_request_tenant_id(),
+        "response_queue": context.get("response_queue", {}),
+        "status_buckets": {
+            key: len(value)
+            for key, value in (context.get("response_status_buckets") or {}).items()
+        },
+        "actions": context.get("response_actions", []),
+        "host_states": context.get("live_host_states", []),
+        "threat_hunts": context.get("threat_hunts", []),
+    })
+
+
+@app.route("/api/soc/killchain/<path:host_id>", methods=["GET"])
+@limiter.limit("60 per minute")
+@auth
+@csrf_protect
+@require_role("analyst", "admin")
+def soc_killchain_api(host_id):
+    host_id = str(host_id or "").strip()
+    if not host_id:
+        return jsonify({"error": "host_id_required"}), 400
+    from xdr.attack_timeline import build_host_attack_timeline
+
+    payload = build_host_attack_timeline(
+        host_id,
+        _get_xdr_pipeline().recent_host_activity(host_id, limit=50),
+        limit=50,
+    )
+    audit("SOC_API_KILLCHAIN_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail=f"host={host_id}")
+    return jsonify({"ok": True, "tenant_id": _current_request_tenant_id(), **payload})
 
 
 @app.route("/api/xdr/summary", methods=["GET"])
@@ -10485,6 +10711,15 @@ def webhooks_types():
     if not WEBHOOK_AVAILABLE:
         return jsonify({"error": "Webhook Engine indisponível"}), 503
     return jsonify({"types": _get_webhook_engine().supported_types()})
+
+
+@app.route("/soc/live-response", methods=["GET"])
+@app.route("/soc-preview/live-response", methods=["GET"])
+@require_session
+@require_role("analyst", "admin")
+def soc_live_response_page():
+    audit("SOC_LIVE_RESPONSE_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="page")
+    return render_template("live_response.html", **_build_live_response_context())
 
 
 from routes.soc import create_soc_blueprint
