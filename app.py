@@ -1853,6 +1853,174 @@ def _build_executive_context() -> dict:
     }
 
 
+def _build_soc_copilot_context() -> dict:
+    """Build deterministic, explainable analyst assistance for the SOC Copilot."""
+    context = _build_soc_experience_context()
+    tenant_id = _current_request_tenant_id()
+    alerts = list(context.get("alerts") or [])[:12]
+    hosts = list(context.get("hosts") or [])
+    overview = dict(context.get("overview") or {})
+    posture = dict(context.get("security_posture") or {})
+    critical_assets = [
+        str(host.get("host_id") or host.get("host_name"))
+        for host in hosts
+        if int(host.get("risk_score") or 0) >= 80
+        or str(host.get("highest_severity") or "").lower() == "critical"
+    ]
+    try:
+        from xdr.alert_context_engine import AlertContextEngine
+        from xdr.executive_summary_engine import ExecutiveSummaryEngine
+        from xdr.explainability_engine import ExplainabilityEngine
+        from xdr.fp_reduction_engine import FalsePositiveReductionEngine
+        from xdr.investigation_assistant import InvestigationAssistant
+        from xdr.playbook_engine import PlaybookRecommendationEngine
+        from xdr.prioritization_engine import IncidentPrioritizationEngine
+        from xdr.progression_predictor import AttackProgressionPredictor
+        from xdr.threat_intel import ThreatIntelEnrichmentEngine
+    except Exception:
+        return {
+            **context,
+            "copilot_cards": [],
+            "copilot_summary": {
+                "status": "degraded",
+                "message": "SAFE Copilot engines are unavailable. Continue using manual SOC triage.",
+            },
+            "executive_risk_explanation": {},
+            "analyst_workflow_actions": _safe_analyst_workflow_actions(),
+        }
+
+    context_engine = AlertContextEngine()
+    fp_engine = FalsePositiveReductionEngine()
+    assistant = InvestigationAssistant()
+    prioritizer = IncidentPrioritizationEngine()
+    explainer = ExplainabilityEngine()
+    predictor = AttackProgressionPredictor()
+    playbooks = PlaybookRecommendationEngine()
+    intel = ThreatIntelEnrichmentEngine()
+
+    cards = []
+    for alert in alerts:
+        event = dict(alert.get("event") or alert)
+        details = event.get("details") if isinstance(event.get("details"), dict) else {}
+        iocs = [item.to_dict() for item in intel.enrich_event(event, tenant_id=tenant_id)]
+        alert_context = context_engine.contextualize(
+            detections=[alert],
+            telemetry=[event],
+            threat_intel=iocs,
+            critical_assets=critical_assets,
+        )
+        fp_assessment = fp_engine.assess_alert(
+            alert,
+            baseline={"known_good_command": bool(details.get("baseline_known_good"))},
+            historical_frequency=int(details.get("historical_frequency") or 0),
+            signer_trust=str(details.get("signer_trust") or details.get("signature_trust") or ""),
+        )
+        guide = assistant.assist(
+            events=[event],
+            detections=[alert],
+            killchain_findings=[{"stage": alert_context.likely_attack_stage}],
+            host_id=str(alert.get("host") or event.get("host_id") or ""),
+        )
+        prediction = predictor.predict(
+            active_stages=[alert_context.likely_attack_stage],
+            behaviors=alert_context.risk_signals,
+            recent_detections=[alert],
+        )
+        priority = prioritizer.prioritize(
+            severity=alert_context.severity,
+            business_impact=alert_context.business_impact,
+            affected_hosts=alert_context.affected_assets,
+            critical_assets=critical_assets,
+            attack_progression=overview.get("average_risk", 0),
+            persistence="persistence" in alert_context.risk_signals,
+            lateral_movement="lateral_movement" in alert_context.risk_signals,
+            credential_access="credential_access" in alert_context.risk_signals,
+            threat_intel_severity="high" if any(item.get("matched") for item in iocs) else "none",
+        )
+        explanation = explainer.explain_detection(
+            alert,
+            event=event,
+            killchain_findings=[{"stage": alert_context.likely_attack_stage}],
+            contributing_engines=["alert_context_engine", "false_positive_reduction", "investigation_assistant"],
+        )
+        recommended_playbooks = [
+            item.to_dict()
+            for item in playbooks.recommend(
+                stage=alert_context.likely_attack_stage,
+                objective=alert_context.likely_objective,
+                behaviors=alert_context.risk_signals,
+                severity=alert_context.severity,
+            )
+        ]
+        cards.append(
+            {
+                "title": str(alert.get("title") or "Security activity"),
+                "host": str(alert.get("host") or event.get("host_id") or "unknown"),
+                "severity": alert_context.severity,
+                "context": alert_context.to_dict(),
+                "fp_assessment": fp_assessment.to_dict(),
+                "investigation": guide.to_dict(),
+                "priority": priority.to_dict(),
+                "explanation": explanation.to_dict(),
+                "prediction": prediction.to_dict(),
+                "playbooks": recommended_playbooks,
+                "iocs": iocs,
+            }
+        )
+
+    executive_risk = ExecutiveSummaryEngine().explain(
+        posture_score=int(posture.get("score") or 0),
+        active_threats=int((context.get("soc_experience") or {}).get("active_threats") or 0),
+        critical_hosts=int(overview.get("critical_hosts") or 0),
+        open_incidents=int(overview.get("open_incidents") or 0),
+        attack_progression=int(overview.get("average_risk") or 0),
+        recommendations=posture.get("recommendations") or [],
+    ).to_dict()
+    return {
+        **context,
+        "copilot_cards": cards,
+        "copilot_summary": {
+            "status": "ready",
+            "message": "SAFE Copilot is providing explainable, human-in-the-loop investigation guidance.",
+            "alerts_contextualized": len(cards),
+            "likely_true_positive": sum(
+                1 for item in cards if item["fp_assessment"].get("classification") == "likely_true_positive"
+            ),
+        },
+        "executive_risk_explanation": executive_risk,
+        "analyst_workflow_actions": _safe_analyst_workflow_actions(),
+    }
+
+
+def _safe_analyst_workflow_actions() -> list[dict]:
+    return [
+        {
+            "label": "Save investigation",
+            "action": "save_investigation",
+            "description": "Preserve summary, evidence and notes in the incident workspace.",
+            "safe": True,
+        },
+        {
+            "label": "Pin evidence",
+            "action": "pin_evidence",
+            "description": "Mark key evidence for analyst review without changing endpoint state.",
+            "safe": True,
+        },
+        {
+            "label": "Mark false positive",
+            "action": "mark_false_positive",
+            "description": "Use only after review. Critical alerts remain visible and auditable.",
+            "safe": True,
+        },
+        {
+            "label": "Escalation notes",
+            "action": "escalation_notes",
+            "description": "Document business impact, owner and next handoff.",
+            "safe": True,
+        },
+    ]
+
+
 def _build_soc_preview_context():
     tenant_id = _current_request_tenant_id()
     try:
@@ -11322,6 +11490,30 @@ def soc_live_response_page():
 def soc_campaigns_page():
     audit("SOC_CAMPAIGNS_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="page")
     return render_template("soc/campaigns.html", **_build_soc_experience_context())
+
+
+@app.route("/soc/copilot", methods=["GET"])
+@require_session
+@require_role("analyst", "admin")
+def soc_copilot_page():
+    audit("SOC_COPILOT_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="page")
+    return render_template("soc/copilot.html", **_build_soc_copilot_context())
+
+
+@app.route("/api/soc/copilot", methods=["GET"])
+@auth
+@csrf_protect
+@require_role("analyst", "admin")
+def soc_copilot_api():
+    context = _build_soc_copilot_context()
+    audit("SOC_API_COPILOT_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="context")
+    return jsonify({
+        "ok": True,
+        "summary": context.get("copilot_summary", {}),
+        "cards": context.get("copilot_cards", []),
+        "executive_risk_explanation": context.get("executive_risk_explanation", {}),
+        "workflow_actions": context.get("analyst_workflow_actions", []),
+    })
 
 
 @app.route("/executive", methods=["GET"])

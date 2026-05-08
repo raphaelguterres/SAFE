@@ -1,0 +1,190 @@
+{% extends "soc/base.html" %}
+{% set active_page = "copilot" %}
+{% set cards = copilot_cards if copilot_cards is defined else [] %}
+{% set copilot = copilot_summary if copilot_summary is defined else {} %}
+{% set exec_risk = executive_risk_explanation if executive_risk_explanation is defined else {} %}
+{% set workflow = analyst_workflow_actions if analyst_workflow_actions is defined else [] %}
+
+{% block title %}SAFE Security Operations | Copilot{% endblock %}
+
+{% block page %}
+<header class="soc-page-header soc-page-header-airy">
+  <div>
+    <div class="soc-breadcrumbs">
+      <a class="soc-inline-link" href="/soc/overview">Overview</a>
+      <span>/</span>
+      <span>AI-assisted SOC</span>
+    </div>
+    <h1 class="soc-page-title">SAFE Copilot</h1>
+    <p class="soc-page-copy">Explainable investigation assistance for alert context, false-positive reduction, prioritization and next-step guidance.</p>
+  </div>
+  <span class="safe-live-chip">Human in the loop</span>
+</header>
+
+<section class="safe-copilot-hero safe-fade-in">
+  <article class="safe-card">
+    <div class="safe-panel-head">
+      <div>
+        <h2 class="safe-section-title">Analyst Brief</h2>
+        <p class="safe-section-copy">{{ copilot.message|default("SAFE Copilot is waiting for security activity.") }}</p>
+      </div>
+      <span class="soc-severity-chip {{ exec_risk.risk_level|default('Low')|lower }}">{{ exec_risk.risk_level|default("Low") }}</span>
+    </div>
+    <div class="safe-grid-3">
+      <div class="safe-mini-metric">
+        <span>Contextualized Alerts</span>
+        <strong>{{ copilot.alerts_contextualized|default(cards|length) }}</strong>
+      </div>
+      <div class="safe-mini-metric">
+        <span>Likely True Positive</span>
+        <strong>{{ copilot.likely_true_positive|default(0) }}</strong>
+      </div>
+      <div class="safe-mini-metric">
+        <span>Business Risk</span>
+        <strong>{{ exec_risk.risk_level|default("Low") }}</strong>
+      </div>
+    </div>
+  </article>
+
+  <article class="safe-card">
+    <h2 class="safe-section-title">Executive Risk Explanation</h2>
+    <p class="safe-section-copy">{{ exec_risk.operational_risk|default("No active operational risk is visible from current telemetry.") }}</p>
+    <div class="safe-evidence-grid" style="margin-top: 14px;">
+      <div class="safe-evidence-card">
+        <strong>Potential impact</strong>
+        <p>{{ exec_risk.potential_impact|default("No business impact confirmed.") }}</p>
+      </div>
+      <div class="safe-evidence-card">
+        <strong>Recommended action</strong>
+        <p>{{ exec_risk.recommended_action|default("Maintain monitoring and validate endpoint coverage.") }}</p>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section class="safe-operation-grid" style="margin-top: 18px;">
+  <article class="soc-panel">
+    <div class="safe-panel-head">
+      <div>
+        <h2 class="safe-section-title">Investigation Queue</h2>
+        <p class="safe-section-copy">Prioritized, explainable alert cards. Copilot never hides critical detections.</p>
+      </div>
+      <a class="soc-inline-link" href="/soc/incidents">Open incidents</a>
+    </div>
+
+    {% if cards %}
+      <div class="safe-copilot-stack">
+        {% for card in cards %}
+        {% set ctx = card.context %}
+        {% set fp = card.fp_assessment %}
+        {% set prio = card.priority %}
+        {% set prediction = card.prediction %}
+        <article class="safe-card safe-copilot-card priority-{{ prio.priority|default('Low')|lower }}">
+          <div class="safe-copilot-card-head">
+            <div>
+              <div class="soc-meta-inline">
+                <span>{{ card.host }}</span>
+                <span>{{ ctx.likely_attack_stage|replace("_", " ")|title }}</span>
+              </div>
+              <h3>{{ card.title }}</h3>
+            </div>
+            <div class="safe-priority-pill">{{ prio.priority|default("Low") }} · {{ prio.score|default(0) }}</div>
+          </div>
+
+          <p class="safe-section-copy">{{ ctx.alert_summary }}</p>
+
+          <div class="safe-grid-3 safe-copilot-facts">
+            <div>
+              <span>Confidence</span>
+              <strong>{{ (ctx.confidence * 100)|round|int }}%</strong>
+            </div>
+            <div>
+              <span>FP probability</span>
+              <strong>{{ (fp.false_positive_probability * 100)|round|int }}%</strong>
+            </div>
+            <div>
+              <span>Next stage</span>
+              <strong>{{ prediction.predicted_next_stage|replace("_", " ")|title }}</strong>
+            </div>
+          </div>
+
+          <details class="safe-collapsible" open>
+            <summary>Why SAFE generated this context</summary>
+            <div class="safe-collapsible-body">
+              <p>{{ card.explanation.why_generated }}</p>
+              <div class="soc-token-grid">
+                {% for signal in ctx.risk_signals %}
+                  <span class="soc-token">{{ signal|replace("_", " ")|title }}</span>
+                {% else %}
+                  <span class="soc-token">No high-confidence risk signal yet</span>
+                {% endfor %}
+              </div>
+            </div>
+          </details>
+
+          <div class="safe-evidence-grid">
+            <div class="safe-evidence-card">
+              <strong>Suggested next steps</strong>
+              <ul class="safe-clean-list">
+                {% for step in card.investigation.suggested_next_steps[:5] %}
+                  <li>{{ step|replace("_", " ")|title }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+            <div class="safe-evidence-card">
+              <strong>Recommended playbooks</strong>
+              <ul class="safe-clean-list">
+                {% for playbook in card.playbooks[:4] %}
+                  <li>{{ playbook.playbook|replace("_", " ")|title }}{% if playbook.requires_approval %} · approval{% endif %}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+
+          <div class="safe-copilot-actions">
+            <a class="soc-action-button soc-action-button-primary" href="/soc/hosts/{{ card.host }}">Investigate host</a>
+            <button class="soc-action-button" type="button" disabled title="Use incident workflow to save investigation notes.">Save investigation</button>
+            <button class="soc-action-button" type="button" disabled title="False-positive marking remains auditable in incident workflow.">Mark false positive</button>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="soc-empty-state soc-empty-state-premium">
+        <h3>No active alert context yet</h3>
+        <p>SAFE Copilot will summarize detections, evidence and recommended steps when endpoint telemetry produces alerts.</p>
+        <a class="soc-action-button" href="/soc/hosts">View protected hosts</a>
+      </div>
+    {% endif %}
+  </article>
+
+  <aside class="soc-list" style="gap: 16px;">
+    <article class="soc-panel">
+      <h2 class="soc-panel-title">Analyst Workflow</h2>
+      <p class="soc-list-copy">Non-destructive productivity actions designed for auditability.</p>
+      <div class="soc-list soc-compact-list" style="margin-top: 12px;">
+        {% for item in workflow %}
+        <div class="soc-list-item">
+          <div>
+            <div class="soc-list-title">{{ item.label }}</div>
+            <div class="soc-list-copy">{{ item.description }}</div>
+          </div>
+          <span class="soc-severity-chip low">Safe</span>
+        </div>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="soc-panel">
+      <h2 class="soc-panel-title">Guardrails</h2>
+      <div class="soc-token-grid" style="margin-top: 12px;">
+        <span class="soc-token">Defensive only</span>
+        <span class="soc-token">No auto destructive action</span>
+        <span class="soc-token">Critical alerts preserved</span>
+        <span class="soc-token">Explainable evidence</span>
+        <span class="soc-token">Approval gated response</span>
+      </div>
+    </article>
+  </aside>
+</section>
+{% endblock %}

@@ -54,6 +54,22 @@ Storage + SOC
 - **Live response:** safe actions, guarded actions, policy approval, signed response envelopes, and agent-side verification.
 - **Scalable ingest foundation:** bounded queues, priority lanes, deduplication, heartbeat state, orchestration, and performance metrics.
 - **Enterprise hardening:** HMAC agent trust, nonce replay guard, config validator, API abuse guard, audit integrity, and secrets self-check.
+- **AI-assisted SOC:** explainable alert context, false-positive reduction, investigation guidance, incident prioritization, playbook recommendations, and attack progression prediction.
+
+## AI-Assisted SOC Core
+
+SAFE includes a defensive, deterministic Copilot layer for analyst productivity. It does not execute dangerous actions, does not hide critical detections, and keeps every recommendation explainable.
+
+Core components:
+
+- `xdr/alert_context_engine.py` enriches detections with likely attack stage, objective, business impact, affected assets, and recommended investigation.
+- `xdr/fp_reduction_engine.py` reduces SOC fatigue by labeling alerts as likely true positive, suspicious, low confidence, or likely benign while preserving critical alerts.
+- `xdr/investigation_assistant.py` turns event context into next steps, containment suggestions, and an evidence checklist.
+- `xdr/explainability_engine.py` explains why a detection fired, which engines contributed, and which evidence chain supports it.
+- `xdr/prioritization_engine.py` ranks incidents by impact, critical assets, progression, credential access, persistence, lateral movement, and threat intel.
+- `xdr/progression_predictor.py` predicts likely next-stage progression and recommends prevention steps.
+- `xdr/playbook_engine.py` recommends defensive playbooks without executing them automatically.
+- `/soc/copilot` provides the analyst panel for summaries, explanations, false-positive context, playbooks, and guided next steps.
 
 ## SAFE Console
 
@@ -63,6 +79,7 @@ Primary workspaces:
 - **Operator Inbox:** highest-risk hosts ordered by risk and operational priority.
 - **Host Triage:** host profile, attack timeline, risk explanation, related signals, and response actions.
 - **Incidents:** status, severity, assignment, comments, and lifecycle updates.
+- **Copilot:** explainable investigation summaries, false-positive context, priority, evidence chain, and safe playbook recommendations.
 - **Agents:** host inventory, liveness, enrollment, heartbeat, and key lifecycle.
 - **Live Response:** pending security actions, approvals, containment state, MITRE context, and response queue.
 - **Performance:** ingest V2 status, queue pressure, dedup ratio, latency, dropped events, and throughput.

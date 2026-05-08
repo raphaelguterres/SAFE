@@ -23,6 +23,9 @@
     </a>
 
     <div class="soc-nav-label">Investigation</div>
+    <a class="soc-nav-link {% if active_page == 'copilot' %}is-active{% endif %}" href="/soc/copilot" {% if active_page == 'copilot' %}aria-current="page"{% endif %}>
+      <span>Copilot</span>
+    </a>
     <a class="soc-nav-link" href="/admin/inbox">
       <span>Operator Inbox</span>
     </a>

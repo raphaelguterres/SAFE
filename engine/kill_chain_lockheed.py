@@ -233,4 +233,113 @@ __all__ = [
     "HostKillChainState",
     "map_tactic",
     "derive_host_state",
+    "aggregate_heatmap",
 ]
+
+
+
+def aggregate_heatmap(host_states: "list[HostKillChainState]") -> dict:
+    """Aggregate a list of HostKillChainState into a heatmap-ready payload.
+
+    The payload is shaped for the SOC overview heatmap: rows = hosts, cols =
+    Lockheed phases, plus summary stats. Hosts with no progression are kept
+    so analysts can see "all green" hosts too, but they sort to the bottom.
+
+    Returns:
+        {
+          "phases": [
+            {"id": "...", "label_pt": "...", "label_en": "..."},
+            ...  # 6 entries
+          ],
+          "rows": [
+            {
+              "host_id": "...",
+              "current_phase": "...",
+              "current_label": "...",
+              "progression_pct": int,
+              "max_count": int,
+              "cells": [
+                {"phase_id": "...", "count": int, "reached": bool, "is_current": bool},
+                ...  # 6 entries (one per phase, in canonical order)
+              ],
+            },
+            ...
+          ],
+          "summary": {
+            "total_hosts": int,
+            "with_activity": int,
+            "phase_counts": {phase_id: hosts_in_or_past_this_phase, ...},
+            "deepest_phase": phase_id | None,
+          },
+        }
+    """
+    rows: list[dict] = []
+    phase_counts: dict[str, int] = {p: 0 for p in PHASES}
+    deepest_idx = -1
+    with_activity = 0
+
+    for state in host_states or []:
+        if not isinstance(state, HostKillChainState):
+            continue
+        cells = []
+        max_count = 0
+        for phase_id in PHASES:
+            entry = state.reached.get(phase_id) or {}
+            count = int(entry.get("count", 0))
+            reached = phase_id in state.reached
+            is_current = phase_id == state.current_phase
+            cells.append({
+                "phase_id":  phase_id,
+                "count":     count,
+                "reached":   reached,
+                "is_current": is_current,
+            })
+            if count > max_count:
+                max_count = count
+            if reached:
+                phase_counts[phase_id] += 1
+
+        if state.current_phase is not None:
+            with_activity += 1
+            idx = PHASE_INDEX[state.current_phase]
+            if idx > deepest_idx:
+                deepest_idx = idx
+
+        rows.append({
+            "host_id":         state.host_id,
+            "current_phase":   state.current_phase,
+            "current_label":   (PHASE_LABELS[state.current_phase]["pt"]
+                                if state.current_phase else None),
+            "progression_pct": state.progression_pct,
+            "max_count":       max_count,
+            "cells":           cells,
+        })
+
+    # Sort: deepest phase first, then by total event count desc
+    rows.sort(
+        key=lambda r: (
+            -(PHASE_INDEX[r["current_phase"]] if r["current_phase"] else -1),
+            -sum(c["count"] for c in r["cells"]),
+            r["host_id"],
+        )
+    )
+
+    deepest_phase = PHASES[deepest_idx] if deepest_idx >= 0 else None
+
+    return {
+        "phases": [
+            {
+                "id":       p,
+                "label_pt": PHASE_LABELS[p]["pt"],
+                "label_en": PHASE_LABELS[p]["en"],
+            }
+            for p in PHASES
+        ],
+        "rows":   rows,
+        "summary": {
+            "total_hosts":   len(rows),
+            "with_activity": with_activity,
+            "phase_counts":  phase_counts,
+            "deepest_phase": deepest_phase,
+        },
+    }
