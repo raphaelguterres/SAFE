@@ -1,0 +1,32 @@
+{% set timeline_items = threat_timeline if threat_timeline is defined else [] %}
+<div class="safe-threat-timeline" aria-label="Live threat timeline">
+  {% if timeline_items %}
+    {% for item in timeline_items[:12] %}
+    <article class="safe-timeline-item safe-fade-in">
+      <span class="safe-timeline-dot" aria-hidden="true"></span>
+      <div class="safe-timeline-body">
+        <div class="safe-timeline-top">
+          <span>{{ item.title|default("Security activity") }}</span>
+          <span class="soc-severity-chip {{ item.severity|default('low') }}">{{ item.kind|default("event")|replace("_", " ")|title }}</span>
+        </div>
+        <div class="safe-timeline-meta">
+          <span>{{ item.timestamp|default("recent") }}</span>
+          {% if item.host_id %}<span>Host {{ item.host_id }}</span>{% endif %}
+          {% if item.stage %}<span>{{ item.stage|replace("_", " ")|title }}</span>{% endif %}
+        </div>
+        <div class="safe-timeline-copy">{{ item.description|default("SAFE observed security activity and added it to the investigation timeline.") }}</div>
+        {% if item.href %}
+        <div style="margin-top: 10px;">
+          <a class="soc-inline-link" href="{{ item.href }}">Investigate</a>
+        </div>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  {% else %}
+    <div class="safe-empty">
+      <h3>No security activity yet</h3>
+      <p>Detections, response actions, approvals and host state changes will appear here as telemetry arrives.</p>
+    </div>
+  {% endif %}
+</div>

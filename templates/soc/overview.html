@@ -7,6 +7,10 @@
 {% set coverage = data.mitre_coverage|default({}) %}
 {% set protection = data.host_protection_state|default({}) %}
 {% set queue = data.response_queue|default({}) %}
+{% set posture = security_posture if security_posture is defined else {} %}
+{% set campaigns = attack_campaigns if attack_campaigns is defined else [] %}
+{% set hunts = threat_hunts if threat_hunts is defined else [] %}
+{% set experience = soc_experience if soc_experience is defined else {} %}
 
 {% block title %}SAFE Security Operations | Overview{% endblock %}
 
@@ -62,6 +66,94 @@
   <a class="soc-action-button soc-action-button-primary" href="{{ recommendation.route|default('/soc') }}">
     {{ recommendation.label|default("Continue") }}
   </a>
+</section>
+
+<section class="safe-grid-4 safe-fade-in" aria-label="SAFE SOC live operations">
+  <article class="safe-card safe-kpi">
+    <span>Active Threats</span>
+    <strong>{{ experience.active_threats|default(data.critical_alerts|default(0)) }}</strong>
+    <small>Critical threats, critical hosts and open investigation pressure.</small>
+  </article>
+  <article class="safe-card safe-kpi">
+    <span>Threat Hunts</span>
+    <strong>{{ experience.threat_hunts|default(hunts|length) }}</strong>
+    <small>Automatic hunts over recent endpoint telemetry.</small>
+  </article>
+  <article class="safe-card safe-kpi">
+    <span>Attack Campaigns</span>
+    <strong>{{ experience.attack_campaigns|default(campaigns|length) }}</strong>
+    <small>Shared infrastructure, tactics or Kill Chain sequences.</small>
+  </article>
+  <article class="safe-card safe-kpi">
+    <span>Posture</span>
+    <strong>{{ posture.score|default(0) }}</strong>
+    <small>{{ posture.label|default("Attention Needed") }} security posture.</small>
+  </article>
+</section>
+
+<section class="safe-operation-grid" style="margin-top: 18px;">
+  <article class="soc-panel">
+    <div class="safe-panel-head">
+      <div>
+        <h2 class="safe-section-title">Threat Timeline</h2>
+        <p class="safe-section-copy">Detections, Kill Chain progression, response actions, approvals and host state transitions in one story.</p>
+      </div>
+      <span class="safe-live-chip">Live operations</span>
+    </div>
+    {% include "partials/threat_timeline.html" %}
+  </article>
+
+  <div class="soc-list" style="gap: 16px;">
+    <article class="soc-panel">
+      <div class="soc-panel-header">
+        <div>
+          <h2 class="soc-panel-title">Attack Campaigns</h2>
+          <div class="soc-list-copy">Grouped by infrastructure, MITRE behavior and temporal progression.</div>
+        </div>
+        <a class="soc-inline-link" href="/soc/campaigns">Open</a>
+      </div>
+      {% if campaigns %}
+        <div class="soc-list soc-compact-list">
+          {% for campaign in campaigns[:3] %}
+          <a class="soc-list-item soc-list-link" href="/soc/campaigns">
+            <div>
+              <div class="soc-list-top">
+                <span class="soc-list-title">{{ campaign.correlation_type|replace("_", " ")|title }}</span>
+                <span class="soc-severity-chip {{ campaign.severity|default('high') }}">{{ campaign.confidence|default(0) }}</span>
+              </div>
+              <div class="soc-meta-inline">
+                <span>{{ campaign.affected_hosts|length }} hosts</span>
+                <span>{{ campaign.attacker_infrastructure|length }} shared indicators</span>
+              </div>
+            </div>
+            <span class="soc-inline-link">Review</span>
+          </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="soc-empty-state soc-empty-state-premium">
+          <h3>No active campaigns detected</h3>
+          <p>Campaign cards appear when SAFE sees shared infrastructure or repeated Kill Chain patterns.</p>
+        </div>
+      {% endif %}
+    </article>
+
+    <article class="soc-panel">
+      <div class="soc-panel-header">
+        <div>
+          <h2 class="soc-panel-title">Host Protection States</h2>
+          <div class="soc-list-copy">Current defense state by endpoint population.</div>
+        </div>
+      </div>
+      <div class="soc-token-grid">
+        <span class="soc-token">Monitored {{ protection.monitored|default(0) }}</span>
+        <span class="soc-token soc-token-accent">Suspicious {{ protection.suspicious|default(0) }}</span>
+        <span class="soc-token soc-token-accent">Elevated {{ protection.elevated_risk|default(0) }}</span>
+        <span class="soc-token">Contained {{ protection.contained|default(0) }}</span>
+        <span class="soc-token">Needs approval {{ protection.needs_approval|default(0) }}</span>
+      </div>
+    </article>
+  </div>
 </section>
 
 <section class="soc-kpi-grid soc-kpi-grid-compact" aria-label="Enterprise protection layer">

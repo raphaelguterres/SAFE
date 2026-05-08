@@ -6,7 +6,7 @@
 {% set host_states = live_host_states if live_host_states is defined else [] %}
 {% set hunts = threat_hunts if threat_hunts is defined else [] %}
 
-{% block title %}SAFE Security Operations | Pending Actions{% endblock %}
+{% block title %}SAFE Security Operations | Response Center{% endblock %}
 
 {% block page %}
 <header class="soc-page-header soc-page-header-airy">
@@ -14,10 +14,10 @@
     <div class="soc-breadcrumbs">
       <a class="soc-inline-link" href="/soc">Overview</a>
       <span>/</span>
-      <span>Live Response</span>
+      <span>Response Center</span>
     </div>
-    <h1 class="soc-page-title">Live Response Console</h1>
-    <p class="soc-page-copy">Controlled workflow for approvals, host containment, process triage, attack progression, and MITRE context.</p>
+    <h1 class="soc-page-title">Live Response Center</h1>
+    <p class="soc-page-copy">Live Response Console workflow for pending approvals, active containment, rollback readiness, failed responses and response audit trail.</p>
   </div>
 </header>
 
@@ -138,6 +138,7 @@
           <th>Action</th>
           <th>Reason</th>
           <th>Updated</th>
+          <th>Workflow</th>
         </tr>
       </thead>
       <tbody>
@@ -149,11 +150,19 @@
             <td>{{ action.action_type|replace("_", " ")|title }}</td>
             <td>{{ action.reason|default("Policy-controlled response action.") }}</td>
             <td>{{ action.updated_at|default(action.created_at|default("unknown")) }}</td>
+            <td>
+              <div class="soc-action-row" style="gap: 6px;">
+                <a class="soc-inline-link" href="/soc/hosts/{{ action.host_id }}">Investigate</a>
+                <button class="soc-action-button" type="button" disabled title="Approval endpoint must be wired before quick approve is enabled.">Approve</button>
+                <button class="soc-action-button" type="button" disabled title="Rejection endpoint must be wired before quick reject is enabled.">Reject</button>
+                <button class="soc-action-button" type="button" disabled title="Rollback requires an audited rollback action before it is enabled.">Rollback</button>
+              </div>
+            </td>
           </tr>
           {% endfor %}
         {% else %}
           <tr>
-            <td colspan="5">
+            <td colspan="6">
               <div class="soc-empty-state soc-empty-state-premium">
                 <h3>No response actions queued</h3>
                 <p>Approvals and endpoint actions will appear here after triage requests.</p>

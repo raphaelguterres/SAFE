@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAFE | Client Overview</title>
+  <link rel="stylesheet" href="/static/enterprise.css">
+  <link rel="stylesheet" href="/static/css/netguard.css">
+  <link rel="stylesheet" href="/static/css/safe-ui.css">
+  <script src="/static/js/theme-toggle.js"></script>
+</head>
+<body class="client-overview-page">
+  {% set overview_data = overview if overview is defined else {} %}
+  {% set recommendation_data = recommendation if recommendation is defined else overview_data.recommendation|default({}) %}
+  {% set hosts_data = hosts if hosts is defined else [] %}
+  {% set incidents_data = incidents if incidents is defined else [] %}
+  {% set average_risk = overview_data.average_risk|default(0) %}
+  {% if average_risk >= 80 %}
+    {% set posture_label = "Critical" %}
+    {% set posture_tone = "critical" %}
+  {% elif average_risk >= 60 or overview_data.critical_hosts|default(0) > 0 %}
+    {% set posture_label = "High Attention" %}
+    {% set posture_tone = "high" %}
+  {% elif average_risk >= 30 or overview_data.open_incidents|default(0) > 0 %}
+    {% set posture_label = "Needs Review" %}
+    {% set posture_tone = "medium" %}
+  {% else %}
+    {% set posture_label = "Protected" %}
+    {% set posture_tone = "healthy" %}
+  {% endif %}
+
+  <header class="client-topbar">
+    <a class="brand" href="/client/overview">
+      <span class="brand-mark">S</span>
+      <span class="brand-stack">
+        <strong>SAFE</strong>
+        <small>Client Security Overview</small>
+      </span>
+    </a>
+    <nav class="client-view-switch" aria-label="Client view mode">
+      <a class="is-active" href="/client/overview">Executive View</a>
+      <a href="/soc">Technical View</a>
+    </nav>
+    <div class="site-actions" data-theme-slot>
+      <a class="ghost-link" href="/soc">Open SOC</a>
+    </div>
+  </header>
+
+  <main class="client-overview-shell">
+    <section class="client-hero client-tone-{{ posture_tone }}">
+      <div>
+        <span class="panel-kicker">Security Overview</span>
+        <h1>{{ posture_label }}</h1>
+        <p>
+          {{ tenant_name|default("Your environment") }} is monitored by SAFE.
+          {{ overview_data.open_incidents|default(0) }} active incident(s),
+          {{ overview_data.monitored_hosts|default(0) }} protected host(s), and
+          {{ overview_data.events_24h|default(0) }} security activity item(s) in the last 24h.
+        </p>
+        <div class="client-hero-actions">
+          <a class="button-primary" href="{{ recommendation_data.route|default('/soc') }}">
+            {{ recommendation_data.label|default("Review security posture") }}
+          </a>
+          <a class="button-secondary" href="/soc/hosts">View protected hosts</a>
+        </div>
+      </div>
+      <aside class="client-posture-card">
+        <span>Posture Score</span>
+        <strong>{{ 100 - average_risk if average_risk <= 100 else 0 }}</strong>
+        <small>Lower risk means stronger posture. Last heartbeat {{ overview_data.last_agent_heartbeat|default("unknown") }}.</small>
+      </aside>
+    </section>
+
+    <section class="client-metric-grid" aria-label="Executive metrics">
+      <article class="client-metric-card">
+        <span>Active Incidents</span>
+        <strong>{{ overview_data.open_incidents|default(0) }}</strong>
+        <small>{{ overview_data.in_progress_incidents|default(0) }} under investigation.</small>
+      </article>
+      <article class="client-metric-card">
+        <span>Protected Hosts</span>
+        <strong>{{ overview_data.registered_agents|default(overview_data.monitored_hosts|default(0)) }}</strong>
+        <small>{{ overview_data.online_agents|default(0) }} online now.</small>
+      </article>
+      <article class="client-metric-card">
+        <span>Critical Hosts</span>
+        <strong>{{ overview_data.critical_hosts|default(0) }}</strong>
+        <small>Hosts requiring priority review.</small>
+      </article>
+      <article class="client-metric-card">
+        <span>Security Activity</span>
+        <strong>{{ overview_data.events_24h|default(0) }}</strong>
+        <small>Events received in the last 24h.</small>
+      </article>
+    </section>
+
+    <section class="client-grid-2">
+      <article class="client-panel">
+        <div class="client-panel-head">
+          <div>
+            <span class="panel-kicker">Recommended Actions</span>
+            <h2>What should happen next</h2>
+          </div>
+          <a class="client-inline-link" href="{{ recommendation_data.route|default('/soc') }}">Open</a>
+        </div>
+        <div class="client-action-card priority-{{ recommendation_data.priority|default('info') }}">
+          <strong>{{ recommendation_data.label|default("Continue monitoring") }}</strong>
+          <p>{{ recommendation_data.reason|default("No critical activity detected. Keep agents connected and review posture regularly.") }}</p>
+        </div>
+      </article>
+
+      <article class="client-panel">
+        <div class="client-panel-head">
+          <div>
+            <span class="panel-kicker">Incidents</span>
+            <h2>Items that need attention</h2>
+          </div>
+          <a class="client-inline-link" href="/soc/incidents">Review</a>
+        </div>
+        {% if incidents_data %}
+          <div class="client-card-stack">
+            {% for incident in incidents_data[:3] %}
+            <a class="client-incident-card" href="/soc/incidents">
+              <span class="risk-chip {{ incident.severity|default('low') }}">{{ incident.severity|default("low")|title }}</span>
+              <strong>{{ incident.title|default("Security incident") }}</strong>
+              <small>{{ incident.host_id|default("Unknown host") }} · {{ incident.status|default("open")|replace("_", " ")|title }}</small>
+            </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="client-empty-state">
+            <h3>Your environment is protected.</h3>
+            <p>No active incidents require action right now.</p>
+            <a class="button-secondary" href="/soc">Open technical view</a>
+          </div>
+        {% endif %}
+      </article>
+    </section>
+
+    <section class="client-panel">
+      <div class="client-panel-head">
+        <div>
+          <span class="panel-kicker">Host Protection</span>
+          <h2>Protected endpoints</h2>
+        </div>
+        <a class="client-inline-link" href="/soc/hosts">View all</a>
+      </div>
+      {% if hosts_data %}
+        <div class="client-host-grid">
+          {% for host in hosts_data[:6] %}
+          {% set risk_score = host.risk_score|default(0) %}
+          {% if host.status|default("") == "offline" %}
+            {% set host_state = "Offline" %}
+          {% elif risk_score >= 80 %}
+            {% set host_state = "Needs Review" %}
+          {% elif risk_score > 0 %}
+            {% set host_state = "Suspicious" %}
+          {% else %}
+            {% set host_state = "Protected" %}
+          {% endif %}
+          <a class="client-host-card" href="/soc/hosts/{{ host.host_name }}">
+            <div>
+              <strong>{{ host.host_name }}</strong>
+              <small>{{ host.operating_system|default("Unknown OS") }} · Last seen {{ host.last_seen|default("unknown") }}</small>
+            </div>
+            <span class="risk-chip {{ host_state|lower|replace(' ', '-') }}">{{ host_state }}</span>
+            <div class="client-risk-line">
+              <span style="width: {{ risk_score if risk_score <= 100 else 100 }}%"></span>
+            </div>
+            <small>Risk score {{ risk_score }}/100</small>
+          </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="client-empty-state">
+          <h3>Connect an agent to start monitoring.</h3>
+          <p>Endpoint telemetry, host posture and recommended actions will appear here as soon as the first SAFE Agent checks in.</p>
+          <a class="button-primary" href="/soc/hosts">View setup guide</a>
+        </div>
+      {% endif %}
+    </section>
+  </main>
+  <script src="/static/js/netguard-ui.js" defer></script>
+</body>
+</html>

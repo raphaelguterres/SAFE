@@ -12,6 +12,7 @@
 {% set host_response_action_stats = host_response_action_stats if host_response_action_stats is defined else {"pending": 0, "leased": 0, "terminal": 0} %}
 {% set host_response_queue_stats = host_response_queue_stats if host_response_queue_stats is defined else {"pending_approvals": 0, "approved": 0, "refused": 0, "expired": 0, "executed": 0, "failed": 0} %}
 {% set host_attack_timeline = host_attack_timeline if host_attack_timeline is defined else {"active_stages": [], "highest_stage": "", "progression_score": 0, "likely_attack_story": "No active attack progression is visible for this host yet.", "recommended_next_action": "Continue monitoring and wait for endpoint telemetry.", "timeline": []} %}
+{% set host_story = host_story if host_story is defined else {"summary": "SAFE is waiting for more endpoint telemetry to build an investigation story.", "progression": [], "impacted_assets": [], "likely_objective": "unknown", "recommended_action": "continue_monitoring", "evidence_tags": []} %}
 {% set host_defense_state = host_defense_state if host_defense_state is defined else {} %}
 {% set host_mitre_coverage = host_mitre_coverage if host_mitre_coverage is defined else {"techniques": [], "tactics": [], "technique_count": 0, "tactic_count": 0} %}
 {% set safe_response_actions = safe_response_actions if safe_response_actions is defined else ["ping", "collect_diagnostics", "flush_buffer"] %}
@@ -79,6 +80,67 @@
     <button class="soc-action-button" type="button" disabled title="Suppression needs an audited endpoint before it can be enabled.">Suppress Host</button>
     <button class="soc-action-button" type="button" disabled title="Report export will be enabled after a safe host report route is finalized.">Export Report</button>
   </div>
+</section>
+
+<section class="soc-panel">
+  <div class="soc-panel-header">
+    <div>
+      <h2 class="soc-panel-title">Attack Story</h2>
+      <div class="soc-list-copy">Plain-language narrative generated from telemetry, detections, process lineage and Kill Chain context.</div>
+    </div>
+    <span class="soc-severity-chip {{ host.risk_level|default('low') }}">{{ host_story.likely_objective|default("unknown")|replace("_", " ")|title }}</span>
+  </div>
+  <p class="soc-next-action-copy">{{ host_story.summary|default("SAFE is waiting for more endpoint telemetry to build an investigation story.") }}</p>
+  <div class="safe-evidence-grid" style="margin-top: 14px;">
+    <article class="safe-evidence-card">
+      <div class="soc-stat-label">Progression</div>
+      <div class="soc-token-grid" style="margin-top: 8px;">
+        {% if host_story.progression %}
+          {% for stage in host_story.progression %}
+          <span class="soc-token soc-token-accent">{{ stage|replace("_", " ")|title }}</span>
+          {% endfor %}
+        {% else %}
+          <span class="soc-token">No confirmed progression</span>
+        {% endif %}
+      </div>
+    </article>
+    <article class="safe-evidence-card">
+      <div class="soc-stat-label">Evidence Tags</div>
+      <div class="soc-token-grid" style="margin-top: 8px;">
+        {% if host_story.evidence_tags %}
+          {% for tag in host_story.evidence_tags %}
+          <span class="soc-token">{{ tag|replace("_", " ")|title }}</span>
+          {% endfor %}
+        {% else %}
+          <span class="soc-token">No behavioral tags yet</span>
+        {% endif %}
+      </div>
+    </article>
+  </div>
+  <details class="safe-collapsible" style="margin-top: 14px;">
+    <summary>Process tree and evidence cards</summary>
+    <div class="safe-collapsible-body">
+      {% if host_lineage %}
+        <div class="soc-chain-grid">
+          {% for lineage in host_lineage[:4] %}
+          <article class="safe-evidence-card">
+            <div class="soc-list-top">
+              <span class="soc-list-title">{{ lineage.title|default("Process lineage") }}</span>
+              <span class="soc-severity-chip {{ lineage.severity|default('medium') }}">{{ lineage.steps|default([])|length }} steps</span>
+            </div>
+            <div class="soc-list-copy" style="margin-top: 8px;">
+              {% for step in (lineage.steps|default([]))[:4] %}
+                <div>{{ step.process_name|default("process") }}{% if step.parent_process %} <- {{ step.parent_process }}{% endif %}</div>
+              {% endfor %}
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>No process tree is available for this host yet.</p>
+      {% endif %}
+    </div>
+  </details>
 </section>
 
 <section class="soc-panel">

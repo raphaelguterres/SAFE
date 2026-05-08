@@ -481,6 +481,7 @@ class WebhookEngine:
                 headers["Authorization"] = f"Basic {creds}"
 
         if wtype not in ("telegram", "whatsapp") and wh.get("secret"):
+            headers["X-SAFE-Secret"] = wh["secret"]
             headers["X-NetGuard-Secret"] = wh["secret"]
 
         # Revalida no momento do dispatch para reduzir janela de DNS rebinding / TOCTOU.
@@ -550,7 +551,7 @@ class WebhookEngine:
             {"type": "discord",  "label": "Discord",        "url_example": "https://discord.com/api/webhooks/...", "secret_hint": ""},
             {"type": "telegram", "label": "Telegram Bot",   "url_example": "https://api.telegram.org/bot{TOKEN}/sendMessage", "secret_hint": "chat_id (ex: -1001234567890)"},
             {"type": "whatsapp", "label": "WhatsApp (Z-API/Evolution)", "url_example": "https://api.z-api.io/instances/{ID}/token/{TOKEN}/send-text", "secret_hint": "Deixe vazio para Z-API; 'twilio:SID:TOKEN' para Twilio"},
-            {"type": "generic",  "label": "HTTP Genérico",  "url_example": "https://seu-sistema.com/webhook", "secret_hint": "Enviado no header X-NetGuard-Secret"},
+            {"type": "generic",  "label": "HTTP Genérico",  "url_example": "https://seu-sistema.com/webhook", "secret_hint": "Enviado no header X-SAFE-Secret; X-NetGuard-Secret segue aceito por compatibilidade"},
         ]
 
     @staticmethod

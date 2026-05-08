@@ -38,6 +38,7 @@ def test_shared_ui_assets_exist_and_are_referenced():
         "dashboard.html",
         "dashboard/templates_html.py",
         "templates/admin_dashboard.html",
+        "templates/client_overview.html",
         "templates/host_triage.html",
         "templates/landing.html",
         "templates/login.html",
@@ -116,7 +117,7 @@ def test_primary_ui_routes_are_wired_to_existing_surfaces():
     app_src = _read("app.py")
     soc_src = _read("routes/soc.py")
 
-    for route in ('@app.route("/admin")', '@app.route("/dashboard")', '@app.route("/pricing")'):
+    for route in ('@app.route("/admin")', '@app.route("/dashboard")', '@app.route("/pricing")', '@app.route("/client/overview")'):
         assert route in app_src
     for route in ('@bp.route("/soc")', '@bp.route("/soc/hosts")', '@bp.route("/soc/incidents")'):
         assert route in soc_src
@@ -126,6 +127,7 @@ def test_primary_ui_routes_are_wired_to_existing_surfaces():
         "dashboard.html",
         "templates/operator_inbox.html",
         "templates/host_triage.html",
+        "templates/client_overview.html",
         "templates/soc/overview.html",
         "templates/soc/hosts.html",
         "templates/soc/incidents.html",
@@ -150,6 +152,7 @@ def test_enterprise_ui_assets_do_not_embed_secrets():
             "static/css/netguard.css",
             "static/js/netguard-ui.js",
             "templates/landing.html",
+            "templates/client_overview.html",
             "templates/operator_inbox.html",
         )
     ).lower()

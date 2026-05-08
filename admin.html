@@ -147,7 +147,7 @@ body.theme-light .theme-toggle .icon-sun{display:block} body.theme-light .theme-
 <link rel="stylesheet" href="/static/css/netguard.css">
 <script src="/static/js/theme-toggle.js"></script>
 </head>
-<body>
+<body class="safe-admin-shell">
 <div id="shell">
 
 <!-- ── Sidebar ── -->
@@ -156,7 +156,7 @@ body.theme-light .theme-toggle .icon-sun{display:block} body.theme-light .theme-
     <div class="dot"></div>
     <div>
       <span>SAFE</span>
-      <small>Admin Panel</small>
+      <small>Admin Console</small>
     </div>
   </div>
 
@@ -180,6 +180,9 @@ body.theme-light .theme-toggle .icon-sun{display:block} body.theme-light .theme-
 
 <!-- ── Main ── -->
 <div id="main">
+  <div class="safe-admin-top-tools" data-theme-slot aria-label="Controles de tema">
+    <span class="safe-theme-label">Dia / Noite</span>
+  </div>
   <div data-guided-entry></div>
 
   <!-- ═══════════════ DEV MODE BANNER ═══════════════ -->
@@ -212,8 +215,8 @@ body.theme-light .theme-toggle .icon-sun{display:block} body.theme-light .theme-
     <div class="stat-grid" id="gv-stats"></div>
 
     <!-- Filtros e busca -->
-    <div class="panel" style="padding:10px 12px;margin-bottom:10px">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <div class="panel gv-filter-panel" style="padding:10px 12px;margin-bottom:10px">
+      <div class="gv-filter-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <input id="gv-search" type="text" placeholder="🔍 Buscar por nome ou ID…"
                oninput="gvApplyFilters()"
                style="flex:1;min-width:200px;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.82rem">
@@ -253,10 +256,10 @@ body.theme-light .theme-toggle .icon-sun{display:block} body.theme-light .theme-
       </div>
     </div>
 
-    <div class="panel" style="padding:0;overflow:hidden">
-      <div style="display:flex;min-height:480px">
+    <div class="panel gv-workspace" style="padding:0;overflow:hidden">
+      <div class="gv-split-shell" style="display:flex;min-height:480px">
         <!-- Lista de tenants -->
-        <div style="width:340px;min-width:280px;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface2)">
+        <div class="gv-tenant-column" style="width:340px;min-width:280px;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface2)">
           <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:flex;justify-content:space-between;align-items:center">
             <span>TENANTS</span>
             <span id="gv-tenants-count" style="color:var(--text)">—</span>
@@ -266,7 +269,7 @@ body.theme-light .theme-toggle .icon-sun{display:block} body.theme-light .theme-
           </div>
         </div>
         <!-- Feed de eventos do tenant selecionado -->
-        <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+        <div class="gv-feed-column" style="flex:1;display:flex;flex-direction:column;min-width:0">
           <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px">
             <div class="gv-feed-title" id="gv-feed-title" style="font-size:.88rem;font-weight:600;color:var(--muted)">Selecione um cliente →</div>
             <div id="gv-feed-actions"></div>

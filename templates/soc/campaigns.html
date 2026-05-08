@@ -1,0 +1,104 @@
+{% extends "soc/base.html" %}
+{% set active_page = "campaigns" %}
+{% set campaigns = attack_campaigns if attack_campaigns is defined else [] %}
+{% set timeline = threat_timeline if threat_timeline is defined else [] %}
+
+{% block title %}SAFE Security Operations | Campaigns{% endblock %}
+
+{% block page %}
+<header class="soc-page-header soc-page-header-airy">
+  <div>
+    <div class="soc-breadcrumbs">
+      <a class="soc-inline-link" href="/soc/overview">Overview</a>
+      <span>/</span>
+      <span>Campaigns</span>
+    </div>
+    <h1 class="soc-page-title">Attack Campaigns</h1>
+    <p class="soc-page-copy">Campaign correlation groups shared infrastructure, affected hosts, MITRE overlap and repeated Kill Chain sequences.</p>
+  </div>
+  <span class="safe-live-chip">Correlation active</span>
+</header>
+
+<section class="safe-grid-3" aria-label="Campaign summary">
+  <article class="safe-card safe-kpi">
+    <span>Campaigns</span>
+    <strong>{{ campaigns|length }}</strong>
+    <small>Grouped from recent tenant-scoped telemetry.</small>
+  </article>
+  <article class="safe-card safe-kpi">
+    <span>Affected Hosts</span>
+    <strong>{{ campaigns|map(attribute='affected_hosts')|map('length')|sum }}</strong>
+    <small>Hosts linked by infrastructure or temporal progression.</small>
+  </article>
+  <article class="safe-card safe-kpi">
+    <span>Threat Map</span>
+    <strong>{{ campaigns|map(attribute='attacker_infrastructure')|map('length')|sum }}</strong>
+    <small>Shared IPs, domains or suspicious infrastructure indicators.</small>
+  </article>
+</section>
+
+<section class="safe-operation-grid" style="margin-top: 18px;">
+  <article class="soc-panel">
+    <div class="safe-panel-head">
+      <div>
+        <h2 class="safe-section-title">Campaign Cards</h2>
+        <p class="safe-section-copy">Prioritized groupings for analyst scoping and investigation handoff.</p>
+      </div>
+    </div>
+    {% if campaigns %}
+      <div class="safe-campaign-grid">
+        {% for campaign in campaigns %}
+        <article class="safe-card safe-campaign-card">
+          <div class="soc-list-top">
+            <span class="soc-list-title">{{ campaign.correlation_type|replace("_", " ")|title }}</span>
+            <span class="soc-severity-chip {{ campaign.severity|default('high') }}">{{ campaign.severity|default("high")|title }}</span>
+          </div>
+          <div class="soc-meta-inline" style="margin-top: 10px;">
+            <span>Confidence {{ campaign.confidence|default(0) }}</span>
+            <span>{{ campaign.affected_hosts|length }} affected hosts</span>
+            <span>{{ campaign.related_incidents|length }} incidents</span>
+          </div>
+          <div class="safe-campaign-map">
+            <div class="soc-stat-label">Progression Map</div>
+            <div class="safe-progression-line"><span style="width: {{ 72 if campaign.severity == 'critical' else 56 }}%"></span></div>
+            <div class="soc-token-grid">
+              {% for host in campaign.affected_hosts[:5] %}
+              <a class="soc-token soc-token-accent" href="/soc/hosts/{{ host }}">{{ host }}</a>
+              {% endfor %}
+            </div>
+          </div>
+          {% if campaign.attacker_infrastructure %}
+          <div style="margin-top: 14px;">
+            <div class="soc-stat-label">Shared Infrastructure</div>
+            <div class="soc-token-grid" style="margin-top: 8px;">
+              {% for indicator in campaign.attacker_infrastructure[:6] %}
+              <span class="soc-token">{{ indicator }}</span>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+          <div style="margin-top: 14px;">
+            <a class="soc-inline-link" href="/soc/incidents">Review linked incidents</a>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="safe-empty">
+        <h3>No active attack campaign detected</h3>
+        <p>SAFE will create campaign cards when hosts share infrastructure, techniques or progression timing.</p>
+      </div>
+    {% endif %}
+  </article>
+
+  <article class="soc-panel">
+    <div class="safe-panel-head">
+      <div>
+        <h2 class="safe-section-title">Threat Timeline</h2>
+        <p class="safe-section-copy">Recent detections and incidents that may feed campaign correlation.</p>
+      </div>
+    </div>
+    {% include "partials/threat_timeline.html" %}
+  </article>
+</section>
+{% endblock %}

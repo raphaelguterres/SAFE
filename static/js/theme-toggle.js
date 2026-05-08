@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  var STORAGE_KEY = "netguard-theme";
+  var STORAGE_KEY = "safe-theme";
 
   function getStored() {
     try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
@@ -15,9 +15,6 @@
   function getInitial() {
     var stored = getStored();
     if (stored === "light" || stored === "dark") return stored;
-    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) {
-      return "light";
-    }
     return "dark";
   }
 
@@ -92,13 +89,5 @@
     document.addEventListener("DOMContentLoaded", mountButton);
   } else {
     mountButton();
-  }
-
-  if (window.matchMedia) {
-    try {
-      window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", function (e) {
-        if (!getStored()) applyTheme(e.matches ? "light" : "dark");
-      });
-    } catch (e) {}
   }
 })();

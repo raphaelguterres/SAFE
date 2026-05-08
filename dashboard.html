@@ -2234,8 +2234,8 @@ th.sortable:hover{color:var(--cyn)}
       </svg>
     </div>
     <div class="logo-text">
-      <div class="logo-name">NETGUARD</div>
-      <div class="logo-ver">ENTERPRISE COMMAND GRID</div>
+      <div class="logo-name">SAFE</div>
+      <div class="logo-ver">ENTERPRISE DEFENSE PLATFORM</div>
     </div>
   </div>
 
@@ -2262,7 +2262,7 @@ th.sortable:hover{color:var(--cyn)}
 </div>
 <script>
 (function(){
-  var KEY='netguard.theme';
+  var KEY='safe-dashboard-theme';
   function apply(t){
     document.body.classList.toggle('theme-light', t==='light');
     var moon=document.getElementById('theme-icon-moon');
@@ -5386,7 +5386,7 @@ function exportReport(){
   if(!window._currentReport) return;
   const r = window._currentReport;
   const lines = [
-    `NETGUARD IDS — INCIDENT REPORT`,
+    `SAFE — INCIDENT REPORT`,
     `Gerado em: ${new Date().toISOString()}`,
     ``,
     `IP: ${r.source_ip}`,
@@ -7285,7 +7285,7 @@ const WH_TYPE_META = {
   slack:     { url: 'https://hooks.slack.com/services/T.../B.../...', urlHint: 'Incoming Webhook criado em api.slack.com/apps', secretLabel: 'Secret (opcional)', secretHint: '', secretPH: '' },
   teams:     { url: 'https://outlook.office.com/webhook/.../IncomingWebhook/...', urlHint: 'Conector Incoming Webhook no canal do Teams', secretLabel: 'Secret (opcional)', secretHint: '', secretPH: '' },
   discord:   { url: 'https://discord.com/api/webhooks/.../...', urlHint: 'Webhook criado em Editar Canal → Integrações → Webhooks', secretLabel: 'Secret (opcional)', secretHint: '', secretPH: '' },
-  generic:   { url: 'https://seu-sistema.com/api/webhook', urlHint: 'Qualquer endpoint POST JSON. O secret é enviado no header X-NetGuard-Secret', secretLabel: 'Secret (opcional)', secretHint: 'Enviado no header X-NetGuard-Secret para autenticação', secretPH: 'chave-secreta' },
+  generic:   { url: 'https://seu-sistema.com/api/webhook', urlHint: 'Qualquer endpoint POST JSON. O secret e enviado no header X-SAFE-Secret; X-NetGuard-Secret segue aceito por compatibilidade.', secretLabel: 'Secret (opcional)', secretHint: 'Enviado no header X-SAFE-Secret para autenticacao', secretPH: 'chave-secreta' },
 };
 
 function whTypeChanged(){
@@ -7343,7 +7343,7 @@ async function downloadReportPDF(){
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href     = url;
-    a.download = `netguard-relatorio-${month||new Date().toISOString().slice(0,7)}.pdf`;
+    a.download = `safe-relatorio-${month||new Date().toISOString().slice(0,7)}.pdf`;
     a.click();
     URL.revokeObjectURL(url);
     if(status) status.textContent = '✓ PDF baixado';
@@ -7355,7 +7355,7 @@ async function downloadReportPDF(){
 }
 
 // ── Onboarding Wizard ─────────────────────────────────────────────
-const OB_KEY = 'netguard_onboarded_v1';
+const OB_KEY = 'safe_onboarded_v1';
 const OB_TYPE_HINTS = {
   telegram:  { lbl:'Chat ID', ph:'-1001234567890', hint:'① Crie um bot no @BotFather e copie o token<br>② Adicione ao grupo e envie /start<br>③ Acesse api.telegram.org/bot{TOKEN}/getUpdates e copie o chat_id', url:'https://api.telegram.org/bot{TOKEN}/sendMessage' },
   whatsapp:  { lbl:'Secret / Subtipo', ph:'Vazio para Z-API', hint:'Z-API: cole a URL da instância. Twilio: use "twilio:SID:TOKEN" no campo secret.', url:'https://api.z-api.io/instances/{ID}/token/{TOKEN}/send-text' },
@@ -7438,7 +7438,7 @@ async function downloadReportCSV(){
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href     = url;
-    a.download = `netguard-deteccoes-${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `safe-deteccoes-${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     if(status) status.textContent = `✓ ${rows.length} detecções exportadas`;

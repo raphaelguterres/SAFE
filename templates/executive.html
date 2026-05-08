@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAFE | Executive View</title>
+  <link rel="stylesheet" href="/static/enterprise.css">
+  <link rel="stylesheet" href="/static/css/netguard.css">
+  <link rel="stylesheet" href="/static/css/safe-ui.css">
+  <script src="/static/js/theme-toggle.js"></script>
+</head>
+<body class="client-overview-page">
+  {% set overview_data = overview if overview is defined else {} %}
+  {% set posture = security_posture if security_posture is defined else {} %}
+  {% set recommendations = executive_recommendations if executive_recommendations is defined else [] %}
+  <header class="client-topbar">
+    <a class="brand" href="/executive">
+      <span class="brand-mark">S</span>
+      <span class="brand-stack">
+        <strong>SAFE</strong>
+        <small>Executive View</small>
+      </span>
+    </a>
+    <nav class="client-view-switch" aria-label="View mode">
+      <a class="is-active" href="/executive">Executive View</a>
+      <a href="/soc/overview">SOC View</a>
+      <a href="/client/overview">Client View</a>
+    </nav>
+    <div class="site-actions" data-theme-slot>
+      <a class="ghost-link" href="/soc/overview">Open SOC</a>
+    </div>
+  </header>
+
+  <main class="safe-executive-shell">
+    <section class="safe-executive-hero safe-fade-in">
+      <div>
+        <span class="panel-kicker">Environment Health</span>
+        <h1>{{ posture.label|default("Attention Needed") }}</h1>
+        <p class="lead">
+          SAFE summarizes security posture for leadership without sensitive credentials or telemetry noise.
+          {{ business_impact|default("No active business-impacting incident is visible from current telemetry.") }}
+        </p>
+        <div class="client-hero-actions">
+          <a class="button-primary" href="/soc/incidents">Review active incidents</a>
+          <a class="button-secondary" href="/soc/overview">Open SOC workspace</a>
+        </div>
+      </div>
+      <aside class="client-posture-card">
+        <span>Posture Score</span>
+        <strong>{{ posture.score|default(0) }}</strong>
+        <small>{{ posture.risk_level|default("medium")|replace("_", " ")|title }} operational risk.</small>
+      </aside>
+    </section>
+
+    <section class="client-metric-grid">
+      <article class="client-metric-card">
+        <span>Protected Assets</span>
+        <strong>{{ overview_data.registered_agents|default(overview_data.monitored_hosts|default(0)) }}</strong>
+        <small>{{ overview_data.online_agents|default(0) }} online endpoints.</small>
+      </article>
+      <article class="client-metric-card">
+        <span>Active Threats</span>
+        <strong>{{ overview_data.critical_alerts|default(0) }}</strong>
+        <small>Critical threats visible in current telemetry.</small>
+      </article>
+      <article class="client-metric-card">
+        <span>Open Incidents</span>
+        <strong>{{ overview_data.open_incidents|default(0) }}</strong>
+        <small>{{ overview_data.in_progress_incidents|default(0) }} under investigation.</small>
+      </article>
+      <article class="client-metric-card">
+        <span>Risk Trend</span>
+        <strong>{{ overview_data.average_risk|default(0) }}</strong>
+        <small>Average technical risk across protected hosts.</small>
+      </article>
+    </section>
+
+    <section class="client-grid-2">
+      <article class="client-panel">
+        <div class="client-panel-head">
+          <div>
+            <span class="panel-kicker">Business Impact</span>
+            <h2>What leadership needs to know</h2>
+          </div>
+        </div>
+        <div class="client-action-card">
+          <strong>{{ posture.label|default("Attention Needed") }}</strong>
+          <p>{{ business_impact|default("SAFE has not identified a business-impacting incident from current telemetry.") }}</p>
+        </div>
+      </article>
+
+      <article class="client-panel">
+        <div class="client-panel-head">
+          <div>
+            <span class="panel-kicker">Recommendations</span>
+            <h2>Next executive actions</h2>
+          </div>
+        </div>
+        <div class="client-card-stack">
+          {% if recommendations %}
+            {% for item in recommendations[:5] %}
+            <div class="client-incident-card">
+              <strong>{{ item|replace("_", " ")|title }}</strong>
+              <small>Recommended by SAFE posture analysis.</small>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="client-empty-state">
+              <h3>No executive action required</h3>
+              <p>Keep monitoring coverage and incident response readiness.</p>
+            </div>
+          {% endif %}
+        </div>
+      </article>
+    </section>
+  </main>
+  <script src="/static/js/netguard-ui.js" defer></script>
+</body>
+</html>

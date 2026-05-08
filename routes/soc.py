@@ -24,6 +24,7 @@ def create_soc_blueprint(
     safe_action_types = {"ping", "collect_diagnostics", "flush_buffer"}
 
     @bp.route("/soc")
+    @bp.route("/soc/overview")
     @bp.route("/soc-preview")
     @require_session_decorator
     def soc_preview_overview():
@@ -80,6 +81,7 @@ def create_soc_blueprint(
         return jsonify({"ok": True, "incident": incident})
 
     @bp.route("/soc/hosts/<host_id>")
+    @bp.route("/soc/host/<host_id>")
     @bp.route("/soc-preview/hosts/<host_id>")
     @require_session_decorator
     def soc_preview_host_detail(host_id):
