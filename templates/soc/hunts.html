@@ -1,0 +1,67 @@
+{% extends "soc/base.html" %}
+{% set active_page = "hunts" %}
+{% set summary = hunt_summary if hunt_summary is defined else {} %}
+
+{% block title %}SAFE Security Operations | Hunt Operations{% endblock %}
+
+{% block page %}
+<header class="soc-page-header soc-page-header-airy">
+  <div>
+    <div class="soc-breadcrumbs">
+      <a class="soc-inline-link" href="/soc/overview">Overview</a>
+      <span>/</span>
+      <span>Hunt Operations</span>
+    </div>
+    <h1 class="soc-page-title">Hunt Operations Center</h1>
+    <p class="soc-page-copy">Active hunts, completed hunts, scheduled IOC sweeps, MITRE hunts and rare-behavior investigations.</p>
+  </div>
+</header>
+
+<section class="safe-grid-4 safe-fade-in">
+  <article class="safe-card safe-kpi"><span>Active Hunts</span><strong>{{ summary.active|default(0) }}</strong><small>Currently requiring analyst review.</small></article>
+  <article class="safe-card safe-kpi"><span>Completed</span><strong>{{ summary.completed|default(0) }}</strong><small>Closed hunt runs.</small></article>
+  <article class="safe-card safe-kpi"><span>Scheduled</span><strong>{{ summary.scheduled|default(0) }}</strong><small>Recurring safe hunt jobs.</small></article>
+  <article class="safe-card safe-kpi"><span>IOC Hunts</span><strong>{{ summary.ioc_hunts|default(0) }}</strong><small>Indicator-focused pivots.</small></article>
+</section>
+
+<section class="soc-grid-2 soc-grid-balanced" style="margin-top: 18px;">
+  <article class="soc-panel">
+    <h2 class="safe-section-title">Active Hunts</h2>
+    <div class="soc-list soc-compact-list" style="margin-top: 14px;">
+      {% for hunt in active_hunts|default([]) %}
+      <div class="soc-list-item">
+        <div>
+          <div class="soc-list-title">{{ hunt.hunt_name }}</div>
+          <div class="soc-list-copy">{{ hunt.recommended_investigation }}</div>
+          <div class="soc-meta-inline">
+            <span>{{ hunt.hunt_type|replace("_", " ")|title }}</span>
+            <span>{{ hunt.affected_hosts|length }} hosts</span>
+          </div>
+        </div>
+        <span class="soc-severity-chip high">{{ hunt.confidence }}</span>
+      </div>
+      {% else %}
+      <div class="soc-empty-state soc-empty-state-premium">
+        <h3>No active hunts</h3>
+        <p>SAFE will surface hunt results here when correlated telemetry needs analyst review.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="soc-panel">
+    <h2 class="safe-section-title">Scheduled Hunts</h2>
+    <div class="soc-list soc-compact-list" style="margin-top: 14px;">
+      {% for hunt in scheduled_hunts|default([]) %}
+      <div class="soc-list-item">
+        <div>
+          <div class="soc-list-title">{{ hunt.hunt_name }}</div>
+          <div class="soc-list-copy">{{ hunt.scope }}</div>
+        </div>
+        <span class="soc-severity-chip low">{{ hunt.cadence }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% endblock %}

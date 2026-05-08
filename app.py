@@ -2021,6 +2021,438 @@ def _safe_analyst_workflow_actions() -> list[dict]:
     ]
 
 
+def _build_soc_operations_context() -> dict:
+    """Build case-management context from tenant-scoped SOC data."""
+    context = _build_soc_experience_context()
+    cases = _build_case_rows_from_context(context)
+    iocs = _extract_case_iocs(context, cases)
+    evidence_summary = {
+        "total": sum(len(case.get("evidence") or []) for case in cases),
+        "pinned": sum(1 for case in cases for item in (case.get("evidence") or []) if item.get("pinned")),
+        "immutable": True,
+    }
+    return {
+        **context,
+        "case_rows": cases,
+        "ioc_rows": iocs,
+        "evidence_summary": evidence_summary,
+        "case_summary": {
+            "total": len(cases),
+            "new": sum(1 for item in cases if item.get("status") == "new"),
+            "triage": sum(1 for item in cases if item.get("status") == "triage"),
+            "investigating": sum(1 for item in cases if item.get("status") == "investigating"),
+            "contained": sum(1 for item in cases if item.get("status") == "contained"),
+            "monitoring": sum(1 for item in cases if item.get("status") == "monitoring"),
+            "resolved": sum(1 for item in cases if item.get("status") in {"resolved", "closed"}),
+            "critical": sum(1 for item in cases if item.get("severity") == "critical"),
+        },
+        "analyst_workflow_actions": _safe_analyst_workflow_actions(),
+    }
+
+
+def _build_case_rows_from_context(context: dict) -> list[dict]:
+    cases: list[dict] = []
+    tenant_id = _current_request_tenant_id()
+    incidents = list(context.get("incidents") or [])
+    alerts = list(context.get("alerts") or [])
+    host_lookup = {
+        str(host.get("host_id") or host.get("host_name") or ""): dict(host)
+        for host in context.get("hosts", [])
+    }
+    for index, incident in enumerate(incidents[:80], start=1):
+        host_id = str(incident.get("host_id") or incident.get("host") or "").strip()
+        title = str(incident.get("title") or incident.get("threat_name") or incident.get("playbook_label") or "Incident case")
+        severity = str(incident.get("severity") or "medium").lower()
+        status = _case_status_from_incident(incident.get("status"))
+        case_id = _stable_case_id(incident.get("incident_id") or incident.get("id") or f"incident-{index}")
+        host_meta = host_lookup.get(host_id, {})
+        cases.append({
+            "case_id": case_id,
+            "tenant_id": tenant_id,
+            "title": title,
+            "severity": severity,
+            "status": status,
+            "assigned_to": str(incident.get("assigned_to") or incident.get("assignee") or "unassigned"),
+            "created_by": "SAFE",
+            "created_at": str(incident.get("created_at") or incident.get("opened_at") or incident.get("timestamp") or ""),
+            "updated_at": str(incident.get("updated_at") or incident.get("created_at") or ""),
+            "related_incidents": [str(incident.get("incident_id") or incident.get("id") or "")],
+            "related_hosts": [host_id] if host_id else [],
+            "related_iocs": _ioc_values_from_record(incident),
+            "mitre_tactics": _case_tactics_from_record(incident),
+            "attack_story": str(
+                incident.get("attack_story")
+                or incident.get("description")
+                or incident.get("summary")
+                or "SAFE is building the investigation story from incident and endpoint telemetry."
+            ),
+            "evidence": _case_evidence_from_record(incident, host_meta),
+            "notes": _case_notes_from_record(incident),
+            "timeline": _case_timeline_from_record(incident, "incident_opened"),
+            "containment_status": _containment_status_from_case(status),
+            "resolution_summary": str(incident.get("resolution_summary") or ""),
+            "watchers": ["soc-lead"] if severity == "critical" else [],
+            "priority": _case_priority(severity, status),
+        })
+    existing_hosts = {host for case in cases for host in case.get("related_hosts", [])}
+    for index, alert in enumerate(alerts[:20], start=1):
+        host_id = str(alert.get("host") or "").strip()
+        if host_id in existing_hosts:
+            continue
+        severity = str(alert.get("severity") or "medium").lower()
+        cases.append({
+            "case_id": _stable_case_id(f"alert-{host_id}-{index}"),
+            "tenant_id": tenant_id,
+            "title": str(alert.get("title") or "Alert investigation"),
+            "severity": severity,
+            "status": "triage",
+            "assigned_to": "unassigned",
+            "created_by": "SAFE",
+            "created_at": str(alert.get("timestamp") or ""),
+            "updated_at": str(alert.get("timestamp") or ""),
+            "related_incidents": [],
+            "related_hosts": [host_id] if host_id else [],
+            "related_iocs": _ioc_values_from_record(alert.get("event") or alert),
+            "mitre_tactics": _case_tactics_from_record(alert.get("event") or alert),
+            "attack_story": str(alert.get("description") or "Alert requires analyst triage."),
+            "evidence": _case_evidence_from_record(alert.get("event") or alert, {}),
+            "notes": [],
+            "timeline": _case_timeline_from_record(alert, "alert_promoted_to_case"),
+            "containment_status": "not_started",
+            "resolution_summary": "",
+            "watchers": [],
+            "priority": _case_priority(severity, "triage"),
+        })
+    cases.sort(key=lambda item: (item.get("priority", 0), str(item.get("updated_at") or item.get("created_at") or "")), reverse=True)
+    return cases
+
+
+def _build_case_detail_context(case_id: str) -> dict:
+    context = _build_soc_operations_context()
+    case = next((dict(item) for item in context.get("case_rows", []) if item.get("case_id") == case_id), None)
+    if not case:
+        case = {
+            "case_id": str(case_id or ""),
+            "tenant_id": _current_request_tenant_id(),
+            "title": "Case not found",
+            "severity": "low",
+            "status": "closed",
+            "assigned_to": "unassigned",
+            "created_by": "SAFE",
+            "created_at": "",
+            "updated_at": "",
+            "related_incidents": [],
+            "related_hosts": [],
+            "related_iocs": [],
+            "mitre_tactics": [],
+            "attack_story": "No tenant-scoped case matched this identifier.",
+            "evidence": [],
+            "notes": [],
+            "timeline": [],
+            "containment_status": "not_started",
+            "resolution_summary": "",
+            "watchers": [],
+        }
+    try:
+        from xdr.workflow_engine import AnalystWorkflowEngine
+
+        workflow = AnalystWorkflowEngine().recommend_workflow(
+            severity=case.get("severity"),
+            stage=(case.get("mitre_tactics") or [""])[0],
+            behaviors=case.get("mitre_tactics") or [],
+        ).to_dict()
+    except Exception:
+        workflow = {
+            "workflow_id": "triage",
+            "name": "Triage Workflow",
+            "checklist": ["validate_alert", "review_timeline", "assign_case_owner"],
+            "evidence_requirements": ["alert_payload", "host_context"],
+            "recommended_actions": ["collect_diagnostics"],
+            "escalation_rules": ["escalate_if_critical"],
+            "rollback_guidance": ["no_endpoint_change_expected"],
+        }
+    return {
+        **context,
+        "selected_case": case,
+        "case_workflow": workflow,
+    }
+
+
+def _build_hunt_operations_context() -> dict:
+    context = _build_soc_operations_context()
+    hunts = list(context.get("threat_hunts") or [])
+    active = []
+    completed = []
+    for index, hunt in enumerate(hunts, start=1):
+        item = {
+            "hunt_id": f"HUNT-{index:03d}",
+            "hunt_name": str(hunt.get("hunt_name") or hunt.get("name") or "Threat hunt"),
+            "status": "active" if hunt.get("affected_hosts") else "completed",
+            "confidence": int(hunt.get("confidence") or 0),
+            "affected_hosts": list(hunt.get("affected_hosts") or []),
+            "recommended_investigation": str(hunt.get("recommended_investigation") or "Review hunt evidence."),
+            "hunt_type": _hunt_type(hunt),
+        }
+        (active if item["status"] == "active" else completed).append(item)
+    scheduled = [
+        {"hunt_name": "IOC Hunt", "cadence": "hourly", "scope": "active IOCs", "status": "scheduled"},
+        {"hunt_name": "MITRE Hunt", "cadence": "daily", "scope": "ATT&CK tactics", "status": "scheduled"},
+        {"hunt_name": "Rare Behavior Hunt", "cadence": "daily", "scope": "rare process and outbound activity", "status": "scheduled"},
+    ]
+    return {
+        **context,
+        "active_hunts": active,
+        "completed_hunts": completed,
+        "scheduled_hunts": scheduled,
+        "hunt_summary": {
+            "active": len(active),
+            "completed": len(completed),
+            "scheduled": len(scheduled),
+            "ioc_hunts": sum(1 for item in [*active, *completed, *scheduled] if "ioc" in str(item.get("hunt_name", "")).lower()),
+            "mitre_hunts": sum(1 for item in [*active, *completed, *scheduled] if "mitre" in str(item.get("hunt_name", "")).lower()),
+        },
+    }
+
+
+def _build_approval_center_context() -> dict:
+    context = _build_soc_operations_context()
+    actions = list(context.get("response_actions") or [])
+    approvals = []
+    for action in actions[:100]:
+        status = str(action.get("status") or "pending").lower()
+        if status not in {"pending", "queued", "requires_approval", "approved", "leased", "running", "failed", "refused", "expired"}:
+            continue
+        approvals.append({
+            "action_id": str(action.get("action_id") or action.get("id") or ""),
+            "status": status,
+            "requested_by": str(action.get("requested_by") or action.get("created_by") or "SAFE"),
+            "why": str(action.get("reason") or action.get("policy_reason") or "Security action requires analyst review."),
+            "affected_hosts": [str(action.get("host_id") or action.get("target") or "unknown")],
+            "action_type": str(action.get("action_type") or "collect_diagnostics"),
+            "rollback_capability": _rollback_for_action(action.get("action_type")),
+            "expires_at": str(action.get("expires_at") or action.get("expiration") or ""),
+        })
+    return {
+        **context,
+        "approval_rows": approvals,
+        "approval_summary": {
+            "pending": sum(1 for item in approvals if item["status"] in {"pending", "queued", "requires_approval"}),
+            "approved": sum(1 for item in approvals if item["status"] in {"approved", "leased", "running"}),
+            "refused": sum(1 for item in approvals if item["status"] == "refused"),
+            "expired": sum(1 for item in approvals if item["status"] == "expired"),
+            "failed": sum(1 for item in approvals if item["status"] == "failed"),
+        },
+    }
+
+
+def _build_soc_metrics_context() -> dict:
+    context = _build_soc_operations_context()
+    try:
+        from xdr.reporting_engine import ReportingEngine
+        from xdr.soc_metrics import calculate_soc_metrics
+
+        metrics = calculate_soc_metrics(
+            cases=context.get("case_rows", []),
+            incidents=context.get("incidents", []),
+            response_actions=context.get("response_actions", []),
+            analysts=sorted({case.get("assigned_to") for case in context.get("case_rows", []) if case.get("assigned_to")}),
+        )
+        report = ReportingEngine().generate(
+            generated_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            cases=context.get("case_rows", []),
+            metrics=metrics,
+            posture_history=[context.get("security_posture", {})],
+        ).to_dict()
+    except Exception:
+        metrics = {
+            "mttd_minutes": 0,
+            "mttr_minutes": 0,
+            "incident_volume": 0,
+            "false_positive_ratio": 0,
+            "containment_success": 0,
+            "analyst_workload": {},
+            "unresolved_criticals": 0,
+            "open_cases": 0,
+        }
+        report = {"title": "SAFE SOC Executive Report", "executive_summary": "Metrics unavailable."}
+    return {
+        **context,
+        "soc_metrics": metrics,
+        "executive_report": report,
+    }
+
+
+def _stable_case_id(value: object) -> str:
+    clean = re.sub(r"[^A-Za-z0-9]+", "-", str(value or "case")).strip("-").upper()
+    return f"CASE-{(clean or 'SOC')[:24]}"
+
+
+def _case_status_from_incident(value: object) -> str:
+    raw = str(value or "new").strip().lower()
+    return {
+        "open": "triage",
+        "in_progress": "investigating",
+        "investigating": "investigating",
+        "contained": "contained",
+        "resolved": "resolved",
+        "closed": "closed",
+        "false_positive": "closed",
+    }.get(raw, "new")
+
+
+def _containment_status_from_case(status: str) -> str:
+    return "contained" if status in {"contained", "monitoring", "resolved", "closed"} else "not_started"
+
+
+def _case_priority(severity: str, status: str) -> int:
+    return {"critical": 90, "high": 70, "medium": 45, "low": 20}.get(str(severity).lower(), 20) + {
+        "new": 8,
+        "triage": 10,
+        "investigating": 6,
+        "contained": 3,
+        "monitoring": 2,
+        "resolved": 0,
+        "closed": 0,
+    }.get(str(status).lower(), 0)
+
+
+def _case_tactics_from_record(record: dict) -> list[str]:
+    details = record.get("details") if isinstance(record.get("details"), dict) else {}
+    tactics = []
+    for key in ("mitre_tactic", "tactic", "stage"):
+        value = str(record.get(key) or details.get(key) or "").strip()
+        if value:
+            tactics.append(value)
+    return list(dict.fromkeys(tactics))
+
+
+def _ioc_values_from_record(record: dict) -> list[str]:
+    if not isinstance(record, dict):
+        return []
+    details = record.get("details") if isinstance(record.get("details"), dict) else {}
+    values = []
+    for key in ("source_ip", "src_ip", "dst_ip", "remote_ip", "network_dst_ip", "domain", "file_hash", "sha256", "md5", "url"):
+        value = str(record.get(key) or details.get(key) or "").strip()
+        if value:
+            values.append(value)
+    return list(dict.fromkeys(values))[:20]
+
+
+def _case_evidence_from_record(record: dict, host_meta: dict) -> list[dict]:
+    if not isinstance(record, dict):
+        return []
+    evidence = [
+        {
+            "evidence_id": _stable_case_id(record.get("event_id") or record.get("id") or record.get("incident_id") or "evidence"),
+            "evidence_type": str(record.get("event_type") or "telemetry"),
+            "title": str(record.get("rule_name") or record.get("title") or record.get("threat_name") or "Security evidence"),
+            "integrity_hash": "",
+            "pinned": True,
+        }
+    ]
+    if host_meta:
+        evidence.append({
+            "evidence_id": _stable_case_id(host_meta.get("host_id") or host_meta.get("host_name") or "host"),
+            "evidence_type": "host_context",
+            "title": f"Host context: {host_meta.get('host_name') or host_meta.get('host_id')}",
+            "integrity_hash": "",
+            "pinned": False,
+        })
+    return evidence
+
+
+def _case_notes_from_record(record: dict) -> list[dict]:
+    notes = record.get("notes") or record.get("comments") or []
+    if isinstance(notes, str):
+        notes = [notes] if notes.strip() else []
+    output = []
+    for index, note in enumerate(notes[:8], start=1):
+        output.append({
+            "note_id": f"note-{index}",
+            "author": "analyst",
+            "body": str(note)[:1000],
+            "created_at": str(record.get("updated_at") or record.get("created_at") or ""),
+            "note_type": "analyst_note",
+        })
+    return output
+
+
+def _case_timeline_from_record(record: dict, event_type: str) -> list[dict]:
+    timestamp = str(record.get("timestamp") or record.get("created_at") or record.get("opened_at") or record.get("updated_at") or "")
+    return [
+        {
+            "entry_id": _stable_case_id(f"{event_type}-{timestamp}"),
+            "timestamp": timestamp,
+            "event_type": event_type,
+            "title": str(record.get("title") or record.get("threat_name") or event_type.replace("_", " ").title()),
+            "description": str(record.get("description") or record.get("summary") or ""),
+            "actor": "SAFE",
+            "metadata": {},
+        }
+    ]
+
+
+def _extract_case_iocs(context: dict, cases: list[dict]) -> list[dict]:
+    rows = {}
+    for case in cases:
+        for value in case.get("related_iocs") or []:
+            rows[value] = {
+                "value": value,
+                "ioc_type": _infer_simple_ioc_type(value),
+                "confidence": 70 if case.get("severity") in {"critical", "high"} else 45,
+                "source": "case_context",
+                "linked_cases": [case.get("case_id")],
+                "linked_hosts": case.get("related_hosts", []),
+            }
+    for event in (context.get("xdr_summary") or {}).get("recent_events", [])[:120]:
+        for value in _ioc_values_from_record(event):
+            rows.setdefault(value, {
+                "value": value,
+                "ioc_type": _infer_simple_ioc_type(value),
+                "confidence": 50,
+                "source": "telemetry",
+                "linked_cases": [],
+                "linked_hosts": [str(event.get("host_id") or "")] if event.get("host_id") else [],
+            })
+    return list(rows.values())[:100]
+
+
+def _infer_simple_ioc_type(value: object) -> str:
+    text = str(value or "")
+    if re.match(r"^\d{1,3}(\.\d{1,3}){3}$", text):
+        return "ip"
+    if re.match(r"^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$", text):
+        return "hash"
+    if text.startswith(("http://", "https://")):
+        return "url"
+    if "." in text:
+        return "domain"
+    return "filename"
+
+
+def _hunt_type(hunt: dict) -> str:
+    text = " ".join(str(value).lower() for value in hunt.values() if isinstance(value, (str, int, float)))
+    if "ioc" in text or "domain" in text or "ip" in text:
+        return "ioc"
+    if "mitre" in text or "tactic" in text:
+        return "mitre"
+    if "rare" in text:
+        return "rare_behavior"
+    return "behavior"
+
+
+def _rollback_for_action(action_type: object) -> str:
+    action = str(action_type or "").strip().lower()
+    return {
+        "isolate_host": "rollback_host_isolation",
+        "safe_host_isolation": "rollback_host_isolation",
+        "block_ip": "remove_ip_block",
+        "network_containment": "remove_network_containment",
+        "kill_process": "no_process_rollback_available",
+        "quarantine_file": "restore_from_quarantine",
+    }.get(action, "not_required")
+
+
 def _build_soc_preview_context():
     tenant_id = _current_request_tenant_id()
     try:
@@ -7674,6 +8106,34 @@ def admin_performance_page():
     return resp
 
 
+@app.route("/admin/observability")
+@_admin_only
+def admin_observability_page():
+    """Enterprise observability view for SAFE operational reliability."""
+    resp = make_response(render_template("observability.html"))
+    resp.headers["Content-Type"] = "text/html; charset=utf-8"
+    _set_no_cache_headers(resp)
+    try:
+        _get_or_set_csrf_cookie(resp)
+    except Exception:
+        pass
+    return resp
+
+
+@app.route("/admin/performance-live")
+@_admin_only
+def admin_performance_live_page():
+    """Live SOC performance dashboard for queues, workers and streaming."""
+    resp = make_response(render_template("performance_live.html"))
+    resp.headers["Content-Type"] = "text/html; charset=utf-8"
+    _set_no_cache_headers(resp)
+    try:
+        _get_or_set_csrf_cookie(resp)
+    except Exception:
+        pass
+    return resp
+
+
 @app.route("/demo/reset", methods=["POST"])
 def demo_reset():
     """Recria os dados de demo do zero (útil para apresentações)."""
@@ -9042,6 +9502,103 @@ def admin_overview():
     return jsonify(_build_admin_overview())
 
 
+_SAFE_OPERATIONAL_CORE = None
+
+
+def _get_safe_operational_core():
+    """Return in-process operational reliability singletons.
+
+    This intentionally stays local-process for SQLite/demo compatibility. The
+    module boundaries mirror the future distributed architecture without forcing
+    Redis/Kafka/WebSocket dependencies into local runs.
+    """
+    global _SAFE_OPERATIONAL_CORE
+    if _SAFE_OPERATIONAL_CORE is None:
+        from safe_mode.controller import SafeModeController
+        from workers import (
+            CleanupWorker,
+            CorrelationWorker,
+            HuntWorker,
+            MetricsWorker,
+            OrchestrationWorker,
+            TelemetryWorker,
+            WorkerSupervisor,
+        )
+        from xdr.disaster_recovery import DisasterRecoveryManager
+        from xdr.event_bus import get_event_bus
+        from xdr.health_engine import HealthEngine
+        from xdr.observability import get_observability_registry
+        from xdr.queue_manager import ResilientQueueManager
+        from xdr.realtime_stream import get_realtime_stream_hub
+        from xdr.recovery_engine import RecoveryEngine
+
+        queue = ResilientQueueManager(max_size=5_000, dead_letter_size=500, per_tenant_limit=2_000)
+        supervisor = WorkerSupervisor([
+            TelemetryWorker(queue_manager=queue),
+            CorrelationWorker(queue_manager=queue),
+            OrchestrationWorker(queue_manager=queue),
+            CleanupWorker(queue_manager=queue),
+            MetricsWorker(queue_manager=queue),
+            HuntWorker(queue_manager=queue),
+        ])
+        _SAFE_OPERATIONAL_CORE = {
+            "queue": queue,
+            "event_bus": get_event_bus(),
+            "stream": get_realtime_stream_hub(),
+            "supervisor": supervisor,
+            "observability": get_observability_registry(),
+            "health": HealthEngine(),
+            "safe_mode": SafeModeController(),
+            "recovery": RecoveryEngine(),
+            "disaster_recovery": DisasterRecoveryManager(),
+        }
+    return _SAFE_OPERATIONAL_CORE
+
+
+def _build_safe_operational_snapshot():
+    core = _get_safe_operational_core()
+    queue_snapshot = core["queue"].snapshot()
+    stream_snapshot = core["stream"].snapshot()
+    worker_snapshot = core["supervisor"].snapshot()
+    try:
+        ingestion_snapshot = _get_xdr_ingestion_pipeline().snapshot()
+    except Exception:
+        ingestion_snapshot = {"ok": False, "error": "ingestion_unavailable"}
+    try:
+        metrics_snapshot = core["observability"].snapshot(
+            queue_snapshot=queue_snapshot,
+            stream_snapshot=stream_snapshot,
+            worker_snapshot=worker_snapshot,
+        )
+    except Exception:
+        metrics_snapshot = {"ok": False, "error": "observability_unavailable"}
+    health = core["health"].evaluate(
+        db_ok=True,
+        queue_snapshot=queue_snapshot,
+        stream_snapshot=stream_snapshot,
+        worker_snapshot=worker_snapshot,
+        ingestion_snapshot=ingestion_snapshot,
+        orchestration_snapshot={"failures": metrics_snapshot.get("orchestration_failures", 0)},
+        heartbeat_records=[],
+    )
+    safe_mode_state = core["safe_mode"].evaluate(
+        health_status=health["status"],
+        queue_pressure=float(metrics_snapshot.get("queue_pressure") or 0.0),
+        worker_failures=len(worker_snapshot.get("failed_workers") or []),
+    )
+    return {
+        "ok": True,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "queue": queue_snapshot,
+        "streaming": stream_snapshot,
+        "workers": worker_snapshot,
+        "ingestion": ingestion_snapshot,
+        "observability": metrics_snapshot,
+        "health": health,
+        "safe_mode": core["safe_mode"].snapshot() | {"evaluated_state": safe_mode_state.value},
+    }
+
+
 @app.route("/api/admin/performance")
 @_admin_only
 def admin_performance_api():
@@ -9063,6 +9620,45 @@ def admin_performance_api():
     except Exception as exc:
         logger.exception("admin performance failed: %s", exc)
         return jsonify({"ok": False, "error": "performance_unavailable"}), 500
+
+
+@app.route("/api/admin/observability")
+@_admin_only
+def admin_observability_api():
+    """Operational observability snapshot for SAFE reliability dashboards."""
+    try:
+        snapshot = _build_safe_operational_snapshot()
+        audit("ADMIN_OBSERVABILITY_VIEW", actor="admin", ip=request.remote_addr or "-", detail="safe")
+        return jsonify(snapshot)
+    except Exception:
+        logger.exception("admin observability failed")
+        return jsonify({"ok": False, "error": "observability_unavailable"}), 500
+
+
+@app.route("/api/admin/performance-live")
+@_admin_only
+def admin_performance_live_api():
+    """Live queue, worker and stream health for the real-time operational core."""
+    try:
+        snapshot = _build_safe_operational_snapshot()
+        audit("ADMIN_PERFORMANCE_LIVE_VIEW", actor="admin", ip=request.remote_addr or "-", detail="safe")
+        return jsonify({
+            "ok": True,
+            "generated_at": snapshot["generated_at"],
+            "eps": snapshot.get("observability", {}).get("telemetry_throughput", 0),
+            "queue_pressure": snapshot.get("observability", {}).get("queue_pressure", 0),
+            "active_workers": snapshot.get("workers", {}).get("active_workers", 0),
+            "failed_workers": snapshot.get("workers", {}).get("failed_workers", []),
+            "active_stream_clients": snapshot.get("streaming", {}).get("active_clients", 0),
+            "health": snapshot.get("health", {}),
+            "safe_mode": snapshot.get("safe_mode", {}),
+            "queue": snapshot.get("queue", {}),
+            "workers": snapshot.get("workers", {}),
+            "streaming": snapshot.get("streaming", {}),
+        })
+    except Exception:
+        logger.exception("admin performance live failed")
+        return jsonify({"ok": False, "error": "performance_live_unavailable"}), 500
 
 
 @app.route("/api/admin/config/status")
@@ -11514,6 +12110,38 @@ def soc_copilot_api():
         "executive_risk_explanation": context.get("executive_risk_explanation", {}),
         "workflow_actions": context.get("analyst_workflow_actions", []),
     })
+
+
+@app.route("/soc/case/<case_id>", methods=["GET"])
+@require_session
+@require_role("analyst", "admin")
+def soc_case_detail_page(case_id):
+    audit("SOC_CASE_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail=f"case={case_id}")
+    return render_template("soc/case_detail.html", **_build_case_detail_context(str(case_id or "")))
+
+
+@app.route("/soc/hunts", methods=["GET"])
+@require_session
+@require_role("analyst", "admin")
+def soc_hunts_page():
+    audit("SOC_HUNTS_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="page")
+    return render_template("soc/hunts.html", **_build_hunt_operations_context())
+
+
+@app.route("/soc/approvals", methods=["GET"])
+@require_session
+@require_role("analyst", "admin")
+def soc_approvals_page():
+    audit("SOC_APPROVALS_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="page")
+    return render_template("soc/approvals.html", **_build_approval_center_context())
+
+
+@app.route("/soc/metrics", methods=["GET"])
+@require_session
+@require_role("analyst", "admin")
+def soc_metrics_page():
+    audit("SOC_METRICS_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="page")
+    return render_template("soc/metrics.html", **_build_soc_metrics_context())
 
 
 @app.route("/executive", methods=["GET"])

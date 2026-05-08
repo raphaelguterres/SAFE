@@ -1,0 +1,129 @@
+{% extends "soc/base.html" %}
+{% set active_page = "incidents" %}
+{% set case = selected_case if selected_case is defined else {} %}
+{% set workflow = case_workflow if case_workflow is defined else {} %}
+
+{% block title %}SAFE Security Operations | Case {{ case.case_id|default("") }}{% endblock %}
+
+{% block page %}
+<header class="soc-page-header soc-page-header-airy">
+  <div>
+    <div class="soc-breadcrumbs">
+      <a class="soc-inline-link" href="/soc/incidents">Incidents</a>
+      <span>/</span>
+      <span>{{ case.case_id|default("Case") }}</span>
+    </div>
+    <h1 class="soc-page-title">{{ case.title|default("Case not found") }}</h1>
+    <p class="soc-page-copy">Case-centric investigation workspace for timeline, evidence, notes, response state and analyst workflow.</p>
+  </div>
+  <span class="soc-severity-chip {{ case.severity|default('low') }}">{{ case.status|default("new")|replace("_", " ")|title }}</span>
+</header>
+
+<section class="safe-grid-4 safe-fade-in">
+  <article class="safe-card safe-kpi">
+    <span>Severity</span>
+    <strong>{{ case.severity|default("low")|title }}</strong>
+    <small>Current operational priority.</small>
+  </article>
+  <article class="safe-card safe-kpi">
+    <span>Owner</span>
+    <strong>{{ case.assigned_to|default("unassigned") }}</strong>
+    <small>Investigation ownership.</small>
+  </article>
+  <article class="safe-card safe-kpi">
+    <span>Evidence</span>
+    <strong>{{ case.evidence|default([])|length }}</strong>
+    <small>Pinned immutable records.</small>
+  </article>
+  <article class="safe-card safe-kpi">
+    <span>Containment</span>
+    <strong>{{ case.containment_status|default("not_started")|replace("_", " ")|title }}</strong>
+    <small>Approval-gated response status.</small>
+  </article>
+</section>
+
+<section class="safe-operation-grid" style="margin-top: 18px;">
+  <article class="soc-panel">
+    <div class="safe-panel-head">
+      <div>
+        <h2 class="safe-section-title">Investigation Timeline</h2>
+        <p class="safe-section-copy">{{ case.attack_story|default("No attack story is available yet.") }}</p>
+      </div>
+      <span class="safe-live-chip">Chronological</span>
+    </div>
+    <div class="safe-threat-timeline">
+      {% for item in case.timeline|default([]) %}
+      <div class="safe-timeline-item">
+        <span class="safe-timeline-dot"></span>
+        <div class="safe-timeline-body">
+          <div class="safe-timeline-top">
+            <span>{{ item.title }}</span>
+            <span>{{ item.timestamp|default("unknown") }}</span>
+          </div>
+          <div class="safe-timeline-meta">
+            <span>{{ item.event_type|replace("_", " ")|title }}</span>
+            <span>{{ item.actor|default("SAFE") }}</span>
+          </div>
+          <p class="safe-timeline-copy">{{ item.description|default("Case activity recorded.") }}</p>
+        </div>
+      </div>
+      {% else %}
+      <div class="soc-empty-state soc-empty-state-premium">
+        <h3>No case timeline yet</h3>
+        <p>Timeline entries appear as alerts, notes, approvals and response actions are linked to the case.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <aside class="soc-list" style="gap: 16px;">
+    <article class="soc-panel">
+      <h2 class="soc-panel-title">{{ workflow.name|default("Triage Workflow") }}</h2>
+      <p class="soc-list-copy">Checklist and evidence requirements for the current investigation type.</p>
+      <ul class="safe-clean-list">
+        {% for item in workflow.checklist|default([]) %}
+          <li>{{ item|replace("_", " ")|title }}</li>
+        {% else %}
+          <li>Validate alert and assign case owner.</li>
+        {% endfor %}
+      </ul>
+    </article>
+
+    <article class="soc-panel">
+      <h2 class="soc-panel-title">Evidence Cards</h2>
+      <div class="soc-list soc-compact-list" style="margin-top: 12px;">
+        {% for item in case.evidence|default([]) %}
+        <div class="soc-list-item">
+          <div>
+            <div class="soc-list-title">{{ item.title }}</div>
+            <div class="soc-list-copy">{{ item.evidence_type|replace("_", " ")|title }} · {{ item.evidence_id }}</div>
+          </div>
+          <span class="soc-severity-chip low">{{ "Pinned" if item.pinned else "Linked" }}</span>
+        </div>
+        {% else %}
+        <div class="soc-empty-state soc-empty-state-premium">
+          <h3>No evidence pinned</h3>
+          <p>Pin process, telemetry, response and note evidence from the investigation workflow.</p>
+        </div>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="soc-panel">
+      <h2 class="soc-panel-title">Analyst Notes</h2>
+      <div class="soc-list soc-compact-list" style="margin-top: 12px;">
+        {% for note in case.notes|default([]) %}
+        <div class="soc-list-item">
+          <div>
+            <div class="soc-list-title">{{ note.author }}</div>
+            <div class="soc-list-copy">{{ note.body }}</div>
+          </div>
+        </div>
+        {% else %}
+        <p class="soc-list-copy">No analyst notes yet. Use the incident workflow to add auditable notes.</p>
+        {% endfor %}
+      </div>
+    </article>
+  </aside>
+</section>
+{% endblock %}

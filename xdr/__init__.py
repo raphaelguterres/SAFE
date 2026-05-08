@@ -7,12 +7,20 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:  # pragma: no cover
     from .alert_context_engine import AlertContextEngine
     from .behavior_engine import EnterpriseBehaviorEngine
+    from .case_management import CaseRepository
     from .detection import BehaviorDetectionEngine
+    from .evidence_store import EvidenceStore
     from .explainability_engine import ExplainabilityEngine
     from .fp_reduction_engine import FalsePositiveReductionEngine
     from .host_defense_engine import HostDefenseEngine
+    from .health_engine import HealthEngine
     from .investigation_assistant import InvestigationAssistant
+    from .ioc_manager import IOCManager
+    from .event_bus import LiveSOCEventBus
+    from .queue_manager import ResilientQueueManager
+    from .realtime_stream import RealtimeStreamHub
     from .pipeline import XDRPipeline
+    from .playbook_executor import DefensivePlaybookExecutor
     from .prioritization_engine import IncidentPrioritizationEngine
     from .progression_predictor import AttackProgressionPredictor
     from .schema import EndpointEvent, PipelineOutcome
@@ -22,14 +30,22 @@ __all__ = [
     "AlertContextEngine",
     "AttackProgressionPredictor",
     "BehaviorDetectionEngine",
+    "CaseRepository",
+    "DefensivePlaybookExecutor",
     "EndpointEvent",
     "EnterpriseBehaviorEngine",
+    "EvidenceStore",
     "ExplainabilityEngine",
     "FalsePositiveReductionEngine",
+    "HealthEngine",
     "HostDefenseEngine",
+    "IOCManager",
     "IncidentPrioritizationEngine",
     "InvestigationAssistant",
+    "LiveSOCEventBus",
     "PipelineOutcome",
+    "RealtimeStreamHub",
+    "ResilientQueueManager",
     "ThreatHuntingEngine",
     "XDRPipeline",
 ]
@@ -48,10 +64,22 @@ def __getattr__(name: str):
         from .detection import BehaviorDetectionEngine as _BehaviorDetectionEngine
 
         return _BehaviorDetectionEngine
+    if name == "CaseRepository":
+        from .case_management import CaseRepository as _CaseRepository
+
+        return _CaseRepository
+    if name == "DefensivePlaybookExecutor":
+        from .playbook_executor import DefensivePlaybookExecutor as _DefensivePlaybookExecutor
+
+        return _DefensivePlaybookExecutor
     if name == "EnterpriseBehaviorEngine":
         from .behavior_engine import EnterpriseBehaviorEngine as _EnterpriseBehaviorEngine
 
         return _EnterpriseBehaviorEngine
+    if name == "EvidenceStore":
+        from .evidence_store import EvidenceStore as _EvidenceStore
+
+        return _EvidenceStore
     if name == "ExplainabilityEngine":
         from .explainability_engine import ExplainabilityEngine as _ExplainabilityEngine
 
@@ -60,10 +88,18 @@ def __getattr__(name: str):
         from .fp_reduction_engine import FalsePositiveReductionEngine as _FalsePositiveReductionEngine
 
         return _FalsePositiveReductionEngine
+    if name == "HealthEngine":
+        from .health_engine import HealthEngine as _HealthEngine
+
+        return _HealthEngine
     if name == "HostDefenseEngine":
         from .host_defense_engine import HostDefenseEngine as _HostDefenseEngine
 
         return _HostDefenseEngine
+    if name == "IOCManager":
+        from .ioc_manager import IOCManager as _IOCManager
+
+        return _IOCManager
     if name == "IncidentPrioritizationEngine":
         from .prioritization_engine import IncidentPrioritizationEngine as _IncidentPrioritizationEngine
 
@@ -72,6 +108,18 @@ def __getattr__(name: str):
         from .investigation_assistant import InvestigationAssistant as _InvestigationAssistant
 
         return _InvestigationAssistant
+    if name == "LiveSOCEventBus":
+        from .event_bus import LiveSOCEventBus as _LiveSOCEventBus
+
+        return _LiveSOCEventBus
+    if name == "RealtimeStreamHub":
+        from .realtime_stream import RealtimeStreamHub as _RealtimeStreamHub
+
+        return _RealtimeStreamHub
+    if name == "ResilientQueueManager":
+        from .queue_manager import ResilientQueueManager as _ResilientQueueManager
+
+        return _ResilientQueueManager
     if name == "ThreatHuntingEngine":
         from .threat_hunting import ThreatHuntingEngine as _ThreatHuntingEngine
 

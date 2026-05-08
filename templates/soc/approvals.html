@@ -1,0 +1,67 @@
+{% extends "soc/base.html" %}
+{% set active_page = "approvals" %}
+{% set summary = approval_summary if approval_summary is defined else {} %}
+
+{% block title %}SAFE Security Operations | Approvals{% endblock %}
+
+{% block page %}
+<header class="soc-page-header soc-page-header-airy">
+  <div>
+    <div class="soc-breadcrumbs">
+      <a class="soc-inline-link" href="/soc/response-center">Response Center</a>
+      <span>/</span>
+      <span>Approvals</span>
+    </div>
+    <h1 class="soc-page-title">Response Approval Center</h1>
+    <p class="soc-page-copy">Approval-gated response review with requester, reason, affected hosts, rollback capability and expiration context.</p>
+  </div>
+</header>
+
+<section class="safe-grid-4 safe-fade-in">
+  <article class="safe-card safe-kpi"><span>Pending</span><strong>{{ summary.pending|default(0) }}</strong><small>Need analyst decision.</small></article>
+  <article class="safe-card safe-kpi"><span>Approved</span><strong>{{ summary.approved|default(0) }}</strong><small>Ready or leased actions.</small></article>
+  <article class="safe-card safe-kpi"><span>Refused</span><strong>{{ summary.refused|default(0) }}</strong><small>Rejected by policy or analyst.</small></article>
+  <article class="safe-card safe-kpi"><span>Expired/Failed</span><strong>{{ summary.expired|default(0) }}/{{ summary.failed|default(0) }}</strong><small>Needs review.</small></article>
+</section>
+
+<section class="soc-panel" style="margin-top: 18px;">
+  <div class="safe-panel-head">
+    <div>
+      <h2 class="safe-section-title">Pending Security Actions</h2>
+      <p class="safe-section-copy">Actions remain non-destructive here unless routed through approved response workflows.</p>
+    </div>
+    <span class="safe-live-chip">Approval gated</span>
+  </div>
+
+  <div class="soc-list soc-compact-list">
+    {% for item in approval_rows|default([]) %}
+    <article class="soc-list-item">
+      <div>
+        <div class="soc-list-top">
+          <span class="soc-list-title">{{ item.action_type|replace("_", " ")|title }}</span>
+          <span class="soc-severity-chip {{ 'high' if item.status in ['pending', 'requires_approval'] else 'low' }}">{{ item.status|replace("_", " ")|title }}</span>
+        </div>
+        <p class="soc-list-copy">{{ item.why }}</p>
+        <div class="soc-meta-inline">
+          <span>Requested by {{ item.requested_by }}</span>
+          <span>Hosts {{ item.affected_hosts|join(", ") }}</span>
+          <span>Rollback {{ item.rollback_capability|replace("_", " ") }}</span>
+          <span>Expires {{ item.expires_at|default("not set") }}</span>
+        </div>
+      </div>
+      <div class="safe-copilot-actions">
+        <button class="soc-action-button" type="button" disabled>Approve</button>
+        <button class="soc-action-button" type="button" disabled>Reject</button>
+        <button class="soc-action-button" type="button" disabled>Request investigation</button>
+        <button class="soc-action-button" type="button" disabled>Defer</button>
+      </div>
+    </article>
+    {% else %}
+    <div class="soc-empty-state soc-empty-state-premium">
+      <h3>No approvals pending</h3>
+      <p>Approval requests will appear when a response workflow proposes containment or other gated actions.</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "soc/base.html" %}
+{% set active_page = "metrics" %}
+{% set metrics = soc_metrics if soc_metrics is defined else {} %}
+{% set report = executive_report if executive_report is defined else {} %}
+{% set workload = metrics.analyst_workload if metrics.analyst_workload is defined else {} %}
+
+{% block title %}SAFE Security Operations | Metrics{% endblock %}
+
+{% block page %}
+<header class="soc-page-header soc-page-header-airy">
+  <div>
+    <div class="soc-breadcrumbs">
+      <a class="soc-inline-link" href="/soc/overview">Overview</a>
+      <span>/</span>
+      <span>SOC KPIs</span>
+    </div>
+    <h1 class="soc-page-title">SOC Metrics</h1>
+    <p class="soc-page-copy">Operational KPIs for detection, response, workload, unresolved criticals and executive reporting.</p>
+  </div>
+</header>
+
+<section class="safe-grid-4 safe-fade-in">
+  <article class="safe-card safe-kpi"><span>MTTD</span><strong>{{ metrics.mttd_minutes|default(0) }}m</strong><small>Mean time to detect.</small></article>
+  <article class="safe-card safe-kpi"><span>MTTR</span><strong>{{ metrics.mttr_minutes|default(0) }}m</strong><small>Mean time to resolve.</small></article>
+  <article class="safe-card safe-kpi"><span>Incident Volume</span><strong>{{ metrics.incident_volume|default(0) }}</strong><small>Cases plus incidents.</small></article>
+  <article class="safe-card safe-kpi"><span>Unresolved Criticals</span><strong>{{ metrics.unresolved_criticals|default(0) }}</strong><small>Requires leadership visibility.</small></article>
+</section>
+
+<section class="safe-operation-grid" style="margin-top: 18px;">
+  <article class="soc-panel">
+    <h2 class="safe-section-title">Executive Report</h2>
+    <p class="safe-section-copy">{{ report.executive_summary|default("No report data available yet.") }}</p>
+    <div class="safe-evidence-grid" style="margin-top: 14px;">
+      <div class="safe-evidence-card">
+        <strong>False-positive ratio</strong>
+        <p>{{ metrics.false_positive_ratio|default(0) }}</p>
+      </div>
+      <div class="safe-evidence-card">
+        <strong>Containment success</strong>
+        <p>{{ metrics.containment_success|default(0) }}</p>
+      </div>
+    </div>
+  </article>
+
+  <article class="soc-panel">
+    <h2 class="safe-section-title">Analyst Workload</h2>
+    <div class="soc-list soc-compact-list" style="margin-top: 14px;">
+      {% for analyst, count in workload.items() %}
+      <div class="soc-list-item">
+        <span class="soc-list-title">{{ analyst }}</span>
+        <span class="soc-severity-chip low">{{ count }} cases</span>
+      </div>
+      {% else %}
+      <div class="soc-empty-state soc-empty-state-premium">
+        <h3>No active workload</h3>
+        <p>Assigned open cases will appear here as analysts take ownership.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% endblock %}

@@ -5,6 +5,7 @@ import os
 import tempfile
 import pytest
 from ioc_manager import IOCManager, get_ioc_manager
+from xdr.ioc_manager import IOCManager as XDRIOCManager, infer_ioc_type
 
 
 @pytest.fixture
@@ -156,3 +157,21 @@ def test_singleton():
         assert a is not c
     finally:
         os.unlink(db)
+
+
+def test_xdr_ioc_manager_handles_supported_types_and_tenant_isolation():
+    mgr = XDRIOCManager()
+    ip = mgr.add_ioc(tenant_id="tenant-a", value="198.51.100.10", confidence=70, linked_hosts=["h1"])
+    mgr.add_ioc(tenant_id="tenant-b", value="198.51.100.10", confidence=90, linked_hosts=["h2"])
+
+    assert ip.ioc_type == "ip"
+    assert len(mgr.list_iocs(tenant_id="tenant-a")) == 1
+    assert mgr.list_iocs(tenant_id="tenant-a")[0].linked_hosts == ["h1"]
+    assert mgr.list_iocs(tenant_id="tenant-b")[0].linked_hosts == ["h2"]
+
+
+def test_xdr_ioc_type_inference():
+    assert infer_ioc_type("https://example.com/a") == "url"
+    assert infer_ioc_type("44d88612fea8a8f36de82e1278abb02f") == "hash"
+    assert infer_ioc_type("malware.example.test") == "domain"
+    assert infer_ioc_type("payload.exe") == "filename"

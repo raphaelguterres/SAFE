@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SAFE Performance Live</title>
+  <link rel="stylesheet" href="/static/css/netguard.css">
+  <style>
+    :root {
+      --live-bg: #070a10;
+      --live-panel: #0d121c;
+      --live-border: rgba(148, 163, 184, .18);
+      --live-text: #f8fafc;
+      --live-muted: #94a3b8;
+      --live-accent: #38bdf8;
+      --live-good: #34d399;
+      --live-warn: #f59e0b;
+      --live-bad: #fb7185;
+    }
+    body { margin: 0; background: linear-gradient(180deg, #0a0f18, var(--live-bg)); color: var(--live-text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .live-shell { max-width: 1240px; margin: 0 auto; padding: 34px 22px 54px; }
+    .live-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 24px; }
+    .eyebrow { color: var(--live-accent); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 8px 0; font-size: clamp(30px, 4vw, 46px); letter-spacing: -.045em; }
+    .muted { color: var(--live-muted); margin: 0; line-height: 1.55; }
+    .btn { border: 1px solid var(--live-border); border-radius: 999px; padding: 10px 16px; background: rgba(255,255,255,.04); color: var(--live-text); cursor: pointer; transition: .18s ease; }
+    .btn:hover, .btn:focus { transform: translateY(-1px); border-color: rgba(56,189,248,.6); background: rgba(56,189,248,.12); outline: none; }
+    .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+    .card { border: 1px solid var(--live-border); border-radius: 24px; background: rgba(255,255,255,.035); padding: 18px; box-shadow: 0 20px 80px rgba(0,0,0,.22); }
+    .label { color: var(--live-muted); font-size: 13px; }
+    .value { font-size: 34px; font-weight: 800; letter-spacing: -.05em; margin-top: 8px; }
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+    .pill { display: inline-flex; align-items: center; border: 1px solid var(--live-border); border-radius: 999px; padding: 6px 10px; color: var(--live-muted); font-size: 13px; }
+    .pill.good { color: var(--live-good); border-color: rgba(52,211,153,.35); }
+    .pill.warn { color: var(--live-warn); border-color: rgba(245,158,11,.35); }
+    .pill.bad { color: var(--live-bad); border-color: rgba(251,113,133,.35); }
+    .bar { height: 10px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 12px; }
+    .bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--live-good), var(--live-accent)); width: 0%; transition: width .25s ease; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+    th, td { border-bottom: 1px solid var(--live-border); padding: 12px 8px; text-align: left; }
+    th { color: var(--live-muted); font-weight: 600; }
+    @media (max-width: 920px) { .cards, .layout { grid-template-columns: 1fr; } .live-header { flex-direction: column; } }
+  </style>
+</head>
+<body>
+  <main class="live-shell">
+    <header class="live-header">
+      <div>
+        <div class="eyebrow">Real-time Core</div>
+        <h1>SOC Performance Live</h1>
+        <p class="muted">Live operational readiness for streaming, workers, queue pressure and incident throughput.</p>
+      </div>
+      <button class="btn" type="button" id="refresh">Refresh</button>
+    </header>
+
+    <section class="cards">
+      <article class="card">
+        <div class="label">Events/sec</div>
+        <div class="value" id="eps">0</div>
+      </article>
+      <article class="card">
+        <div class="label">Active workers</div>
+        <div class="value" id="workers">0</div>
+      </article>
+      <article class="card">
+        <div class="label">Queue pressure</div>
+        <div class="value" id="pressure">0%</div>
+        <div class="bar"><span id="pressure-bar"></span></div>
+      </article>
+      <article class="card">
+        <div class="label">WebSocket clients</div>
+        <div class="value" id="clients">0</div>
+      </article>
+    </section>
+
+    <section class="layout">
+      <article class="card">
+        <span class="pill" id="health-pill">health</span>
+        <h2>Reliability state</h2>
+        <table>
+          <tbody>
+            <tr><th>SAFE Mode</th><td id="safe-mode">normal</td></tr>
+            <tr><th>Failed workers</th><td id="failed-workers">0</td></tr>
+            <tr><th>Dead letters</th><td id="dead-letters">0</td></tr>
+            <tr><th>Dropped events</th><td id="dropped">0</td></tr>
+          </tbody>
+        </table>
+      </article>
+      <article class="card">
+        <span class="pill good">live-ready</span>
+        <h2>Realtime channels</h2>
+        <table>
+          <thead><tr><th>Tenant</th><th>Clients</th></tr></thead>
+          <tbody id="tenant-clients"><tr><td colspan="2">No connected clients</td></tr></tbody>
+        </table>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const pct = (value) => `${Math.round(Number(value || 0) * 100)}%`;
+    const healthClass = (status) => status === "healthy" ? "good" : (status === "critical" || status === "unstable" ? "bad" : "warn");
+    async function loadLive() {
+      const res = await fetch("/api/admin/performance-live", { credentials: "same-origin" });
+      const data = await res.json();
+      const pressure = Number(data.queue_pressure || 0);
+      document.getElementById("eps").textContent = data.eps || 0;
+      document.getElementById("workers").textContent = data.active_workers || 0;
+      document.getElementById("pressure").textContent = pct(pressure);
+      document.getElementById("pressure-bar").style.width = pct(pressure);
+      document.getElementById("clients").textContent = data.active_stream_clients || 0;
+      document.getElementById("safe-mode").textContent = data.safe_mode?.state || "normal";
+      document.getElementById("failed-workers").textContent = (data.failed_workers || []).length;
+      document.getElementById("dead-letters").textContent = data.queue?.dead_letter_depth || 0;
+      document.getElementById("dropped").textContent = data.queue?.dropped || 0;
+      const health = data.health?.status || "unknown";
+      const pill = document.getElementById("health-pill");
+      pill.textContent = health;
+      pill.className = `pill ${healthClass(health)}`;
+      const clients = data.streaming?.clients_by_tenant || {};
+      document.getElementById("tenant-clients").innerHTML = Object.entries(clients).map(([tenant, count]) => `<tr><td>${tenant}</td><td>${count}</td></tr>`).join("") || "<tr><td colspan='2'>No connected clients</td></tr>";
+    }
+    document.getElementById("refresh").addEventListener("click", loadLive);
+    loadLive();
+    setInterval(loadLive, 10000);
+  </script>
+</body>
+</html>

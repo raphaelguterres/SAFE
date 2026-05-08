@@ -27,6 +27,11 @@ SAFE Telemetry API
   /api/xdr/events
         |
         v
+Operational Reliability Core
+  bounded queues -> event bus -> workers
+  -> health -> observability -> safe mode
+        |
+        v
 SAFE Defense Engine
   normalize -> detect -> correlate
   -> behavior -> Kill Chain -> risk
@@ -55,6 +60,8 @@ Storage + SOC
 - **Scalable ingest foundation:** bounded queues, priority lanes, deduplication, heartbeat state, orchestration, and performance metrics.
 - **Enterprise hardening:** HMAC agent trust, nonce replay guard, config validator, API abuse guard, audit integrity, and secrets self-check.
 - **AI-assisted SOC:** explainable alert context, false-positive reduction, investigation guidance, incident prioritization, playbook recommendations, and attack progression prediction.
+- **SOC operations:** case management, analyst workflows, approval center, hunt operations, immutable evidence, SOC metrics, and executive reporting.
+- **Operational reliability:** real-time event bus, tenant-scoped stream hub, bounded queue manager, restart-safe workers, health engine, SAFE Mode, recovery planning, and disaster recovery snapshots.
 
 ## AI-Assisted SOC Core
 
@@ -80,9 +87,31 @@ Primary workspaces:
 - **Host Triage:** host profile, attack timeline, risk explanation, related signals, and response actions.
 - **Incidents:** status, severity, assignment, comments, and lifecycle updates.
 - **Copilot:** explainable investigation summaries, false-positive context, priority, evidence chain, and safe playbook recommendations.
+- **Case Management:** case timeline, evidence cards, analyst notes, ownership, containment state, and workflow checklist.
+- **Hunt Operations:** active hunts, completed hunts, scheduled IOC/MITRE/rare-behavior hunts, and investigation guidance.
+- **Approvals:** pending response approvals, requester, reason, affected hosts, rollback capability, and expiration context.
+- **Metrics:** MTTD, MTTR, incident volume, false-positive ratio, containment success, analyst workload, and executive reporting.
 - **Agents:** host inventory, liveness, enrollment, heartbeat, and key lifecycle.
 - **Live Response:** pending security actions, approvals, containment state, MITRE context, and response queue.
 - **Performance:** ingest V2 status, queue pressure, dedup ratio, latency, dropped events, and throughput.
+- **Observability:** live queue pressure, worker state, streaming clients, health components, and SAFE Mode state.
+
+## Operational Reliability & Real-Time Core
+
+SAFE now includes an enterprise reliability layer designed for continuous SOC/XDR operations without changing the existing synchronous ingest path by default.
+
+Core components:
+
+- `xdr/queue_manager.py` provides bounded priority queues, retry counters, overflow protection, poison-message handling, and dead-letter recovery.
+- `xdr/event_bus.py` centralizes tenant-scoped publish/subscribe events for detections, incidents, approvals, host state changes, orchestration, and UI updates.
+- `xdr/realtime_stream.py` provides an authenticated, tenant-isolated streaming hub ready for SSE/WebSocket adapters with heartbeat and client rate limiting.
+- `workers/` defines restart-safe telemetry, correlation, orchestration, cleanup, metrics, and hunt workers with graceful shutdown and queue metrics.
+- `xdr/observability.py`, `xdr/health_engine.py`, `xdr/recovery_engine.py`, `safe_mode/`, and `xdr/disaster_recovery.py` add operational metrics, health evaluation, recovery plans, degraded SAFE Mode, and tenant-safe snapshots.
+
+Admin views:
+
+- `GET /admin/observability`
+- `GET /admin/performance-live`
 
 ## SAFE Agent
 
@@ -166,6 +195,8 @@ Open:
 - `http://127.0.0.1:5000/soc`
 - `http://127.0.0.1:5000/soc/live-response`
 - `http://127.0.0.1:5000/admin/performance`
+- `http://127.0.0.1:5000/admin/observability`
+- `http://127.0.0.1:5000/admin/performance-live`
 
 Production posture:
 
@@ -192,6 +223,8 @@ GET  /api/incidents
 GET  /api/incidents/export
 GET  /api/soc/live-response
 GET  /api/admin/performance
+GET  /api/admin/observability
+GET  /api/admin/performance-live
 GET  /api/admin/config/status
 GET  /api/admin/audit/integrity
 ```
@@ -213,6 +246,7 @@ Current quality gates cover auth, RBAC, CSRF, tenant isolation, agent flows, XDR
 - [NETGUARD_XDR_SCALING.md](NETGUARD_XDR_SCALING.md): scalable XDR pipeline and bounded ingestion
 - [NETGUARD_ENTERPRISE_HARDENING.md](NETGUARD_ENTERPRISE_HARDENING.md): Agent Trust V2, action signing, replay protection, and audit integrity
 - [NETGUARD_EDR_OPERATIONS.md](NETGUARD_EDR_OPERATIONS.md): SOC operations and response workflows
+- [SAFE_OPERATIONAL_RELIABILITY.md](SAFE_OPERATIONAL_RELIABILITY.md): real-time event bus, resilient workers, health, SAFE Mode, recovery, and DR
 
 ## Roadmap
 
@@ -224,6 +258,7 @@ Current quality gates cover auth, RBAC, CSRF, tenant isolation, agent flows, XDR
 - [x] Guarded response queue and SAFE Agent executor
 - [x] Scalable XDR platform core
 - [x] Enterprise hardening and trust core
+- [x] Operational reliability and real-time core
 - [ ] Client Dashboard Clean Experience with executive and technical modes
 - [ ] Full production PostgreSQL migration set for legacy tables
 - [ ] Fleet-grade agent rollout, update, and policy management

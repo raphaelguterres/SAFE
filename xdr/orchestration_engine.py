@@ -52,6 +52,8 @@ class OrchestrationPlan:
     stages: list[ResponseStage] = field(default_factory=list)
     rollback_stages: list[ResponseStage] = field(default_factory=list)
     reason: str = ""
+    checkpoints: list[dict[str, Any]] = field(default_factory=list)
+    escalation_route: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -123,6 +125,76 @@ class ResponseOrchestrationEngine:
                     expires_at=expires + 3600,
                 )
             )
+        with self._lock:
+            self._plans[plan.plan_id] = plan
+        return plan
+
+    def create_chained_playbook_plan(
+        self,
+        *,
+        tenant_id: str,
+        host_id: str,
+        playbook_steps: list[dict[str, Any]],
+        reason: str = "",
+        escalation_route: str = "soc_lead",
+        timeout_seconds: int | None = None,
+    ) -> OrchestrationPlan:
+        """Create a conditional SOAR-like plan with analyst checkpoints."""
+        tenant = _tenant(tenant_id)
+        host = str(host_id or "").strip()
+        if not host:
+            raise ValueError("host_id_required")
+        now = time.time()
+        expires = now + max(60, int(timeout_seconds or self.default_timeout_seconds))
+        plan = OrchestrationPlan(
+            plan_id=f"orch_{uuid.uuid4().hex}",
+            tenant_id=tenant,
+            action_type="chained_playbook",
+            host_ids=[host],
+            status="pending_approval",
+            created_at=now,
+            reason=reason,
+            escalation_route=str(escalation_route or "soc_lead")[:128],
+        )
+        for index, step in enumerate(playbook_steps or [], start=1):
+            action_type = str(step.get("action_type") or "").strip().lower()
+            if not action_type:
+                continue
+            approval_required = bool(step.get("approval_required", action_type not in {"collect_diagnostics", "hunt_iocs"}))
+            plan.stages.append(
+                ResponseStage(
+                    stage_id=f"stage_{uuid.uuid4().hex}",
+                    host_id=host,
+                    action_type=action_type,
+                    approval_required=approval_required,
+                    status=ResponseStageStatus.PENDING if approval_required else ResponseStageStatus.APPROVED,
+                    parameters=dict(step.get("parameters") or {}),
+                    expires_at=expires,
+                )
+            )
+            if step.get("checkpoint"):
+                plan.checkpoints.append({
+                    "checkpoint_id": f"chk_{uuid.uuid4().hex}",
+                    "after_step": index,
+                    "label": str(step.get("checkpoint"))[:180],
+                    "confirmed": False,
+                    "confirmed_by": "",
+                })
+            rollback_action = str(step.get("rollback_action") or _default_rollback(action_type))
+            if rollback_action:
+                plan.rollback_stages.insert(
+                    0,
+                    ResponseStage(
+                        stage_id=f"rollback_{uuid.uuid4().hex}",
+                        host_id=host,
+                        action_type=rollback_action,
+                        approval_required=False,
+                        status=ResponseStageStatus.APPROVED,
+                        expires_at=expires + 3600,
+                    ),
+                )
+        if not plan.stages:
+            raise ValueError("playbook_steps_required")
         with self._lock:
             self._plans[plan.plan_id] = plan
         return plan
@@ -220,6 +292,28 @@ class ResponseOrchestrationEngine:
                 if stage.status == ResponseStageStatus.APPROVED
             ]
 
+    def confirm_checkpoint(
+        self,
+        *,
+        plan_id: str,
+        checkpoint_id: str,
+        analyst: str,
+        tenant_id: str | None = None,
+    ) -> dict[str, Any]:
+        with self._lock:
+            plan = self._plans.get(plan_id)
+            if not plan:
+                raise KeyError("plan_not_found")
+            if tenant_id and plan.tenant_id != _tenant(tenant_id):
+                raise KeyError("plan_not_found")
+            for checkpoint in plan.checkpoints:
+                if checkpoint.get("checkpoint_id") == checkpoint_id:
+                    checkpoint["confirmed"] = True
+                    checkpoint["confirmed_by"] = str(analyst or "analyst")[:128]
+                    self._refresh_plan_status(plan)
+                    return dict(checkpoint)
+        raise KeyError("checkpoint_not_found")
+
     def list_plans(self, *, tenant_id: str | None = None) -> list[dict[str, Any]]:
         with self._lock:
             plans = list(self._plans.values())
@@ -271,3 +365,13 @@ class ResponseOrchestrationEngine:
 
 def _tenant(value: str | None) -> str:
     return str(value or "default").strip() or "default"
+
+
+def _default_rollback(action_type: str) -> str:
+    return {
+        "safe_host_isolation": "rollback_host_isolation",
+        "isolate_host": "rollback_host_isolation",
+        "block_ip": "remove_ip_block",
+        "network_containment": "remove_network_containment",
+        "suspend_user": "restore_user_after_authorized_review",
+    }.get(str(action_type or "").strip().lower(), "")

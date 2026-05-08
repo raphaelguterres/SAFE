@@ -35,8 +35,14 @@
     <a class="soc-nav-link {% if active_page == 'incidents' %}is-active{% endif %}" href="/soc/incidents" {% if active_page == 'incidents' %}aria-current="page"{% endif %}>
       <span>Incidents</span>
     </a>
+    <a class="soc-nav-link {% if active_page == 'hunts' %}is-active{% endif %}" href="/soc/hunts" {% if active_page == 'hunts' %}aria-current="page"{% endif %}>
+      <span>Hunts</span>
+    </a>
     <a class="soc-nav-link {% if active_page == 'campaigns' %}is-active{% endif %}" href="/soc/campaigns" {% if active_page == 'campaigns' %}aria-current="page"{% endif %}>
       <span>Campaigns</span>
+    </a>
+    <a class="soc-nav-link {% if active_page == 'approvals' %}is-active{% endif %}" href="/soc/approvals" {% if active_page == 'approvals' %}aria-current="page"{% endif %}>
+      <span>Approvals</span>
     </a>
     <a class="soc-nav-link {% if active_page == 'live_response' %}is-active{% endif %}" href="/soc/response-center" {% if active_page == 'live_response' %}aria-current="page"{% endif %}>
       <span>Response Center</span>
@@ -48,6 +54,9 @@
     </a>
     <a class="soc-nav-link {% if active_page == 'rules' %}is-active{% endif %}" href="/soc/grid" {% if active_page == 'rules' %}aria-current="page"{% endif %}>
       <span>Rules</span>
+    </a>
+    <a class="soc-nav-link {% if active_page == 'metrics' %}is-active{% endif %}" href="/soc/metrics" {% if active_page == 'metrics' %}aria-current="page"{% endif %}>
+      <span>Metrics</span>
     </a>
 
     <div class="soc-nav-label">System</div>
