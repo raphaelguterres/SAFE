@@ -84,6 +84,38 @@
     .action-card .action-text { font-size: 1.15rem; font-weight: 600; line-height: 1.4; margin: .4rem 0 .8rem; }
     .action-card .rationale { color: var(--txt2); font-size: .88rem; line-height: 1.5; }
 
+    /* Kill Chain timeline */
+    .kct-panel h2 { font-size:.8rem; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:var(--txt2); margin-bottom:1rem; }
+    .kct-svg { width:100%; height:220px; display:block; }
+    .kct-grid-line { stroke: var(--border); stroke-width:1; opacity:.5; }
+    .kct-area-fill { fill: var(--accent); fill-opacity:.10; }
+    .kct-line-stroke { fill:none; stroke: var(--accent); stroke-width:1.6; }
+    .kct-event-dot { fill: var(--accent2); cursor:pointer; transition: r .15s; }
+    .kct-event-dot-active { fill: var(--accent); cursor:pointer; transition: r .15s; }
+    .kct-event-dot:hover, .kct-event-dot-active:hover { r:4; }
+    .kct-tick { font-family:'JetBrains Mono', monospace; font-size:9px; fill: var(--txt3); }
+    body.theme-light .kct-grid-line { opacity:.6; }
+
+    /* Drill-down drawer */
+    .kct-drawer { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: .9rem; animation: kctSlide .25s ease both; }
+    @keyframes kctSlide { from { opacity:0; transform: translateY(-4px); } to { opacity:1; transform: translateY(0); } }
+    .kct-drawer-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:.6rem; }
+    .kct-drawer-head span { font-family:'JetBrains Mono', monospace; font-size:.78rem; color: var(--txt2); }
+    .kct-drawer-close { background: transparent; border: 1px solid var(--border); color: var(--txt2); border-radius: 4px; width: 26px; height: 26px; cursor:pointer; font-size: 1.1rem; line-height: 1; padding: 0; transition: background .15s, color .15s; }
+    .kct-drawer-close:hover { color: var(--accent); border-color: var(--accent); }
+    .kct-drawer-body { max-height: 260px; overflow-y: auto; }
+    .kct-evt-row { display: grid; grid-template-columns: 130px 90px 90px 1fr; gap: .8rem; padding: .55rem .2rem; border-bottom: 1px solid rgba(120,150,200,.06); font-size: .82rem; align-items: center; }
+    body.theme-light .kct-evt-row { border-bottom-color: rgba(0,0,0,0.05); }
+    .kct-evt-ts { color: var(--txt2); font-family:'JetBrains Mono', monospace; font-size: .76rem; }
+    .kct-evt-phase { display: inline-flex; align-items: center; gap:.35rem; padding: .15rem .5rem; border-radius: 4px; font-size: .68rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; background: rgba(200,168,90,.10); color: var(--accent2); border: 1px solid rgba(200,168,90,.28); white-space: nowrap; }
+    .kct-evt-sev { font-size: .7rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+    .kct-evt-sev[data-sev="critical"] { color: var(--red); }
+    .kct-evt-sev[data-sev="high"] { color: var(--orange); }
+    .kct-evt-sev[data-sev="medium"] { color: var(--yellow); }
+    .kct-evt-sev[data-sev="low"] { color: var(--blue); }
+    .kct-evt-summary { color: var(--txt); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kct-empty { color: var(--txt3); padding: 1rem .2rem; font-size: .82rem; text-align: center; }
+
     /* Cyber Kill Chain (Lockheed) panel */
     .kc-panel h2 { display:flex; align-items:center; gap:.5rem; }
     .kc-progress-row { display:flex; align-items:center; gap:1rem; margin: .8rem 0 1.2rem; }
@@ -266,6 +298,27 @@
           <div id="action-rationale" class="rationale">—</div>
         </section>
       </div>
+
+      <!-- Cyber Kill Chain — timeline -->
+      <section class="panel kct-panel">
+        <h2>Kill Chain &mdash; progressão (últimas 24h)</h2>
+        <svg id="kct-svg" class="kct-svg" viewBox="0 0 720 220" preserveAspectRatio="none" aria-label="Kill Chain progression timeline">
+          <g id="kct-grid"></g>
+          <g id="kct-area"></g>
+          <g id="kct-line"></g>
+          <g id="kct-events"></g>
+          <g id="kct-yticks"></g>
+          <g id="kct-xticks"></g>
+        </svg>
+        <p id="kct-status" style="color:var(--txt2);font-size:.78rem;margin-top:.4rem;">aguardando dados&hellip;</p>
+        <div id="kct-drawer" class="kct-drawer" hidden aria-live="polite">
+          <div class="kct-drawer-head">
+            <span id="kct-drawer-title">Eventos da janela</span>
+            <button type="button" class="kct-drawer-close" aria-label="Fechar drill-down">&times;</button>
+          </div>
+          <div id="kct-drawer-body" class="kct-drawer-body"></div>
+        </div>
+      </section>
 
       <!-- Cyber Kill Chain (Lockheed view) -->
       <section class="panel kc-panel">
@@ -508,5 +561,232 @@
     })();
   </script>
   <script src="/static/js/netguard-ui.js" defer></script>
+</body>
+</html>
+
+  <script>
+    // Kill Chain timeline (SVG step area + dots)
+    (function () {
+      var parts = window.location.pathname.split("/").filter(Boolean);
+      var hostId = parts[parts.length - 1] || "";
+      if (!hostId) return;
+
+      var W = 720, H = 220;
+      var P = { l: 110, r: 16, t: 14, b: 28 };  // padding
+      var plotW = W - P.l - P.r;
+      var plotH = H - P.t - P.b;
+      var PHASE_LABELS = ["Recon", "Delivery", "Exploit", "Install", "C2", "Actions"];
+
+      function render(data) {
+        var statusEl = document.getElementById("kct-status");
+        var buckets = (data && data.buckets) || [];
+        if (!buckets.length) {
+          statusEl.textContent = "Sem buckets no período.";
+          return;
+        }
+        if (data.summary && data.summary.current_phase) {
+          statusEl.textContent = "Atual: " + (data.summary.current_phase || "-") +
+            " · primeira detecção: " +
+            (data.summary.phase_first_seen[data.summary.first_phase] || "-");
+        } else {
+          statusEl.textContent = "Sem detecções no período.";
+        }
+
+        var n = buckets.length;
+        var stepX = plotW / n;
+        function xOf(i) { return P.l + i * stepX; }
+        function yOf(idx) {
+          // idx 0..5, draw with y inverted (deepest = lower on screen up)
+          var clamped = Math.max(0, Math.min(5, idx));
+          return P.t + plotH - (clamped / 5) * plotH;
+        }
+
+        // Y-axis labels (6 phases)
+        var yticks = "";
+        for (var k = 0; k < 6; k++) {
+          var y = yOf(k);
+          yticks += "<line class=\"kct-grid-line\" x1=\"" + P.l + "\" y1=\"" + y +
+            "\" x2=\"" + (W - P.r) + "\" y2=\"" + y + "\" />";
+          yticks += "<text class=\"kct-tick\" x=\"" + (P.l - 8) + "\" y=\"" + (y + 3) +
+            "\" text-anchor=\"end\">" + (k + 1) + " " + PHASE_LABELS[k] + "</text>";
+        }
+        document.getElementById("kct-yticks").innerHTML = yticks;
+
+        // X-axis ticks: every 4 hours roughly
+        var hours = data.window_hours || 24;
+        var bucketMin = data.bucket_min || 15;
+        var bucketsPerHour = 60 / bucketMin;
+        var xticks = "";
+        for (var h = 0; h <= hours; h += Math.max(1, Math.round(hours / 6))) {
+          var idx = h * bucketsPerHour;
+          var xv = xOf(idx);
+          if (xv > W - P.r) continue;
+          xticks += "<text class=\"kct-tick\" x=\"" + xv + "\" y=\"" + (H - 8) +
+            "\" text-anchor=\"middle\">-" + (hours - h) + "h</text>";
+        }
+        document.getElementById("kct-xticks").innerHTML = xticks;
+
+        // Step area: deepest_index per bucket
+        var pathArea = "M " + P.l + " " + (P.t + plotH);
+        var pathLine = "";
+        var lastIdx = -1;
+        for (var i = 0; i < n; i++) {
+          var idx = buckets[i].deepest_index;
+          if (idx < 0) {
+            // no progression yet — draw at bottom
+            var x = xOf(i), y = P.t + plotH;
+            pathArea += " L " + x + " " + y + " L " + (x + stepX) + " " + y;
+            if (lastIdx === -1) pathLine = ""; // suppress until first event
+            continue;
+          }
+          var xa = xOf(i), xb = xOf(i + 1), ya = yOf(idx);
+          if (lastIdx !== idx) {
+            pathArea += " L " + xa + " " + ya;
+            if (lastIdx !== -1) {
+              pathLine += " L " + xa + " " + yOf(lastIdx) + " L " + xa + " " + ya;
+            } else {
+              pathLine = "M " + xa + " " + ya;
+            }
+            lastIdx = idx;
+          }
+          pathArea += " L " + xb + " " + ya;
+          pathLine += " L " + xb + " " + ya;
+        }
+        // Close area down to baseline
+        var lastX = xOf(n);
+        pathArea += " L " + lastX + " " + (P.t + plotH) + " Z";
+
+        document.getElementById("kct-area").innerHTML =
+          "<path class=\"kct-area-fill\" d=\"" + pathArea + "\" />";
+        document.getElementById("kct-line").innerHTML =
+          pathLine ? "<path class=\"kct-line-stroke\" d=\"" + pathLine + "\" />" : "";
+
+        // Event dots: where phases were active
+        var dots = "";
+        for (var j = 0; j < n; j++) {
+          var b = buckets[j];
+          if (!b.phases || !b.phases.length) continue;
+          for (var p = 0; p < b.phases.length; p++) {
+            var phaseIdx = ["reconnaissance","delivery","exploitation","installation","command_and_control","actions_on_objectives"].indexOf(b.phases[p]);
+            if (phaseIdx < 0) continue;
+            var dx = xOf(j) + stepX / 2, dy = yOf(phaseIdx);
+            var cls = (phaseIdx === b.deepest_index) ? "kct-event-dot-active" : "kct-event-dot";
+            dots += "<circle class=\"" + cls + "\" cx=\"" + dx + "\" cy=\"" + dy +
+              "\" r=\"2.5\" data-ts=\"" + b.ts + "\" data-bidx=\"" + j + "\"><title>" + b.ts + " · " + b.phases[p] + " (clique para detalhes)</title></circle>";
+          }
+        }
+        document.getElementById("kct-events").innerHTML = dots;
+
+        // Drill-down: stash buckets on the SVG group for click handler
+        var eventsG = document.getElementById("kct-events");
+        eventsG.__buckets = buckets;
+
+        // Bind click on dots (delegated)
+        eventsG.onclick = function (ev) {
+          var t = ev.target;
+          if (!t || t.tagName !== "circle") return;
+          var bIdx = parseInt(t.getAttribute("data-bidx"), 10);
+          if (isNaN(bIdx) || !buckets[bIdx]) return;
+          renderDrawer(buckets[bIdx]);
+        };
+      }
+
+      function renderDrawer(bucket) {
+        var drawer = document.getElementById("kct-drawer");
+        var titleEl = document.getElementById("kct-drawer-title");
+        var bodyEl = document.getElementById("kct-drawer-body");
+        if (!drawer || !bodyEl) return;
+        drawer.hidden = false;
+
+        var ts = bucket.ts || "";
+        var phaseTxt = (bucket.phases || []).join(", ") || "—";
+        titleEl.textContent = ts + " · " + phaseTxt + " · " + bucket.count + " evento(s)";
+
+        var events = bucket.events || [];
+        if (!events.length) {
+          bodyEl.innerHTML = '<div style="padding:1rem;color:var(--txt3);font-size:.85rem;text-align:center;">Sem detalhes de eventos disponíveis para este bucket.</div>';
+          return;
+        }
+        bodyEl.innerHTML = events.map(function (e) {
+          var sev = (e.severity || "low").toLowerCase();
+          var phaseColor = (e.phase === "actions_on_objectives" || e.phase === "command_and_control") ? "var(--red)" :
+                            (e.phase === "exploitation" || e.phase === "installation") ? "var(--orange)" :
+                            "var(--accent2)";
+          return '<div style="padding:.55rem .15rem;border-bottom:1px solid var(--border);font-size:.84rem;display:grid;grid-template-columns:90px 1fr auto;gap:.6rem;align-items:start;">'
+            + '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--txt3);font-size:.72rem;">' + (e.ts || "").substring(11, 19) + '</span>'
+            + '<div>'
+              + '<div style="color:var(--txt);font-weight:500;">' + (e.summary || e.event_type || e.tactic || "(sem detalhe)") + '</div>'
+              + '<div style="color:var(--txt2);font-size:.74rem;margin-top:.2rem;">'
+                + (e.tactic ? ('tactic: <span style="color:' + phaseColor + ';">' + e.tactic + '</span> · ') : "")
+                + (e.technique ? ('technique: ' + e.technique + ' · ') : "")
+                + (e.source_ip ? ('src: ' + e.source_ip + ' · ') : "")
+                + (e.process ? ('proc: ' + e.process) : "")
+              + '</div>'
+            + '</div>'
+            + '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--txt3);font-size:.7rem;">' + sev + '</span>'
+          + '</div>';
+        }).join("");
+      }
+
+      // Close handler
+      var closeBtn = document.querySelector("#kct-drawer .kct-drawer-close");
+      if (closeBtn) closeBtn.addEventListener("click", function () {
+        document.getElementById("kct-drawer").hidden = true;
+      }
+
+      fetch("/api/risk/host/" + encodeURIComponent(hostId) + "/kill_chain/timeline?window=24&bucket=15&include_events=true", {
+        credentials: "same-origin"
+      })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { if (d) render(d); else render({buckets: []}); })
+        .catch(function () {
+          document.getElementById("kct-status").textContent = "Falha ao carregar timeline.";
+        });
+    })();
+  </script>
+</body>
+</html>
+nt dots: where phases were active
+        var dots = "";
+        for (var j = 0; j < n; j++) {
+          var b = buckets[j];
+          if (!b.phases || !b.phases.length) continue;
+          for (var p = 0; p < b.phases.length; p++) {
+            var phaseIdx = ["reconnaissance","delivery","exploitation","installation","command_and_control","actions_on_objectives"].indexOf(b.phases[p]);
+            if (phaseIdx < 0) continue;
+            var dx = xOf(j) + (plotW / n) / 2;ket.phases || []).join(", ") || "—";
+        titleEl.textContent = ts + " · " + phaseTxt + " · " + bucket.count + " evento(s)";
+        var events = bucket.events || [];
+        if (!events.length) {
+          bodyEl.innerHTML = "<div style=\"padding:1rem;color:var(--txt3);font-size:.85rem;text-align:center;\">Sem detalhes de eventos disponiveis para este bucket.</div>";
+          return;
+        }
+        bodyEl.innerHTML = events.map(function (e) {
+          var sev = String(e.severity || "low").toLowerCase();
+          var phaseColor = (e.phase === "actions_on_objectives" || e.phase === "command_and_control") ? "var(--red)" : (e.phase === "exploitation" || e.phase === "installation") ? "var(--orange)" : "var(--accent2)";
+          var tac = e.tactic ? "tactic: <span style=\"color:" + phaseColor + ";\">" + e.tactic + "</span> · " : "";
+          var tech = e.technique ? "tech: " + e.technique + " · " : "";
+          var src = e.source_ip ? "src: " + e.source_ip + " · " : "";
+          var prc = e.process ? "proc: " + e.process : "";
+          var time = (e.ts || "").substring(11, 19);
+          return "<div style=\"padding:.55rem .15rem;border-bottom:1px solid var(--border);font-size:.84rem;display:grid;grid-template-columns:90px 1fr auto;gap:.6rem;align-items:start;\">" +
+            "<span style=\"font-family:JetBrains Mono,monospace;color:var(--txt3);font-size:.72rem;\">" + time + "</span>" +
+            "<div><div style=\"color:var(--txt);font-weight:500;\">" + (e.summary || e.event_type || e.tactic || "(sem detalhe)") + "</div>" +
+            "<div style=\"color:var(--txt2);font-size:.74rem;margin-top:.2rem;\">" + tac + tech + src + prc + "</div></div>" +
+            "<span style=\"font-family:JetBrains Mono,monospace;color:var(--txt3);font-size:.7rem;\">" + sev + "</span></div>";
+        }).join("");
+      }
+
+      var closeBtn = document.querySelector("#kct-drawer .kct-drawer-close");
+      if (closeBtn) closeBtn.addEventListener("click", function () {
+        document.getElementById("kct-drawer").hidden = true;
+      });
+
+      fetch("/api/risk/host/" + encodeURIComponent(hostId) + "/kill_chain/timeline?window=24&bucket=15&include_events=true", { credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { if (d) render(d); else render({buckets: []}); })
+        .catch(function () { document.getElementById("kct-status").textContent = "Falha ao carregar timeline."; });
+    })();
+  </script>
 </body>
 </html>

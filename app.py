@@ -6202,6 +6202,339 @@ def risk_report(host_id):
     return jsonify(risk_engine.generate_report(host_id))
 
 
+@app.route("/api/risk/kill_chain/heatmap")
+@auth
+def risk_kill_chain_heatmap():
+    """Multi-host Lockheed Cyber Kill Chain heatmap.
+
+    Aggregates kill-chain state across every known host and returns a
+    matrix shape suitable for the SOC overview heatmap panel.
+    Query params:
+        ?limit=N   limit number of hosts (default 200)
+    """
+    try:
+        from engine.kill_chain_lockheed import aggregate_heatmap
+    except Exception as exc:
+        return jsonify({"error": f"Lockheed Kill Chain indisponivel: {exc}"}), 503
+
+    try:
+        limit = max(1, min(int(request.args.get("limit", 200)), 1000))
+    except (TypeError, ValueError):
+        limit = 200
+
+    host_data: list = []
+
+    # Source 1: risk_engine all-hosts (preferred — it knows display names + mitre)
+    try:
+        if RISK_AVAILABLE and hasattr(risk_engine, "get_all_hosts"):
+            for h in (risk_engine.get_all_hosts() or [])[:limit]:
+                if not isinstance(h, dict):
+                    continue
+                host_id_v = h.get("host_id") or h.get("id")
+                if not host_id_v:
+                    continue
+                items: list = []
+                items.extend(h.get("recent_events") or [])
+                items.extend(h.get("detections") or [])
+                items.extend(h.get("mitre_events") or [])
+                host_data.append({
+                    "host_id":      host_id_v,
+                    "display_name": h.get("display_name") or h.get("hostname") or host_id_v,
+                    "items":        items,
+                })
+    except Exception:
+        pass
+
+    # Source 2: XDR pipeline recent activity per host
+    try:
+        if globals().get("xdr_pipeline") is not None and len(host_data) < limit:
+            seen = {h["host_id"] for h in host_data}
+            risks = getattr(xdr_pipeline, "_host_risk_scores", {}) or {}
+            for host_id_v in list(risks.keys())[: limit - len(host_data)]:
+                if host_id_v in seen:
+                    continue
+                items: list = []
+                for outcome in (xdr_pipeline.recent_host_activity(host_id_v, limit=200) or []):
+                    if not isinstance(outcome, dict):
+                        continue
+                    items.extend(outcome.get("detections") or [])
+                    items.extend(outcome.get("correlations") or [])
+                    ev = outcome.get("event")
+                    if isinstance(ev, dict):
+                        items.append(ev)
+                host_data.append({
+                    "host_id":      host_id_v,
+                    "display_name": host_id_v,
+                    "items":        items,
+                })
+    except Exception:
+        pass
+
+    return jsonify(aggregate_heatmap(host_data).to_dict())
+
+
+@app.route("/api/risk/kill_chain/fleet_timeline")
+@auth
+def risk_kill_chain_fleet_timeline():
+    """Multi-host Lockheed Kill Chain timeline.
+
+    Buckets cumulatively count hosts at each phase across the time window.
+    Query params:
+        window  hours (default 24, max 168)
+        bucket  minutes (default 60, range 5..240)
+        tenant  optional filter
+    """
+    try:
+        from engine.kill_chain_lockheed import build_fleet_timeline
+    except Exception as exc:
+        return jsonify({"error": f"Fleet timeline indisponivel: {exc}"}), 503
+
+    try:
+        window = int(request.args.get("window", 24))
+        bucket = int(request.args.get("bucket", 60))
+    except (TypeError, ValueError):
+        return jsonify({"error": "window/bucket invalidos"}), 400
+    window = max(1, min(window, 168))
+    bucket = max(5, min(bucket, 240))
+    tenant = request.args.get("tenant") or None
+
+    hosts_data: list = []
+    raw_hosts: list = []
+    try:
+        if RISK_AVAILABLE and hasattr(risk_engine, "get_all_hosts"):
+            raw_hosts = list(risk_engine.get_all_hosts() or [])
+    except Exception:
+        raw_hosts = []
+
+    for h in raw_hosts:
+        if not isinstance(h, dict):
+            continue
+        host_id = h.get("host_id") or h.get("id") or ""
+        if not host_id:
+            continue
+        events: list = []
+        try:
+            if RISK_AVAILABLE and hasattr(risk_engine, "get_host_events"):
+                events.extend(risk_engine.get_host_events(host_id) or [])
+        except Exception:
+            pass
+        for k in ("recent_events", "events", "detections", "mitre_events"):
+            v = h.get(k)
+            if isinstance(v, (list, tuple)):
+                events.extend(v)
+        hosts_data.append({
+            "host_id":   host_id,
+            "tenant_id": h.get("tenant_id"),
+            "events":    events,
+        })
+
+    out = build_fleet_timeline(hosts_data, bucket_minutes=bucket,
+                               window_hours=window, tenant_id=tenant)
+    return jsonify(out)
+
+
+@app.route("/api/risk/heatmap")
+@app.route("/api/risk/kill_chain/heatmap")
+@auth
+def risk_heatmap():
+    """Multi-host Lockheed Cyber Kill Chain heatmap.
+
+    Aggregates kill-chain progression across all hosts visible to the caller.
+    Returns a matrix-friendly payload that the SOC overview renders as a
+    heatmap (rows = hosts ranked by progression, columns = 6 Lockheed phases).
+    """
+    try:
+        from engine.kill_chain_lockheed import build_heatmap
+    except Exception as exc:
+        return jsonify({"error": f"Lockheed heatmap indisponivel: {exc}"}), 503
+
+    hosts_data: list = []
+
+    # Pull host list. Best-effort: respect risk_engine if present, fallback to
+    # any other source we can find.
+    raw_hosts: list = []
+    try:
+        if RISK_AVAILABLE and hasattr(risk_engine, "get_all_hosts"):
+            raw_hosts = list(risk_engine.get_all_hosts() or [])
+    except Exception:
+        raw_hosts = []
+
+    for h in raw_hosts:
+        if not isinstance(h, dict):
+            continue
+        host_id = h.get("host_id") or h.get("id") or ""
+        if not host_id:
+            continue
+        events: list = []
+        try:
+            if RISK_AVAILABLE and hasattr(risk_engine, "get_host_events"):
+                events.extend(risk_engine.get_host_events(host_id) or [])
+        except Exception:
+            pass
+        # Also look inside the host record for any pre-aggregated event lists
+        for k in ("recent_events", "events", "detections", "mitre_events"):
+            v = h.get(k)
+            if isinstance(v, (list, tuple)):
+                events.extend(v)
+
+        hosts_data.append({
+            "host_id":      host_id,
+            "display_name": h.get("display_name") or h.get("hostname"),
+            "tenant_id":    h.get("tenant_id"),
+            "risk_score":   h.get("risk_score") or h.get("score") or 0,
+            "status":       h.get("status"),
+            "last_ip":      h.get("last_ip"),
+            "events":       events,
+        })
+
+    # Filters via query string
+    tenant = request.args.get("tenant") or None
+    phase = request.args.get("phase") or None
+    try:
+        min_progression = int(request.args.get("min_progression", 0))
+    except (TypeError, ValueError):
+        min_progression = 0
+    try:
+        limit = int(request.args.get("limit", 200))
+    except (TypeError, ValueError):
+        limit = 200
+    limit = max(1, min(limit, 500))
+
+    out = build_heatmap(
+        hosts_data,
+        tenant_id=tenant,
+        phase=phase,
+        min_progression_pct=max(0, min(100, min_progression)),
+        limit=limit,
+    )
+    return jsonify(out)
+
+
+@app.route("/api/risk/host/<host_id>/events_window")
+@auth
+def risk_host_events_window(host_id):
+    """Drill-down: raw events for a host within a time window.
+
+    Query params:
+        from   ISO 8601 timestamp (inclusive)
+        to     ISO 8601 timestamp (inclusive)
+        phase  optional Lockheed phase id to filter
+        limit  optional cap (default 200, max 1000)
+    """
+    try:
+        from engine.kill_chain_lockheed import resolve_window_events
+    except Exception as exc:
+        return jsonify({"error": f"events_window indisponivel: {exc}"}), 503
+
+    from_ts = request.args.get("from")
+    to_ts   = request.args.get("to")
+    phase   = request.args.get("phase") or None
+    try:
+        limit = int(request.args.get("limit", 200))
+    except (TypeError, ValueError):
+        limit = 200
+    limit = max(1, min(limit, 1000))
+
+    items: list = []
+    try:
+        if RISK_AVAILABLE and hasattr(risk_engine, "get_host_events"):
+            items.extend(risk_engine.get_host_events(host_id) or [])
+    except Exception:
+        pass
+    try:
+        if RISK_AVAILABLE:
+            data = risk_engine.get_host(host_id) or {}
+            if isinstance(data, dict):
+                items.extend(data.get("recent_events") or [])
+                items.extend(data.get("detections") or [])
+                items.extend(data.get("mitre_events") or [])
+    except Exception:
+        pass
+    try:
+        if globals().get("xdr_pipeline") is not None:
+            recent = xdr_pipeline.recent_host_activity(host_id, limit=500)
+            for outcome in recent or []:
+                if not isinstance(outcome, dict):
+                    continue
+                items.extend(outcome.get("detections") or [])
+                items.extend(outcome.get("correlations") or [])
+                ev = outcome.get("event")
+                if isinstance(ev, dict):
+                    items.append(ev)
+    except Exception:
+        pass
+
+    events = resolve_window_events(items, from_ts=from_ts, to_ts=to_ts, phase=phase)
+    events = events[:limit]
+    return jsonify({
+        "host_id":  host_id,
+        "from":     from_ts,
+        "to":       to_ts,
+        "phase":    phase,
+        "count":    len(events),
+        "events":   events,
+    })
+
+
+@app.route("/api/risk/host/<host_id>/kill_chain/timeline")
+@auth
+def risk_host_kill_chain_timeline(host_id):
+    """Per-host Lockheed Kill Chain time series.
+
+    Query params:
+        window  hours (default 24, max 168)
+        bucket  minutes (default 15, range 5..120)
+    """
+    try:
+        from engine.kill_chain_lockheed import derive_progression_timeline
+    except Exception as exc:
+        return jsonify({"error": f"Lockheed timeline indisponivel: {exc}"}), 503
+
+    try:
+        window = int(request.args.get("window", 24))
+        bucket = int(request.args.get("bucket", 15))
+    except (TypeError, ValueError):
+        return jsonify({"error": "window/bucket invalidos"}), 400
+    window = max(1, min(window, 168))   # cap 7 days
+    bucket = max(5, min(bucket, 120))   # cap 5min..2h
+
+    items: list = []
+    try:
+        if RISK_AVAILABLE and hasattr(risk_engine, "get_host_events"):
+            items.extend(risk_engine.get_host_events(host_id) or [])
+    except Exception:
+        pass
+    try:
+        if RISK_AVAILABLE:
+            data = risk_engine.get_host(host_id) or {}
+            if isinstance(data, dict):
+                items.extend(data.get("recent_events") or [])
+                items.extend(data.get("detections") or [])
+                items.extend(data.get("mitre_events") or [])
+    except Exception:
+        pass
+    try:
+        if globals().get("xdr_pipeline") is not None:
+            recent = xdr_pipeline.recent_host_activity(host_id, limit=500)
+            for outcome in recent or []:
+                if not isinstance(outcome, dict):
+                    continue
+                items.extend(outcome.get("detections") or [])
+                items.extend(outcome.get("correlations") or [])
+                ev = outcome.get("event")
+                if isinstance(ev, dict):
+                    items.append(ev)
+    except Exception:
+        pass
+
+    include_events = request.args.get("include_events", "").lower() in ("1", "true", "yes")
+    out = derive_progression_timeline(
+        host_id, items, bucket_minutes=bucket, window_hours=window,
+        include_events=include_events,
+    )
+    return jsonify(out)
+
+
 @app.route("/api/risk/host/<host_id>/kill_chain")
 @auth
 def risk_host_kill_chain(host_id):

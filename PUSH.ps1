@@ -1,5 +1,5 @@
-# ============================================================
-# SAFE Enterprise Defense Platform - commit + push das mudancas de design
+﻿# ============================================================
+# NetGuard IDS - commit + push das mudancas
 # Uso: powershell -ExecutionPolicy Bypass -File .\PUSH.ps1
 # ============================================================
 
@@ -8,28 +8,23 @@ Set-Location $PSScriptRoot
 
 Write-Host ""
 Write-Host "==============================================" -ForegroundColor Yellow
-Write-Host "  SAFE - git commit + push" -ForegroundColor Yellow
+Write-Host "  NetGuard - git commit + push" -ForegroundColor Yellow
 Write-Host "==============================================" -ForegroundColor Yellow
 Write-Host ""
 
-# 1. Remove lock se existir
 if (Test-Path ".git/index.lock") {
     Remove-Item ".git/index.lock" -Force
     Write-Host ">> lock removido" -ForegroundColor DarkGray
 }
 
-# 2. Confirma branch
 $branch = git rev-parse --abbrev-ref HEAD
 Write-Host ">> branch: $branch" -ForegroundColor Cyan
 
-# 3. Mostra resumo do que vai entrar
 Write-Host ">> arquivos modificados:" -ForegroundColor Cyan
 git status --short | Select-Object -First 30
 
-# 4. Stage tudo (gitignore ja filtra noise)
 git add -A
 
-# 5. Verifica se tem o que commitar
 $staged = git diff --cached --shortstat
 if (-not $staged) {
     Write-Host ">> nada a commitar." -ForegroundColor Yellow
@@ -37,29 +32,54 @@ if (-not $staged) {
 }
 Write-Host ">> staged: $staged" -ForegroundColor Green
 
-# 6. Commit message
 $msg = @"
-ui: Apple Pro design + day/night theme toggle
+edr: Lockheed Cyber Kill Chain views + multi-host fleet timeline
 
-Visual redesign across landing, login, pricing, welcome, dashboard,
-SOC views, admin and host triage. New token system: midnight navy +
-champagne accent. All buttons, cards, hairlines, typography aligned.
+Novos modulos / endpoints / paineis sobre o motor MITRE ATT&CK existente.
+Nenhuma quebra nos 855 testes pre-existentes; 94 testes novos no modulo.
 
-- enterprise.css: dark + light token blocks (Apple Pro day/night)
-- dashboard-enterprise.css, soc-dashboard.css, admin-enterprise.css:
-  matching token rewrite
-- netguard.css: replaced Apple-blue accent with champagne
-- new theme-toggle.js: persistent <html data-theme> + body.theme-light,
-  prefers-color-scheme aware, mounts a sun/moon button in headers
-- inline-styled templates (host_triage, admin_dashboard, operator_inbox)
-  ganharam font Inter + light theme block
-- engine/playbook_engine.py: singleton invalida db_path orfao entre
-  testes (state-leak fix)
-- RUN_LOCAL.ps1: secret de dev + DATABASE_URL cleanup
-- RUN_TESTS.ps1: runner pytest com escopo (kill / fast / verbose / file)
+engine/kill_chain_lockheed.py (novo)
+  - PHASES / PHASE_LABELS / MITRE_TO_LOCKHEED (mapping 14 tactics -> 6 fases)
+  - map_tactic(tactic)
+  - derive_host_state(host_id, items) -> HostKillChainState
+  - derive_progression_timeline(host_id, items, *, bucket_minutes,
+    window_hours, include_events, max_events_per_bucket) -> dict
+  - build_heatmap(hosts_data, *, tenant_id, phase, min_progression_pct,
+    limit) -> dict
+  - build_fleet_timeline(hosts_data, *, bucket_minutes, window_hours,
+    tenant_id) -> dict (stacked area data)
+  - _summarize_event(item, ts, phase) normalizer
+
+app.py endpoints novos
+  - GET /api/risk/host/<id>/kill_chain
+  - GET /api/risk/host/<id>/kill_chain/timeline?window,bucket,include_events
+  - GET /api/risk/heatmap (alias /api/risk/kill_chain/heatmap)
+    + filters: tenant, phase, min_progression, limit
+  - GET /api/risk/kill_chain/fleet_timeline?window,bucket,tenant
+
+UI
+  - templates/host_triage.html: painel de 6 fases + timeline SVG (24h)
+    com drill-down de events por bucket ao clicar nos dots
+  - templates/soc/overview.html: fleet stacked area + heatmap multi-host
+    com filtros (tenant input, phase select, min_progression select,
+    botao Limpar). Cores por fase: verde Recon -> vermelho Actions.
+
+tests/test_kill_chain_lockheed.py
+  - 94 testes cobrindo:
+    - mapping table (14 tactics)
+    - normalizacao de input (case, dashes, espacos)
+    - derivacao de estado (empty, deepest wins, progression, etc)
+    - build_heatmap (filtros, sort, intensity normalization)
+    - timeline (bucketing, deepest cumulativo, include_events)
+    - fleet_timeline (stack multi-host, tenant filter)
+
+EDR_ARCHITECTURE.md
+  - Mapeamento do plano EDR original contra modulos existentes
+  - Diagrama de fluxo Endpoint -> Ingest -> Detect -> Correl -> Risk
+    -> Incident -> Response -> Dashboard
+  - Lista de gaps reais priorizados
 "@
 
-# 7. Commit
 git commit -m $msg
 if ($LASTEXITCODE -ne 0) {
     Write-Host ">> commit falhou" -ForegroundColor Red
@@ -67,7 +87,6 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host ">> commit ok" -ForegroundColor Green
 
-# 8. Push
 Write-Host ">> push origin $branch ..." -ForegroundColor Cyan
 git push origin $branch
 if ($LASTEXITCODE -eq 0) {
@@ -77,8 +96,5 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "==============================================" -ForegroundColor Green
 } else {
     Write-Host ">> push falhou. Verifique credenciais GitHub." -ForegroundColor Red
-    Write-Host "   Se for 1a vez nesta maquina, rode:" -ForegroundColor DarkGray
-    Write-Host "   gh auth login   (com GitHub CLI)" -ForegroundColor DarkGray
-    Write-Host "   ou configure um Personal Access Token." -ForegroundColor DarkGray
     exit 1
 }

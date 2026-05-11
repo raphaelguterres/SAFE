@@ -252,4 +252,361 @@
     </div>
   </article>
 </section>
+
+<section class="soc-card kc-fleet-card" aria-label="Cyber Kill Chain fleet timeline">
+  <header class="kc-fleet-header">
+    <div>
+      <h2 class="soc-card-title" style="margin:0">Fleet Kill Chain &mdash; progressão (24h)</h2>
+      <p class="soc-card-sub" id="kc-fleet-sub" style="margin:.2rem 0 0;color:var(--soc-text-muted);font-size:.85rem;">Hosts em cada fase Lockheed ao longo do tempo. Carregando&hellip;</p>
+    </div>
+    <div class="kc-fleet-legend" id="kc-fleet-legend" aria-hidden="true"></div>
+  </header>
+  <svg id="kc-fleet-svg" class="kc-fleet-svg" viewBox="0 0 960 220" preserveAspectRatio="none" aria-label="Fleet Kill Chain stacked area">
+    <g id="kc-fleet-grid"></g>
+    <g id="kc-fleet-areas"></g>
+    <g id="kc-fleet-yticks"></g>
+    <g id="kc-fleet-xticks"></g>
+  </svg>
+</section>
+
+<section class="soc-card kc-heatmap-card" aria-label="Cyber Kill Chain heatmap">
+  <header class="kc-heatmap-header">
+    <div>
+      <h2 class="soc-card-title" style="margin:0">Cyber Kill Chain &mdash; heatmap</h2>
+      <p class="soc-card-sub" id="kc-heatmap-sub" style="margin:.2rem 0 0;color:var(--soc-text-muted);font-size:.85rem;">Hosts &times; 6 fases (Lockheed). Carregando&hellip;</p>
+    </div>
+    <div class="kc-heatmap-legend" aria-hidden="true">
+      <span style="font-size:.7rem;color:var(--soc-text-dim);margin-right:.4rem;">menor</span>
+      <span class="kc-legend-cell" style="--kc-i:0.15"></span>
+      <span class="kc-legend-cell" style="--kc-i:0.4"></span>
+      <span class="kc-legend-cell" style="--kc-i:0.7"></span>
+      <span class="kc-legend-cell" style="--kc-i:1"></span>
+      <span style="font-size:.7rem;color:var(--soc-text-dim);margin-left:.4rem;">maior</span>
+    </div>
+  </header>
+  <div class="kc-heatmap-filters" role="group" aria-label="Filtros do heatmap">
+    <label class="kc-fl"><span>Tenant</span>
+      <input type="text" id="kc-fl-tenant" placeholder="todos" autocomplete="off" />
+    </label>
+    <label class="kc-fl"><span>Fase atual</span>
+      <select id="kc-fl-phase">
+        <option value="">todas</option>
+        <option value="reconnaissance">1 &middot; Reconnaissance</option>
+        <option value="delivery">2 &middot; Delivery</option>
+        <option value="exploitation">3 &middot; Exploitation</option>
+        <option value="installation">4 &middot; Installation</option>
+        <option value="command_and_control">5 &middot; C&amp;C</option>
+        <option value="actions_on_objectives">6 &middot; Actions</option>
+      </select>
+    </label>
+    <label class="kc-fl"><span>Progressao min.</span>
+      <select id="kc-fl-minprog">
+        <option value="0">qualquer</option>
+        <option value="17">&ge; 17%</option>
+        <option value="33">&ge; 33%</option>
+        <option value="50">&ge; 50%</option>
+        <option value="67">&ge; 67%</option>
+        <option value="83">&ge; 83%</option>
+        <option value="100">100%</option>
+      </select>
+    </label>
+    <button type="button" id="kc-fl-clear" class="kc-fl-clear">Limpar</button>
+  </div>
+  <div class="kc-heatmap-table-wrap">
+    <div class="soc-empty-state kc-heatmap-empty" id="kc-heatmap-empty" style="display:none;">
+      <h3>Sem dados ainda</h3><p>Heatmap aparecera quando hosts gerarem eventos com MITRE tactics.</p>
+    </div>
+    <table class="kc-heatmap-table" id="kc-heatmap-table" style="display:none;">
+      <thead><tr>
+        <th class="kc-heatmap-host">Host</th>
+        <th class="kc-heatmap-current">Fase atual</th>
+        <th class="kc-heatmap-pct">Progressao</th>
+        <th class="kc-heatmap-cell">1 &middot; Recon</th>
+        <th class="kc-heatmap-cell">2 &middot; Delivery</th>
+        <th class="kc-heatmap-cell">3 &middot; Exploit</th>
+        <th class="kc-heatmap-cell">4 &middot; Install</th>
+        <th class="kc-heatmap-cell">5 &middot; C2</th>
+        <th class="kc-heatmap-cell">6 &middot; Actions</th>
+      </tr></thead>
+      <tbody id="kc-heatmap-body"></tbody>
+    </table>
+  </div>
+</section>
+<style>
+  .kc-fleet-card { padding: 1rem 1.1rem 1.2rem; margin-bottom: 18px; }
+  .kc-fleet-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: .9rem; flex-wrap: wrap; }
+  .kc-fleet-svg { width: 100%; height: 220px; display: block; }
+  .kc-fleet-grid-line { stroke: var(--soc-border); stroke-width: 1; opacity: .45; }
+  .kc-fleet-tick { font-family: "JetBrains Mono", monospace; font-size: 9px; fill: var(--soc-text-dim); }
+  .kc-fleet-legend { display: flex; gap: .8rem; flex-wrap: wrap; max-width: 60%; justify-content: flex-end; }
+  .kc-fleet-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: .72rem; color: var(--soc-text-muted); }
+  .kc-fleet-legend-swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; }
+  /* Phase color ramp (light → deep) */
+  .kc-fleet-area[data-phase="reconnaissance"]        { fill: #5fd3a6; fill-opacity: .68; }
+  .kc-fleet-area[data-phase="delivery"]              { fill: #7eb8ff; fill-opacity: .68; }
+  .kc-fleet-area[data-phase="exploitation"]          { fill: #f0b44b; fill-opacity: .72; }
+  .kc-fleet-area[data-phase="installation"]          { fill: #c8a85a; fill-opacity: .76; }
+  .kc-fleet-area[data-phase="command_and_control"]   { fill: #c93400; fill-opacity: .68; }
+  .kc-fleet-area[data-phase="actions_on_objectives"] { fill: #d70015; fill-opacity: .76; }
+  .kc-heatmap-card { padding: 1rem 1.1rem 1.2rem; }
+  .kc-heatmap-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; margin-bottom: .9rem; flex-wrap: wrap; }
+  .kc-heatmap-legend { display: inline-flex; align-items: center; gap: 4px; }
+  .kc-legend-cell { width: 22px; height: 12px; border-radius: 2px; background: rgba(200,168,90, calc(var(--kc-i) * 0.85 + 0.05)); border: 1px solid rgba(200,168,90,0.18); display: inline-block; }
+  body.theme-light .kc-legend-cell { background: rgba(184,152,63, calc(var(--kc-i) * 0.6 + 0.05)); }
+  .kc-heatmap-filters { display: flex; align-items: end; gap: 1rem; flex-wrap: wrap; padding: .6rem 0 1rem; border-bottom: 1px solid var(--soc-border); margin-bottom: .8rem; }
+  .kc-fl { display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
+  .kc-fl > span { font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--soc-text-dim); font-weight: 500; }
+  .kc-fl input, .kc-fl select { background: var(--soc-bg-soft); border: 1px solid var(--soc-border); color: var(--soc-text); padding: .45rem .6rem; border-radius: 6px; font-size: .82rem; min-height: 32px; }
+  .kc-fl input:focus, .kc-fl select:focus { outline: none; border-color: var(--soc-accent); }
+  body.theme-light .kc-fl input, body.theme-light .kc-fl select { background: #ffffff; }
+  .kc-fl-clear { align-self: end; background: transparent; border: 1px solid var(--soc-border); color: var(--soc-text-muted); padding: .45rem .9rem; border-radius: 6px; font-size: .8rem; cursor: pointer; min-height: 32px; }
+  .kc-fl-clear:hover { border-color: var(--soc-accent); color: var(--soc-accent); }
+  .kc-heatmap-table-wrap { overflow-x: auto; }
+  .kc-heatmap-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: .85rem; min-width: 720px; }
+  .kc-heatmap-table th { text-align: left; font-weight: 500; font-size: .72rem; letter-spacing: .04em; color: var(--soc-text-muted); padding: .55rem .55rem; border-bottom: 1px solid var(--soc-border); white-space: nowrap; }
+  .kc-heatmap-table th.kc-heatmap-cell { text-align: center; }
+  .kc-heatmap-table td { padding: .55rem .55rem; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+  body.theme-light .kc-heatmap-table td { border-bottom-color: rgba(0,0,0,0.05); }
+  .kc-heatmap-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
+  body.theme-light .kc-heatmap-table tbody tr:hover td { background: rgba(0,0,0,0.02); }
+  .kc-heatmap-host { color: var(--soc-text); font-weight: 500; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kc-heatmap-current { color: var(--soc-text-muted); white-space: nowrap; }
+  .kc-heatmap-pct { font-family: "JetBrains Mono", monospace; color: var(--soc-text-muted); width: 70px; }
+  .kc-heatmap-pct-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.06); margin-top: 4px; overflow: hidden; }
+  body.theme-light .kc-heatmap-pct-bar { background: rgba(0,0,0,0.06); }
+  .kc-heatmap-pct-fill { height: 100%; background: linear-gradient(90deg, var(--soc-accent), var(--soc-accent-2)); border-radius: 2px; }
+  .kc-cell { display: block; height: 28px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.04); background: rgba(200,168,90, calc(var(--kc-i, 0) * 0.85 + 0.02)); position: relative; transition: transform .12s ease; }
+  body.theme-light .kc-cell { background: rgba(184,152,63, calc(var(--kc-i, 0) * 0.6 + 0.02)); border-color: rgba(0,0,0,0.04); }
+  .kc-cell[data-current="true"] { outline: 2px solid var(--soc-accent); outline-offset: -2px; }
+  .kc-cell:hover { transform: scale(1.05); }
+  .kc-cell-count { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: "JetBrains Mono", monospace; font-size: .7rem; color: var(--soc-text); opacity: .85; }
+  .kc-cell[data-empty="true"] .kc-cell-count { opacity: 0; }
+</style>
+<script>
+(function () {
+  var bodyEl = document.getElementById("kc-heatmap-body");
+  var tableEl = document.getElementById("kc-heatmap-table");
+  var emptyEl = document.getElementById("kc-heatmap-empty");
+  var subEl = document.getElementById("kc-heatmap-sub");
+  if (!bodyEl) return;
+  fetch("/api/risk/kill_chain/heatmap?limit=200", { credentials: "same-origin" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (data) {
+      if (!data || !data.hosts || data.hosts.length === 0) {
+        tableEl.style.display = "none"; emptyEl.style.display = "";
+        subEl.textContent = "Hosts x 6 fases (Lockheed). Sem dados ainda.";
+        return;
+      }
+      tableEl.style.display = ""; emptyEl.style.display = "none";
+      subEl.textContent = data.total_hosts + " hosts ranqueados por profundidade na kill chain.";
+      bodyEl.innerHTML = data.hosts.map(function (h) {
+        var cells = h.cells.map(function (c) {
+          var hasCount = c.count > 0;
+          var label = hasCount ? c.count : "";
+          return '<td class="kc-heatmap-cell"><span class="kc-cell" '
+            + 'style="--kc-i:' + (c.intensity || 0) + '" '
+            + 'data-current="' + (c.is_current ? "true" : "false") + '" '
+            + 'data-empty="' + (hasCount ? "false" : "true") + '" '
+            + 'title="' + c.phase + ': ' + c.count + ' evento(s)' + (c.is_current ? ' (atual)' : '') + '">'
+            + '<span class="kc-cell-count">' + label + '</span></span></td>';
+        }).join("");
+        var pct = h.progression_pct || 0;
+        return '<tr>'
+          + '<td class="kc-heatmap-host" title="' + (h.host_id || "") + '">' + (h.display_name || h.host_id) + '</td>'
+          + '<td class="kc-heatmap-current">' + (h.current_label || "-") + '</td>'
+          + '<td class="kc-heatmap-pct">' + pct + '%<div class="kc-heatmap-pct-bar"><div class="kc-heatmap-pct-fill" style="width:' + pct + '%"></div></div></td>'
+          + cells + '</tr>';
+      }).join("");
+    })
+    .catch(function () {
+      tableEl.style.display = "none"; emptyEl.style.display = "";
+      subEl.textContent = "Falha ao carregar heatmap.";
+    });
+})();
+</script>
+
+{% endblock %}
+ align-items: center; justify-content: center; font-size: .72rem; color: var(--soc-text-muted); font-family: "JetBrains Mono", monospace; }
+  body.theme-light .kc-cell-count { color: var(--soc-text); }
+</style>
+<script>
+(function () {
+  var bodyEl  = document.getElementById("kc-heatmap-body");
+  var tableEl = document.getElementById("kc-heatmap-table");
+  var emptyEl = document.getElementById("kc-heatmap-empty");
+  var subEl   = document.getElementById("kc-heatmap-sub");
+  if (!bodyEl) return;
+
+  var inTenant  = document.getElementById("kc-fl-tenant");
+  var inPhase   = document.getElementById("kc-fl-phase");
+  var inMinProg = document.getElementById("kc-fl-minprog");
+  var btnClear  = document.getElementById("kc-fl-clear");
+
+  function buildUrl() {
+    var qs = ["limit=200"];
+    if (inTenant && inTenant.value.trim()) qs.push("tenant=" + encodeURIComponent(inTenant.value.trim()));
+    if (inPhase  && inPhase.value)         qs.push("phase=" + encodeURIComponent(inPhase.value));
+    if (inMinProg && inMinProg.value && inMinProg.value !== "0")
+      qs.push("min_progression=" + encodeURIComponent(inMinProg.value));
+    return "/api/risk/kill_chain/heatmap?" + qs.join("&");
+  }
+
+  function load() {
+    if (subEl) subEl.textContent = "Carregando...";
+    fetch(buildUrl(), { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.hosts || data.hosts.length === 0) {
+          tableEl.style.display = "none"; emptyEl.style.display = "";
+          subEl.textContent = "Hosts x 6 fases (Lockheed). Sem dados pra esse filtro.";
+          return;
+        }
+        tableEl.style.display = ""; emptyEl.style.display = "none";
+        subEl.textContent = data.total_hosts + " host(s) ranqueado(s) por profundidade na kill chain.";
+        bodyEl.innerHTML = data.hosts.map(function (h) {
+          var cells = h.cells.map(function (c) {
+            var hasCount = c.count > 0;
+            var label = hasCount ? c.count : "";
+            return "<td class=\"kc-heatmap-cell\"><span class=\"kc-cell\" "
+              + "style=\"--kc-i:" + (c.intensity || 0) + "\" "
+              + "data-current=\"" + (c.is_current ? "true" : "false") + "\" "
+              + "data-empty=\"" + (hasCount ? "false" : "true") + "\" "
+              + "title=\"" + c.phase + ": " + c.count + " evento(s)" + (c.is_current ? " (atual)" : "") + "\">"
+              + "<span class=\"kc-cell-count\">" + label + "</span></span></td>";
+          }).join("");
+          var pct = h.progression_pct || 0;
+          return "<tr>"
+            + "<td class=\"kc-heatmap-host\" title=\"" + (h.host_id || "") + "\">" + (h.display_name || h.host_id) + "</td>"
+            + "<td class=\"kc-heatmap-current\">" + (h.current_label || "-") + "</td>"
+            + "<td class=\"kc-heatmap-pct\">" + pct + "%<div class=\"kc-heatmap-pct-bar\"><div class=\"kc-heatmap-pct-fill\" style=\"width:" + pct + "%\"></div></div></td>"
+            + cells + "</tr>";
+        }).join("");
+      })
+      .catch(function () {
+        tableEl.style.display = "none"; emptyEl.style.display = "";
+        subEl.textContent = "Falha ao carregar heatmap.";
+      });
+  }
+
+  var debounceT = null;
+  function debouncedLoad() {
+    clearTimeout(debounceT);
+    debounceT = setTimeout(load, 220);
+  }
+
+  if (inTenant)  inTenant.addEventListener("input", debouncedLoad);
+  if (inPhase)   inPhase.addEventListener("change", load);
+  if (inMinProg) inMinProg.addEventListener("change", load);
+  if (btnClear)  btnClear.addEventListener("click", function () {
+    if (inTenant) inTenant.value = "";
+    if (inPhase) inPhase.value = "";
+    if (inMinProg) inMinProg.value = "0";
+    load();
+  });
+
+  load();
+})();
+</script>
+
+{% endblock %}
+count + ' evento(s)' + (c.is_current ? ' (atual)' : '') + '">'
+            + '<span class="kc-cell-count">' + (hasCount ? c.count : "") + '</span></span></td>';
+        }).join("");
+        var pct = h.progression_pct || 0;
+        return '<tr><td class="kc-heatmap-host" title="' + (h.host_id||"") + '">' + (h.display_name||h.host_id) + '</td>'
+          + '<td class="kc-heatmap-current">' + (h.current_label||"-") + '</td>'
+          + '<td class="kc-heatmap-pct">' + pct + "%<div class=\"kc-heatmap-pct-bar\"><div class=\"kc-heatmap-pct-fill\" style=\"width:" + pct + "%\"></div></div></td>"
+          + cells + "</tr>";
+      }).join("");
+    }).catch(function(){});
+})();
+</script>
+
+<script>
+// Fleet Kill Chain stacked area
+(function () {
+  var subEl = document.getElementById("kc-fleet-sub");
+  var legendEl = document.getElementById("kc-fleet-legend");
+  var gAreas = document.getElementById("kc-fleet-areas");
+  var gYticks = document.getElementById("kc-fleet-yticks");
+  var gXticks = document.getElementById("kc-fleet-xticks");
+  if (!gAreas) return;
+
+  var W = 960, H = 220;
+  var P = { l: 36, r: 12, t: 10, b: 24 };
+  var plotW = W - P.l - P.r;
+  var plotH = H - P.t - P.b;
+
+  var PHASE_COLOR = {
+    reconnaissance:        "#5fd3a6",
+    delivery:              "#7eb8ff",
+    exploitation:          "#f0b44b",
+    installation:          "#c8a85a",
+    command_and_control:   "#c93400",
+    actions_on_objectives: "#d70015"
+  };
+  var PHASE_LABEL = {
+    reconnaissance:"Recon", delivery:"Delivery", exploitation:"Exploit",
+    installation:"Install", command_and_control:"C2", actions_on_objectives:"Actions"
+  };
+
+  function render(data) {
+    var buckets = data.buckets || [];
+    var phases = data.phases || [];
+    var maxTotal = Math.max(1, data.max_total || 1);
+    var n = buckets.length;
+    if (!n) { subEl.textContent = "Sem dados pra esse periodo."; return; }
+
+    subEl.textContent = data.host_count + " host(s) ao longo de " + (data.window_hours||24) + "h, bucket " + (data.bucket_min||60) + "min.";
+
+    legendEl.innerHTML = phases.map(function (p, i) {
+      return "<span class=\"kc-fleet-legend-item\"><span class=\"kc-fleet-legend-swatch\" style=\"background:" + PHASE_COLOR[p] + "\"></span>" + (i+1) + " " + PHASE_LABEL[p] + "</span>";
+    }).join("");
+
+    function xOf(i){ return P.l + (i / n) * plotW; }
+    function yOf(v){ return P.t + plotH - (v / maxTotal) * plotH; }
+
+    var areas = "";
+    var prevTop = new Array(n).fill(0);
+    phases.forEach(function (phase) {
+      var path = "M " + P.l + " " + yOf(0);
+      for (var i = 0; i < n; i++) {
+        var v = (buckets[i].phases[phase] || 0) + prevTop[i];
+        path += " L " + xOf(i) + " " + yOf(v);
+      }
+      for (var j = n - 1; j >= 0; j--) {
+        path += " L " + xOf(j) + " " + yOf(prevTop[j]);
+      }
+      path += " Z";
+      areas += "<path class=\"kc-fleet-area\" data-phase=\"" + phase + "\" d=\"" + path + "\" />";
+      for (var k = 0; k < n; k++) prevTop[k] += buckets[k].phases[phase] || 0;
+    });
+    gAreas.innerHTML = areas;
+
+    var yticks = "";
+    [0, Math.round(maxTotal/2), maxTotal].forEach(function(v){
+      var y = yOf(v);
+      yticks += "<line class=\"kc-fleet-grid-line\" x1=\"" + P.l + "\" y1=\"" + y + "\" x2=\"" + (W-P.r) + "\" y2=\"" + y + "\" />";
+      yticks += "<text class=\"kc-fleet-tick\" x=\"" + (P.l-6) + "\" y=\"" + (y+3) + "\" text-anchor=\"end\">" + v + "</text>";
+    });
+    gYticks.innerHTML = yticks;
+
+    var hours = data.window_hours || 24;
+    var xticks = "";
+    for (var h = 0; h <= hours; h += Math.max(1, Math.round(hours/6))) {
+      var idx = h * (60 / (data.bucket_min || 60));
+      var x = xOf(idx);
+      if (x > W-P.r) continue;
+      xticks += "<text class=\"kc-fleet-tick\" x=\"" + x + "\" y=\"" + (H-8) + "\" text-anchor=\"middle\">-" + (hours-h) + "h</text>";
+    }
+    gXticks.innerHTML = xticks;
+  }
+
+  fetch("/api/risk/kill_chain/fleet_timeline?window=24&bucket=60", { credentials: "same-origin" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) { if (d) render(d); else subEl.textContent = "Sem dados."; })
+    .catch(function () { subEl.textContent = "Falha ao carregar timeline."; });
+})();
+</script>
+
 {% endblock %}
