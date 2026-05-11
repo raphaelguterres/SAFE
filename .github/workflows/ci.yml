@@ -1,0 +1,71 @@
+name: SAFE Release CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: safe-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-gates:
+    runs-on: ubuntu-latest
+    env:
+      IDS_AUTH: "false"
+      IDS_DASHBOARD_AUTH: "false"
+      HTTPS_ONLY: "false"
+      TOKEN_SIGNING_SECRET: "ci-token-signing-secret-minimum-32chars"
+      SECRET_KEY: "ci-secret-key-minimum-32-characters"
+      NETGUARD_RESPONSE_POLICY_SECRET: "ci-response-policy-secret-minimum-32chars"
+      IDS_AUTOSTART_BACKGROUND: "false"
+      IDS_AUTOSTART_SOC_ENGINE: "false"
+      IDS_AUTOSTART_MONITOR: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.docker.txt
+
+      - name: Pytest
+        run: python -m pytest -q
+
+      - name: Pentest audit
+        run: python run_pentest_audit.py
+
+      - name: Security self-check
+        run: python scripts/security_self_check.py
+
+      - name: Release check
+        run: python scripts/release_check.py --quick
+
+      - name: Template quality
+        run: python scripts/template_check.py
+
+      - name: Branding consistency
+        run: python scripts/branding_check.py
+
+      - name: Project health report
+        run: python scripts/project_health_report.py
+
+      - name: Upload release reports
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: safe-release-reports
+          path: |
+            PROJECT_HEALTH_REPORT.md
+            project_health_report.json
+          retention-days: 14

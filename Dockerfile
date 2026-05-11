@@ -1,63 +1,43 @@
-# ─────────────────────────────────────────────────────────────────
-#  SAFE Enterprise Defense Platform v3.0 — Dockerfile
-#  Base: Python 3.11 slim (menor imagem possível)
-# ─────────────────────────────────────────────────────────────────
 FROM python:3.11-slim
 
-# Metadados
 LABEL maintainer="raphaelguterres"
-LABEL description="SAFE Enterprise Defense Platform — Real-time SOC/SIEM platform"
-LABEL version="3.0"
+LABEL org.opencontainers.image.title="SAFE Enterprise Defense Platform"
+LABEL org.opencontainers.image.description="Enterprise-preview SOC/XDR/EDR-lite platform"
+LABEL org.opencontainers.image.version="0.1.0-enterprise-preview"
 
-# Evita prompts interativos durante apt
-ENV DEBIAN_FRONTEND=noninteractive
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    SAFE_ENV=container \
+    IDS_ENV=container \
+    IDS_HOST=0.0.0.0 \
+    IDS_PORT=5000 \
+    HTTPS_ONLY=false \
+    IDS_AUTH=true \
+    IDS_DASHBOARD_AUTH=true
 
-# Instala dependências do sistema
-# libpcap-dev → Scapy packet capture
-# libpcap0.8 → runtime
-# net-tools  → ifconfig/netstat
-# iproute2   → ip command
+WORKDIR /app
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    iproute2 \
     libpcap-dev \
     libpcap0.8 \
     net-tools \
-    iproute2 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Diretório de trabalho
-WORKDIR /app
-
-# Copia requirements primeiro (cache layer)
 COPY requirements.txt requirements.docker.txt ./
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.docker.txt
 
-# Instala dependências Python (versão Docker — sem pywebview/pyinstaller)
-RUN pip install --no-cache-dir -r requirements.docker.txt
-
-# Copia todo o projeto
 COPY . .
 
-# Cria diretório para o banco de dados persistente
-RUN mkdir -p /data
+RUN mkdir -p /data /app/logs
+VOLUME ["/data", "/app/logs"]
 
-# Variáveis de ambiente configuráveis
-ENV IDS_PORT=5000
-ENV IDS_HOST=0.0.0.0
-ENV IDS_DB_PATH=/data/netguard_soc.db
-ENV IDS_LOG_LEVEL=INFO
-ENV IDS_ABUSEIPDB_KEY=""
-
-# Expõe a porta do dashboard
 EXPOSE 5000
 
-# Volume para persistência do banco SQLite
-VOLUME ["/data"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health', timeout=5)" || exit 1
 
-# Health check — verifica se o servidor está respondendo
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')" \
-    || exit 1
-
-# Ponto de entrada
 CMD ["python", "app.py"]

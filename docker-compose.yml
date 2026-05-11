@@ -1,0 +1,73 @@
+services:
+  safe-web:
+    build: .
+    container_name: safe-web
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SAFE_ENV: development
+      IDS_ENV: development
+      IDS_HOST: 0.0.0.0
+      IDS_PORT: 5000
+      HTTPS_ONLY: "false"
+      IDS_AUTH: "${IDS_AUTH:-false}"
+      IDS_DASHBOARD_AUTH: "${IDS_DASHBOARD_AUTH:-true}"
+      DATABASE_URL: "${DATABASE_URL:-}"
+      REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
+    ports:
+      - "5000:5000"
+    volumes:
+      - safe_data:/data
+      - safe_logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_started
+
+  safe-worker:
+    build: .
+    container_name: safe-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: ["python", "scripts/worker_service.py"]
+    environment:
+      SAFE_ENV: development
+      IDS_ENV: development
+      REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
+    volumes:
+      - safe_data:/data
+      - safe_logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_started
+    profiles:
+      - workers
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: safe-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: safe
+      POSTGRES_USER: safe
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-safe_dev_password_change_me}"
+    ports:
+      - "5432:5432"
+    volumes:
+      - safe_postgres:/var/lib/postgresql/data
+    profiles:
+      - postgres
+
+  redis:
+    image: redis:7-alpine
+    container_name: safe-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+
+volumes:
+  safe_data:
+  safe_logs:
+  safe_postgres:

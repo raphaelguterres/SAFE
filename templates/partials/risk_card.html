@@ -1,0 +1,8 @@
+{% macro risk_card(title, value, label='Risk', severity='low') -%}
+  {% set level = (severity or 'low')|lower %}
+  <article class="risk-card risk-card-{{ level }}">
+    <p class="eyebrow">{{ label }}</p>
+    <h3>{{ title }}</h3>
+    <strong>{{ value }}</strong>
+  </article>
+{%- endmacro %}

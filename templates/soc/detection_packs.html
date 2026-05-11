@@ -74,7 +74,8 @@
   <article class="soc-panel">
     <h2 class="safe-section-title">Canonical Telemetry Sample</h2>
     <div class="soc-list soc-compact-list" style="margin-top: 14px;">
-      {% for event in canonical_events|default([])[:8] %}
+      {% set canonical_sample = canonical_events|default([]) %}
+      {% for event in canonical_sample[:8] %}
       <div class="soc-list-item">
         <div>
           <div class="soc-list-title">{{ event.event_type|replace("_", " ")|title }}</div>

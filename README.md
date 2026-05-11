@@ -1,8 +1,14 @@
 # SAFE
 
+![Release](https://img.shields.io/badge/release-v0.1.0--enterprise--preview-0f172a)
+![Tests](https://img.shields.io/badge/tests-1151%20passed-16a34a)
+![Pentest Audit](https://img.shields.io/badge/pentest%20audit-37%2F37%20passed-16a34a)
+
 **Enterprise XDR / EDR Platform**
 
 SAFE is an enterprise-style defense platform built from the original IDS codebase. It combines endpoint telemetry, XDR ingestion, deterministic detection, MITRE ATT&CK mapping, Kill Chain context, tenant-aware SOC workflows, incident lifecycle, and guarded response actions in one Python/Flask platform.
+
+SAFE is packaged as an enterprise-preview product for professional demos, portfolio presentation, client-pilot conversations, and future SaaS evolution.
 
 The project keeps the existing technical contracts for compatibility while presenting a cleaner SAFE product identity:
 
@@ -192,6 +198,12 @@ pip install -r requirements.txt
 python app.py
 ```
 
+Enterprise demo dataset:
+
+```bash
+python demo/seed_demo.py
+```
+
 Open:
 
 - `http://127.0.0.1:5000/admin`
@@ -200,6 +212,22 @@ Open:
 - `http://127.0.0.1:5000/admin/performance`
 - `http://127.0.0.1:5000/admin/observability`
 - `http://127.0.0.1:5000/admin/performance-live`
+
+Release readiness:
+
+```bash
+python -m pytest -q
+python run_pentest_audit.py
+python scripts/release_check.py
+python scripts/project_health_report.py
+```
+
+Docker development:
+
+```bash
+cp .env.example .env
+docker compose up --build safe-web redis
+```
 
 Production posture:
 
@@ -244,6 +272,16 @@ Current quality gates cover auth, RBAC, CSRF, tenant isolation, agent flows, XDR
 
 ## Documentation
 
+- [INSTALL.md](INSTALL.md): installation, bootstrap, Docker, demo and troubleshooting
+- [CHANGELOG.md](CHANGELOG.md): release history
+- [RELEASE_NOTES.md](RELEASE_NOTES.md): v0.1.0 enterprise-preview release notes
+- [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md): transparent product boundaries
+- [docs/PRODUCT_OVERVIEW.md](docs/PRODUCT_OVERVIEW.md): product positioning and capabilities
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): system architecture
+- [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md): controls, trust model and hardening checklist
+- [docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md): professional demo flow
+- [docs/ROADMAP.md](docs/ROADMAP.md): evolution plan
+- [docs/PORTFOLIO_SUMMARY.md](docs/PORTFOLIO_SUMMARY.md): LinkedIn/resume-ready summary
 - [DEPLOY.md](DEPLOY.md): deployment patterns and production checklist
 - [SECURITY.md](SECURITY.md): security model and hardening posture
 - [NETGUARD_AGENT_SERVER_ARCHITECTURE.md](NETGUARD_AGENT_SERVER_ARCHITECTURE.md): Agent + Server compatibility architecture
@@ -265,6 +303,7 @@ Current quality gates cover auth, RBAC, CSRF, tenant isolation, agent flows, XDR
 - [x] Enterprise hardening and trust core
 - [x] Operational reliability and real-time core
 - [x] Security data platform
+- [x] Production readiness and release core
 - [ ] Client Dashboard Clean Experience with executive and technical modes
 - [ ] Full production PostgreSQL migration set for legacy tables
 - [ ] Fleet-grade agent rollout, update, and policy management

@@ -71,7 +71,8 @@
   <article class="soc-panel">
     <h2 class="safe-section-title">Knowledge Graph</h2>
     <div class="soc-list soc-compact-list" style="margin-top: 14px;">
-      {% for node in security_graph.nodes|default([])[:10] %}
+      {% set graph_nodes = security_graph.nodes|default([]) %}
+      {% for node in graph_nodes[:10] %}
       <div class="soc-list-item">
         <div>
           <div class="soc-list-title">{{ node.label }}</div>

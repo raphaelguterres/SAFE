@@ -1,0 +1,11 @@
+{% macro host_card(host) -%}
+  {% set state = (host.protection_state if host.protection_state is defined else host.get('protection_state', 'monitored'))|lower %}
+  <article class="host-card host-{{ state }}">
+    <div>
+      <p class="eyebrow">{{ state|replace('_', ' ')|title }}</p>
+      <h3>{{ host.hostname if host.hostname is defined else host.get('hostname', host.get('host_id', 'Host')) }}</h3>
+      <p>Risk {{ host.risk_score if host.risk_score is defined else host.get('risk_score', 0) }} · Last seen {{ host.last_seen if host.last_seen is defined else host.get('last_seen', 'unknown') }}</p>
+    </div>
+    <span class="status-badge">{{ host.next_action if host.next_action is defined else host.get('next_action', 'Monitor') }}</span>
+  </article>
+{%- endmacro %}

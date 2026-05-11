@@ -1,341 +1,297 @@
-"""SAFE Asset Intelligence — classification, criticality and enrichment.
+"""SAFE Asset Intelligence — enrichment do host com classificação e criticality.
 
-This module enriches the host data already collected by the agent/risk
-pipeline with the asset-side context an analyst needs to prioritize:
+Separa **risk_score** (quão ameaçado o host está, motor de `risk_engine`) de
+**criticality_score** (quão valioso o ativo é). Um servidor de produção sem
+ataques nenhum pode ter criticality 95 mas risk 0; um workstation comprometida
+pode ter criticality 30 mas risk 90. A prioridade real combina ambos.
 
-    asset_class       — workstation | server | domain_controller | database |
-                        developer_machine | executive_device | critical_asset
-    environment       — production | staging | development | lab
-    sensitivity       — public | internal | confidential | restricted
-    criticality_score — 0..100 (value of the asset, not threat)
-    business_impact   — short label ("blast radius" hint)
-    owner             — free-form ("infra-team", "ceo@acme")
-    tags              — free-form list
-
-Risk = threat * exposure; criticality = value of the asset on its own.
-They combine downstream in prioritization, but stay separate here so SOCs
-can compare like-for-like across tenants.
-
-Pure stdlib. Read-only enrichment — never mutates the input dict.
+API pública:
+    AssetClass               — Enum das classes canônicas
+    Sensitivity              — Enum 1-4
+    Environment              — prod/staging/dev/unknown
+    AssetProfile             — dataclass com todos os campos
+    classify_asset(hint)     — heurística por hostname/tags/role
+    score_criticality(profile)  → 0..100
+    enrich_host(host_record) → AssetProfile (não muta o host, só projeta)
+    business_impact_label(score) → "low|medium|high|critical"
 """
 
 from __future__ import annotations
 
-import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from enum import Enum
-from typing import Iterable, Optional
-
-logger = logging.getLogger("safe.asset_intel")
+from typing import Optional
 
 
-# ── Enums ────────────────────────────────────────────────────────
+# ── Classes canônicas ───────────────────────────────────────────
 class AssetClass(str, Enum):
-    WORKSTATION        = "workstation"
-    SERVER             = "server"
-    DOMAIN_CONTROLLER  = "domain_controller"
-    DATABASE           = "database"
-    DEVELOPER_MACHINE  = "developer_machine"
-    EXECUTIVE_DEVICE   = "executive_device"
-    CRITICAL_ASSET     = "critical_asset"
-    UNKNOWN            = "unknown"
+    WORKSTATION       = "workstation"
+    SERVER            = "server"
+    DOMAIN_CONTROLLER = "domain_controller"
+    DATABASE          = "database"
+    DEV_MACHINE       = "dev_machine"
+    EXECUTIVE_DEVICE  = "executive_device"
+    CRITICAL_ASSET    = "critical_asset"
+    UNKNOWN           = "unknown"
+
+
+class Sensitivity(int, Enum):
+    PUBLIC   = 1
+    INTERNAL = 2
+    CONFIDENTIAL = 3
+    RESTRICTED = 4
 
 
 class Environment(str, Enum):
-    PRODUCTION  = "production"
-    STAGING     = "staging"
-    DEVELOPMENT = "development"
-    LAB         = "lab"
-    UNKNOWN     = "unknown"
+    PROD    = "prod"
+    STAGING = "staging"
+    DEV     = "dev"
+    UNKNOWN = "unknown"
 
 
-class Sensitivity(str, Enum):
-    PUBLIC       = "public"
-    INTERNAL     = "internal"
-    CONFIDENTIAL = "confidential"
-    RESTRICTED   = "restricted"
-
-
-# ── Heuristics (hostname / role / process / tag patterns) ────────
-# Order matters — the most specific class wins on conflict.
-
-_DC_PATTERNS = re.compile(
-    r"(?:^|[\-_.])(?:dc\d*|adc|domain[\-_]?controller|kdc\d*)(?:[\-_.]|$)",
-    re.IGNORECASE,
-)
-_DB_PATTERNS = re.compile(
-    r"(?:^|[\-_.])(?:db|sql|mssql|postgres|pg|oracle|mongo|mysql|redis|cassandra)(?:[\-_0-9]|[\-_.]|$)",
-    re.IGNORECASE,
-)
-_DEV_PATTERNS = re.compile(
-    r"(?:^|[\-_.])(?:dev|devel|developer|laptop|wks[\-_]?dev)(?:[\-_.]|$)",
-    re.IGNORECASE,
-)
-_EXEC_PATTERNS = re.compile(
-    r"(?:^|[\-_.])(?:ceo|cto|cfo|cio|cso|exec|board|director|vp)(?:[\-_.]|$)",
-    re.IGNORECASE,
-)
-_SERVER_PATTERNS = re.compile(
-    r"(?:^|[\-_.])(?:srv|server|web|api|app|prod|svc|backend|nginx|apache)(?:[\-_0-9]|[\-_.]|$)",
-    re.IGNORECASE,
-)
-_WKS_PATTERNS = re.compile(
-    r"(?:^|[\-_.])(?:wks|workstation|desktop|pc|client)(?:[\-_0-9]|[\-_.]|$)",
-    re.IGNORECASE,
-)
-
-_PROD_TAGS  = {"prod", "production"}
-_STAGE_TAGS = {"staging", "stage", "qa", "uat"}
-_DEV_TAGS   = {"dev", "development"}
-_LAB_TAGS   = {"lab", "test", "sandbox"}
-
-_SENSITIVE_TAGS = {
-    "pii", "phi", "pci", "secret", "kms", "vault", "backup",
-    "finance", "payroll", "hr", "legal", "compliance",
-}
-
-
+# ── Profile schema ──────────────────────────────────────────────
 @dataclass
 class AssetProfile:
     host_id:           str
-    display_name:      Optional[str] = None
-    asset_class:       AssetClass    = AssetClass.UNKNOWN
-    environment:       Environment   = Environment.UNKNOWN
-    sensitivity:       Sensitivity   = Sensitivity.INTERNAL
-    criticality_score: int           = 0           # 0..100
-    business_impact:   str           = ""
+    asset_class:       AssetClass = AssetClass.UNKNOWN
+    criticality_score: int = 0                 # 0..100
+    business_impact:   str = "low"             # low|medium|high|critical
     owner:             Optional[str] = None
-    tags:              list          = field(default_factory=list)
-    classification_reasons: list     = field(default_factory=list)
+    environment:       Environment = Environment.UNKNOWN
+    sensitivity:       Sensitivity = Sensitivity.INTERNAL
+    tags:              list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {
-            "host_id":                self.host_id,
-            "display_name":           self.display_name,
-            "asset_class":            self.asset_class.value,
-            "environment":            self.environment.value,
-            "sensitivity":            self.sensitivity.value,
-            "criticality_score":      self.criticality_score,
-            "business_impact":        self.business_impact,
-            "owner":                  self.owner,
-            "tags":                   list(self.tags),
-            "classification_reasons": list(self.classification_reasons),
-        }
+        d = asdict(self)
+        d["asset_class"] = self.asset_class.value
+        d["environment"] = self.environment.value
+        d["sensitivity"] = int(self.sensitivity)
+        return d
 
 
-# ── Public API ───────────────────────────────────────────────────
-def classify_asset(host: dict) -> tuple[AssetClass, list[str]]:
-    """Heuristically classify an asset based on hostname/role/tags/processes.
+# ── Heurísticas de classificação ────────────────────────────────
+# Match order matters: more specific first.
+_CLASS_PATTERNS = [
+    (AssetClass.DOMAIN_CONTROLLER, [
+        r"\bdc\d*\b", r"-dc-?\d*", r"\bdomctl", r"\badctrl", r"domain.controller",
+    ]),
+    (AssetClass.DATABASE, [
+        r"\bdb\d*\b", r"-db-?\d*", r"sqlsrv", r"\bpgsql", r"\bmysql", r"\bmongo",
+        r"\boracle\b", r"\bmssql",
+    ]),
+    (AssetClass.EXECUTIVE_DEVICE, [
+        r"\bceo\b", r"\bcfo\b", r"\bcto\b", r"\bciso\b", r"\bcoo\b",
+        r"-exec-", r"-vp-", r"-board-",
+    ]),
+    (AssetClass.DEV_MACHINE, [
+        r"\bdev\d*\b", r"-dev-", r"\bdevbox", r"workstation-dev",
+    ]),
+    (AssetClass.SERVER, [
+        r"\bsrv\d*\b", r"\bsvr\d*\b", r"\bweb\d*\b", r"-prod-", r"-srv-",
+        r"\bapp\d*\b", r"\bapi\d*\b", r"linux\d*", r"\bsrvr",
+    ]),
+    (AssetClass.WORKSTATION, [
+        r"\bwin\d+", r"-wks-", r"\bwks\d*", r"\blaptop", r"\bdesktop\b",
+    ]),
+]
 
-    Manual override via ``host["asset_class"]`` always wins.
-    Returns (AssetClass, reasons[]).
+_TAG_OVERRIDES = {
+    "domain-controller":   AssetClass.DOMAIN_CONTROLLER,
+    "dc":                  AssetClass.DOMAIN_CONTROLLER,
+    "database":            AssetClass.DATABASE,
+    "db":                  AssetClass.DATABASE,
+    "server":              AssetClass.SERVER,
+    "workstation":         AssetClass.WORKSTATION,
+    "dev":                 AssetClass.DEV_MACHINE,
+    "executive":           AssetClass.EXECUTIVE_DEVICE,
+    "vip":                 AssetClass.EXECUTIVE_DEVICE,
+    "critical":            AssetClass.CRITICAL_ASSET,
+    "critical-asset":      AssetClass.CRITICAL_ASSET,
+}
+
+_ENV_HINTS = {
+    "prod":    Environment.PROD,
+    "production": Environment.PROD,
+    "live":    Environment.PROD,
+    "staging": Environment.STAGING,
+    "stage":   Environment.STAGING,
+    "stg":     Environment.STAGING,
+    "qa":      Environment.STAGING,
+    "test":    Environment.STAGING,
+    "dev":     Environment.DEV,
+    "develop": Environment.DEV,
+    "sandbox": Environment.DEV,
+}
+
+
+def classify_asset(hint: dict) -> AssetClass:
+    """Decide asset_class por hostname, tags explícitas ou role.
+
+    Ordem de prioridade:
+        1. tag explícita (e.g. ['critical-asset'])
+        2. campo `role` direto se for AssetClass válido
+        3. regex no hostname / display_name
     """
-    if not isinstance(host, dict):
-        return AssetClass.UNKNOWN, []
+    if not isinstance(hint, dict):
+        return AssetClass.UNKNOWN
 
-    # 1) Manual override always wins
-    manual = host.get("asset_class")
-    if isinstance(manual, str):
+    # 1. Tag overrides
+    tags = hint.get("tags") or []
+    if isinstance(tags, (list, tuple)):
+        for tag in tags:
+            key = str(tag).strip().lower()
+            if key in _TAG_OVERRIDES:
+                return _TAG_OVERRIDES[key]
+
+    # 2. Direct role field
+    role = (hint.get("role") or hint.get("asset_class") or "").strip().lower()
+    if role:
         try:
-            return AssetClass(manual.strip().lower()), ["manual_override"]
+            return AssetClass(role)
         except ValueError:
             pass
 
-    # 2) Explicit role field
-    role = str(host.get("role") or "").strip().lower()
-    if role:
-        for ac in AssetClass:
-            if ac.value == role:
-                return ac, [f"role={role}"]
+    # 3. Hostname regex
+    name = str(
+        hint.get("hostname")
+        or hint.get("display_name")
+        or hint.get("host_id")
+        or ""
+    ).lower()
+    if name:
+        for cls, patterns in _CLASS_PATTERNS:
+            for pat in patterns:
+                if re.search(pat, name):
+                    return cls
 
-    # 3) Hostname pattern matching
-    name = str(host.get("display_name") or host.get("hostname") or host.get("host_id") or "")
-    reasons: list[str] = []
-
-    if _DC_PATTERNS.search(name):
-        return AssetClass.DOMAIN_CONTROLLER, [f"hostname:{name} matches DC pattern"]
-    if _DB_PATTERNS.search(name):
-        return AssetClass.DATABASE, [f"hostname:{name} matches DB pattern"]
-    if _EXEC_PATTERNS.search(name):
-        return AssetClass.EXECUTIVE_DEVICE, [f"hostname:{name} matches exec pattern"]
-    if _DEV_PATTERNS.search(name):
-        return AssetClass.DEVELOPER_MACHINE, [f"hostname:{name} matches dev pattern"]
-    if _SERVER_PATTERNS.search(name):
-        return AssetClass.SERVER, [f"hostname:{name} matches server pattern"]
-    if _WKS_PATTERNS.search(name):
-        return AssetClass.WORKSTATION, [f"hostname:{name} matches workstation pattern"]
-
-    # 4) Platform-based fallback
-    platform = str(host.get("platform") or host.get("os") or "").lower()
-    if "windows server" in platform or "linux" in platform:
-        if "server" in platform or "rhel" in platform or "ubuntu server" in platform:
-            return AssetClass.SERVER, [f"platform:{platform}"]
-
-    # 5) Tag inference
-    tags = {str(t).lower() for t in (host.get("tags") or []) if t}
-    if tags & {"dc", "domain-controller"}:
-        return AssetClass.DOMAIN_CONTROLLER, ["tag:dc"]
-    if tags & {"db", "database"}:
-        return AssetClass.DATABASE, ["tag:db"]
-    if tags & {"executive", "vip", "c-level"}:
-        return AssetClass.EXECUTIVE_DEVICE, ["tag:executive"]
-
-    return AssetClass.UNKNOWN, ["no_signal"]
+    return AssetClass.UNKNOWN
 
 
-def infer_environment(host: dict) -> Environment:
-    """Pick environment from explicit field, then tags, then hostname hints."""
-    if not isinstance(host, dict):
+def detect_environment(hint: dict) -> Environment:
+    """Detecta environment via tags ou hostname."""
+    if not isinstance(hint, dict):
         return Environment.UNKNOWN
 
-    explicit = str(host.get("environment") or "").strip().lower()
-    if explicit:
-        for env in Environment:
-            if env.value == explicit:
-                return env
+    explicit = (hint.get("environment") or "").strip().lower()
+    if explicit in _ENV_HINTS:
+        return _ENV_HINTS[explicit]
 
-    tags = {str(t).lower() for t in (host.get("tags") or []) if t}
-    if tags & _PROD_TAGS:  return Environment.PRODUCTION
-    if tags & _STAGE_TAGS: return Environment.STAGING
-    if tags & _DEV_TAGS:   return Environment.DEVELOPMENT
-    if tags & _LAB_TAGS:   return Environment.LAB
+    tags = hint.get("tags") or []
+    if isinstance(tags, (list, tuple)):
+        for tag in tags:
+            key = str(tag).strip().lower()
+            if key in _ENV_HINTS:
+                return _ENV_HINTS[key]
 
-    name = str(host.get("display_name") or host.get("hostname") or host.get("host_id") or "").lower()
-    if "-prod" in name or name.endswith("prod"):  return Environment.PRODUCTION
-    if "-stg" in name or "-staging" in name:      return Environment.STAGING
-    if "-dev" in name:                             return Environment.DEVELOPMENT
-    if "-lab" in name or "-test" in name:          return Environment.LAB
+    name = str(
+        hint.get("hostname")
+        or hint.get("display_name")
+        or hint.get("host_id")
+        or ""
+    ).lower()
+    for token, env in _ENV_HINTS.items():
+        if token in name:
+            return env
 
     return Environment.UNKNOWN
 
 
-def infer_sensitivity(host: dict, asset_class: AssetClass) -> Sensitivity:
-    """Pick sensitivity from explicit field, then class defaults, then tags."""
-    if not isinstance(host, dict):
-        return Sensitivity.INTERNAL
+# ── Criticality scoring ─────────────────────────────────────────
+# Base score per class — what the asset is worth if everything else is equal
+_CLASS_BASE_SCORE = {
+    AssetClass.DOMAIN_CONTROLLER: 95,
+    AssetClass.CRITICAL_ASSET:    90,
+    AssetClass.DATABASE:          80,
+    AssetClass.EXECUTIVE_DEVICE:  75,
+    AssetClass.SERVER:            60,
+    AssetClass.WORKSTATION:       30,
+    AssetClass.DEV_MACHINE:       20,
+    AssetClass.UNKNOWN:           25,
+}
 
-    explicit = str(host.get("sensitivity") or "").strip().lower()
-    if explicit:
-        for s in Sensitivity:
-            if s.value == explicit:
-                return s
+_ENV_MULTIPLIER = {
+    Environment.PROD:    1.0,
+    Environment.STAGING: 0.65,
+    Environment.DEV:     0.35,
+    Environment.UNKNOWN: 0.80,
+}
 
-    tags = {str(t).lower() for t in (host.get("tags") or []) if t}
-    if tags & _SENSITIVE_TAGS:
-        return Sensitivity.RESTRICTED
-
-    # Class-based defaults
-    if asset_class in (AssetClass.DOMAIN_CONTROLLER, AssetClass.DATABASE,
-                       AssetClass.EXECUTIVE_DEVICE, AssetClass.CRITICAL_ASSET):
-        return Sensitivity.CONFIDENTIAL
-    if asset_class == AssetClass.SERVER:
-        return Sensitivity.INTERNAL
-
-    return Sensitivity.INTERNAL
+_SENSITIVITY_BUMP = {
+    Sensitivity.PUBLIC:       -10,
+    Sensitivity.INTERNAL:       0,
+    Sensitivity.CONFIDENTIAL:  +8,
+    Sensitivity.RESTRICTED:   +15,
+}
 
 
-def compute_criticality(
-    asset_class: AssetClass,
-    environment: Environment,
-    sensitivity: Sensitivity,
-    tags: Iterable[str] = (),
-) -> tuple[int, str]:
-    """Compute criticality score 0..100 and a short business_impact label.
+def score_criticality(profile: AssetProfile) -> int:
+    """Compute criticality_score 0..100 from profile fields."""
+    base = _CLASS_BASE_SCORE.get(profile.asset_class, 25)
+    mult = _ENV_MULTIPLIER.get(profile.environment, 0.80)
+    score = base * mult + _SENSITIVITY_BUMP.get(profile.sensitivity, 0)
+    return max(0, min(100, int(round(score))))
 
-    Score formula:
-        base by class + environment boost + sensitivity boost + tag boost
-    Capped at 100.
-    """
-    class_base = {
-        AssetClass.WORKSTATION:        20,
-        AssetClass.SERVER:             50,
-        AssetClass.DEVELOPER_MACHINE:  30,
-        AssetClass.DOMAIN_CONTROLLER:  90,
-        AssetClass.DATABASE:           80,
-        AssetClass.EXECUTIVE_DEVICE:   75,
-        AssetClass.CRITICAL_ASSET:     95,
-        AssetClass.UNKNOWN:            10,
-    }[asset_class]
 
-    env_boost = {
-        Environment.PRODUCTION:  15,
-        Environment.STAGING:      5,
-        Environment.DEVELOPMENT:  0,
-        Environment.LAB:         -5,
-        Environment.UNKNOWN:      0,
-    }[environment]
-
-    sens_boost = {
-        Sensitivity.PUBLIC:       -5,
-        Sensitivity.INTERNAL:      0,
-        Sensitivity.CONFIDENTIAL: 10,
-        Sensitivity.RESTRICTED:   20,
-    }[sensitivity]
-
-    tag_boost = 0
-    tag_set = {str(t).lower() for t in tags or ()}
-    if tag_set & _SENSITIVE_TAGS:
-        tag_boost += 5
-
-    score = max(0, min(100, class_base + env_boost + sens_boost + tag_boost))
-
-    # Business impact label
+def business_impact_label(score: int) -> str:
+    """Map criticality_score → low|medium|high|critical bucket label."""
     if score >= 85:
-        impact = "Critical — outage or data loss affects whole tenant"
-    elif score >= 65:
-        impact = "High — service or compliance impact"
-    elif score >= 40:
-        impact = "Medium — workgroup impact"
-    elif score >= 20:
-        impact = "Low — individual user impact"
-    else:
-        impact = "Minimal"
-
-    return score, impact
+        return "critical"
+    if score >= 65:
+        return "high"
+    if score >= 35:
+        return "medium"
+    return "low"
 
 
-def enrich_host(host: dict) -> AssetProfile:
-    """Public entry point: takes a raw host record and returns AssetProfile.
+# ── High-level enrich entrypoint ────────────────────────────────
+def enrich_host(host_record: dict) -> AssetProfile:
+    """Project a host record (whatever shape) into an AssetProfile.
 
-    Never mutates the input. Always returns a profile (UNKNOWN class if no
-    signal is available).
+    Never mutates input. Falls back to safe defaults.
     """
-    if not isinstance(host, dict):
+    if not isinstance(host_record, dict):
         return AssetProfile(host_id="")
 
-    host_id = str(host.get("host_id") or host.get("id") or "")
-    display = host.get("display_name") or host.get("hostname")
+    host_id = host_record.get("host_id") or host_record.get("id") or ""
 
-    asset_class, reasons = classify_asset(host)
-    env = infer_environment(host)
-    sens = infer_sensitivity(host, asset_class)
-    tags = [str(t) for t in (host.get("tags") or []) if t]
+    asset_class = classify_asset(host_record)
+    environment = detect_environment(host_record)
 
-    score, impact = compute_criticality(asset_class, env, sens, tags)
+    sensitivity = Sensitivity.INTERNAL
+    raw_sens = host_record.get("sensitivity")
+    if isinstance(raw_sens, int) and 1 <= raw_sens <= 4:
+        sensitivity = Sensitivity(raw_sens)
+    elif isinstance(raw_sens, str):
+        try:
+            sensitivity = Sensitivity[raw_sens.strip().upper()]
+        except KeyError:
+            pass
 
-    return AssetProfile(
+    tags = list(host_record.get("tags") or [])
+    owner = host_record.get("owner")
+
+    profile = AssetProfile(
         host_id=host_id,
-        display_name=display,
         asset_class=asset_class,
-        environment=env,
-        sensitivity=sens,
-        criticality_score=score,
-        business_impact=impact,
-        owner=host.get("owner") or None,
+        environment=environment,
+        sensitivity=sensitivity,
         tags=tags,
-        classification_reasons=reasons,
+        owner=owner,
     )
+    profile.criticality_score = score_criticality(profile)
+    profile.business_impact   = business_impact_label(profile.criticality_score)
+    return profile
 
 
 __all__ = [
     "AssetClass",
-    "Environment",
     "Sensitivity",
+    "Environment",
     "AssetProfile",
     "classify_asset",
-    "infer_environment",
-    "infer_sensitivity",
-    "compute_criticality",
+    "detect_environment",
+    "score_criticality",
+    "business_impact_label",
     "enrich_host",
 ]

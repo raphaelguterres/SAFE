@@ -1,0 +1,27 @@
+{
+  "architecture_coverage": {
+    "agent": true,
+    "central_api": true,
+    "ci": true,
+    "docs": true,
+    "operational_reliability": true,
+    "response_policy": true,
+    "security_data_platform": true,
+    "soc_operations": true,
+    "xdr_pipeline": true
+  },
+  "branding_consistency": {
+    "blockers": 0,
+    "files_scanned": 125,
+    "warnings": 0
+  },
+  "deprecated_references": 6,
+  "docs_count": 47,
+  "modules_count": 388,
+  "routes_count": 287,
+  "security_checks_ok": true,
+  "skipped_tests_static": 6,
+  "templates_count": 35,
+  "todo_fixme_count": 16,
+  "total_tests_static": 1111
+}

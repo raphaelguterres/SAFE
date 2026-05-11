@@ -6641,6 +6641,85 @@ def risk_host_kill_chain_timeline(host_id):
     return jsonify(out)
 
 
+@app.route("/api/assets/<host_id>")
+@auth
+def asset_profile(host_id):
+    """Asset Intelligence profile for a single host.
+
+    Returns classification, criticality_score (0-100), business_impact bucket,
+    environment, sensitivity, tags and owner. Read-only enrichment view
+    layered on top of the existing risk engine (which tracks threat, not
+    asset value).
+    """
+    try:
+        from xdr.asset_intelligence import enrich_host
+    except Exception as exc:
+        return jsonify({"error": f"Asset intelligence indisponivel: {exc}"}), 503
+
+    host_record: dict = {"host_id": host_id}
+    try:
+        if RISK_AVAILABLE:
+            data = risk_engine.get_host(host_id) or {}
+            if isinstance(data, dict):
+                for k in ("hostname", "display_name", "tags", "owner",
+                          "environment", "sensitivity", "role", "asset_class",
+                          "last_ip", "platform"):
+                    if k in data:
+                        host_record[k] = data[k]
+    except Exception:
+        pass
+
+    profile = enrich_host(host_record)
+    return jsonify(profile.to_dict())
+
+
+@app.route("/api/assets")
+@auth
+def assets_list():
+    """List all hosts with their AssetProfile enrichment.
+
+    Query params:
+        class    filter by asset_class
+        env      filter by environment
+        min_crit minimum criticality_score (0..100)
+    """
+    try:
+        from xdr.asset_intelligence import enrich_host
+    except Exception as exc:
+        return jsonify({"error": f"Asset intelligence indisponivel: {exc}"}), 503
+
+    cls_filter = (request.args.get("class") or "").strip().lower() or None
+    env_filter = (request.args.get("env") or "").strip().lower() or None
+    try:
+        min_crit = int(request.args.get("min_crit", 0))
+    except (TypeError, ValueError):
+        min_crit = 0
+    min_crit = max(0, min(100, min_crit))
+
+    raw_hosts: list = []
+    try:
+        if RISK_AVAILABLE and hasattr(risk_engine, "get_all_hosts"):
+            raw_hosts = list(risk_engine.get_all_hosts() or [])
+    except Exception:
+        raw_hosts = []
+
+    out: list = []
+    for h in raw_hosts:
+        if not isinstance(h, dict):
+            continue
+        profile = enrich_host(h)
+        if cls_filter and profile.asset_class.value != cls_filter:
+            continue
+        if env_filter and profile.environment.value != env_filter:
+            continue
+        if profile.criticality_score < min_crit:
+            continue
+        out.append(profile.to_dict())
+
+    out.sort(key=lambda p: -p["criticality_score"])
+    return jsonify({"assets": out, "total": len(out)})
+
+
 @app.route("/api/risk/host/<host_id>/kill_chain")
 @auth
 def risk_host_kill_chain(host_id):

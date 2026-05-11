@@ -1,0 +1,11 @@
+{% macro incident_card(incident) -%}
+  {% set severity = (incident.severity if incident.severity is defined else incident.get('severity', 'medium'))|lower %}
+  <article class="incident-card incident-{{ severity }}">
+    <div>
+      <p class="eyebrow">{{ severity|upper }}</p>
+      <h3>{{ incident.title if incident.title is defined else incident.get('title', 'Security incident') }}</h3>
+      <p>{{ incident.recommendation if incident.recommendation is defined else incident.get('recommendation', 'Review evidence and assign an owner.') }}</p>
+    </div>
+    <a class="btn btn-secondary" href="{{ incident.href if incident.href is defined else incident.get('href', '/soc/incidents') }}">Review</a>
+  </article>
+{%- endmacro %}
