@@ -17,8 +17,11 @@ if TYPE_CHECKING:  # pragma: no cover
     from .investigation_assistant import InvestigationAssistant
     from .ioc_manager import IOCManager
     from .event_bus import LiveSOCEventBus
+    from .enrichment_pipeline import EnrichmentPipeline
+    from .event_lineage import EventLineageEngine
     from .queue_manager import ResilientQueueManager
     from .realtime_stream import RealtimeStreamHub
+    from .normalization_engine import TelemetryNormalizationEngine
     from .pipeline import XDRPipeline
     from .playbook_executor import DefensivePlaybookExecutor
     from .prioritization_engine import IncidentPrioritizationEngine
@@ -42,7 +45,10 @@ __all__ = [
     "IOCManager",
     "IncidentPrioritizationEngine",
     "InvestigationAssistant",
+    "EnrichmentPipeline",
+    "EventLineageEngine",
     "LiveSOCEventBus",
+    "TelemetryNormalizationEngine",
     "PipelineOutcome",
     "RealtimeStreamHub",
     "ResilientQueueManager",
@@ -108,10 +114,22 @@ def __getattr__(name: str):
         from .investigation_assistant import InvestigationAssistant as _InvestigationAssistant
 
         return _InvestigationAssistant
+    if name == "EnrichmentPipeline":
+        from .enrichment_pipeline import EnrichmentPipeline as _EnrichmentPipeline
+
+        return _EnrichmentPipeline
+    if name == "EventLineageEngine":
+        from .event_lineage import EventLineageEngine as _EventLineageEngine
+
+        return _EventLineageEngine
     if name == "LiveSOCEventBus":
         from .event_bus import LiveSOCEventBus as _LiveSOCEventBus
 
         return _LiveSOCEventBus
+    if name == "TelemetryNormalizationEngine":
+        from .normalization_engine import TelemetryNormalizationEngine as _TelemetryNormalizationEngine
+
+        return _TelemetryNormalizationEngine
     if name == "RealtimeStreamHub":
         from .realtime_stream import RealtimeStreamHub as _RealtimeStreamHub
 

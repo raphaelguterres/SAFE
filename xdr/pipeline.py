@@ -9,8 +9,11 @@ from typing import Any
 from .behavior_engine import EnterpriseBehaviorEngine
 from .correlation import WeakSignalCorrelationEngine
 from .detection import BehaviorDetectionEngine
+from .enrichment_pipeline import EnrichmentPipeline
+from .event_lineage import EventLineageEngine
 from .host_defense_engine import HostDefenseEngine
 from .killchain_engine import KillChainEngine
+from .normalization_engine import TelemetryNormalizationEngine
 from .response import ResponseEngine
 from .schema import PipelineOutcome, parse_endpoint_events
 from .severity import clamp_risk, risk_level, severity_weight
@@ -25,6 +28,9 @@ class XDRPipeline:
         killchain_engine: KillChainEngine | None = None,
         behavior_engine: EnterpriseBehaviorEngine | None = None,
         host_defense_engine: HostDefenseEngine | None = None,
+        normalization_engine: TelemetryNormalizationEngine | None = None,
+        enrichment_pipeline: EnrichmentPipeline | None = None,
+        lineage_engine: EventLineageEngine | None = None,
     ):
         self.detection_engine = detection_engine or BehaviorDetectionEngine()
         self.correlation_engine = correlation_engine or WeakSignalCorrelationEngine()
@@ -32,6 +38,9 @@ class XDRPipeline:
         self.killchain_engine = killchain_engine or KillChainEngine()
         self.behavior_engine = behavior_engine or EnterpriseBehaviorEngine()
         self.host_defense_engine = host_defense_engine or HostDefenseEngine()
+        self.normalization_engine = normalization_engine or TelemetryNormalizationEngine()
+        self.enrichment_pipeline = enrichment_pipeline or EnrichmentPipeline()
+        self.lineage_engine = lineage_engine or EventLineageEngine()
         self._risk_lock = threading.RLock()
         self._history_lock = threading.RLock()
         self._host_risk_scores: dict[str, int] = defaultdict(int)
@@ -42,8 +51,20 @@ class XDRPipeline:
         return [self.process_event(event) for event in events]
 
     def process_event(self, event) -> PipelineOutcome:
+        normalization = self.normalization_engine.normalize(event, tenant_id=getattr(event, "tenant_id", "") or None)
+        canonical_event = normalization.canonical_event
         detections = self.detection_engine.process(event)
         correlations = self.correlation_engine.process(event, detections)
+        enrichment = self.enrichment_pipeline.enrich(canonical_event, detections=detections, correlations=correlations) if canonical_event else None
+        enriched_event = enrichment.event if enrichment else canonical_event
+        if enriched_event:
+            self.lineage_engine.start(enriched_event)
+            for name in (enrichment.applied_enrichments if enrichment else []):
+                self.lineage_engine.add_enrichment(enriched_event, name)
+            for detection in detections:
+                self.lineage_engine.add_detection(enriched_event, detection)
+            for correlation in correlations:
+                self.lineage_engine.add_correlation(enriched_event, correlation)
         behavioral_findings = self.behavior_engine.analyze(event)
         killchain_findings = self.killchain_engine.map_event_to_killchain(event, detections, correlations)
         killchain_stage_summary = self.killchain_engine.stage_summary(killchain_findings)
@@ -71,6 +92,12 @@ class XDRPipeline:
         ).to_dict()
         outcome = PipelineOutcome(
             event=event,
+            canonical_event=canonical_event,
+            enriched_event=enriched_event,
+            event_lineage=self.lineage_engine.trace(
+                tenant_id=enriched_event.tenant_id,
+                event_id=enriched_event.event_id,
+            ) if enriched_event else {"issues": [item.to_dict() for item in normalization.issues]},
             detections=detections,
             correlations=correlations,
             actions=actions,

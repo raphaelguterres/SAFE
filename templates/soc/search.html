@@ -1,0 +1,102 @@
+{% extends "soc/base.html" %}
+{% set active_page = "search" %}
+
+{% block title %}SAFE Security Operations | Security Search{% endblock %}
+
+{% block page %}
+<header class="soc-page-header soc-page-header-airy">
+  <div>
+    <div class="soc-breadcrumbs">
+      <a class="soc-inline-link" href="/soc/overview">Overview</a>
+      <span>/</span>
+      <span>Security Data Search</span>
+    </div>
+    <h1 class="soc-page-title">Security Search</h1>
+    <p class="soc-page-copy">Search hosts, users, IOCs, detections, incidents, telemetry and campaigns with tenant-scoped pivots.</p>
+  </div>
+</header>
+
+<form class="soc-toolbar" method="get" action="/soc/search" style="margin-bottom: 18px;">
+  <label class="sr-only" for="q">Search security data</label>
+  <input id="q" name="q" class="soc-input" value="{{ search_query }}" placeholder="Search host, user, IOC, detection, incident or campaign...">
+  <button class="soc-button soc-button-primary" type="submit">Search</button>
+</form>
+
+<section class="safe-grid-4 safe-fade-in">
+  <article class="safe-card safe-kpi"><span>Results</span><strong>{{ security_search.total|default(0) }}</strong><small>Tenant-scoped matches.</small></article>
+  <article class="safe-card safe-kpi"><span>Graph Nodes</span><strong>{{ security_graph.node_count|default(0) }}</strong><small>Assets, identities and infra.</small></article>
+  <article class="safe-card safe-kpi"><span>Retention Actions</span><strong>{{ retention_plan.record_count|default(0) }}</strong><small>Hot, warm and archive decisions.</small></article>
+  <article class="safe-card safe-kpi"><span>Enriched</span><strong>{{ canonical_summary.enriched|default(0) }}</strong><small>Events with context.</small></article>
+</section>
+
+<section class="soc-grid-2 soc-grid-balanced" style="margin-top: 18px;">
+  <article class="soc-panel">
+    <h2 class="safe-section-title">Search Results</h2>
+    <div class="soc-list soc-compact-list" style="margin-top: 14px;">
+      {% for result in security_search.results|default([]) %}
+      <div class="soc-list-item">
+        <div>
+          <div class="soc-list-title">{{ result.title }}</div>
+          <div class="soc-list-copy">{{ result.result_type|replace("_", " ")|title }} · score {{ result.score }}</div>
+        </div>
+        <span class="soc-severity-chip low">pivot</span>
+      </div>
+      {% else %}
+      <div class="soc-empty-state soc-empty-state-premium">
+        <h3>No matching security data</h3>
+        <p>Try searching by hostname, username, IOC, incident, technique or campaign key.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="soc-panel">
+    <h2 class="safe-section-title">Investigation Pivots</h2>
+    {% set pivots = security_search.pivots|default({}) %}
+    <div class="soc-list soc-compact-list" style="margin-top: 14px;">
+      {% for label, values in pivots.items() %}
+      <div class="soc-list-item">
+        <div>
+          <div class="soc-list-title">{{ label|replace("_", " ")|title }}</div>
+          <div class="soc-list-copy">{{ values|join(", ") if values else "No pivots" }}</div>
+        </div>
+        <span class="soc-severity-chip low">{{ values|length }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+
+<section class="soc-grid-2 soc-grid-balanced" style="margin-top: 18px;">
+  <article class="soc-panel">
+    <h2 class="safe-section-title">Knowledge Graph</h2>
+    <div class="soc-list soc-compact-list" style="margin-top: 14px;">
+      {% for node in security_graph.nodes|default([])[:10] %}
+      <div class="soc-list-item">
+        <div>
+          <div class="soc-list-title">{{ node.label }}</div>
+          <div class="soc-list-copy">{{ node.node_type|replace("_", " ")|title }}</div>
+        </div>
+        <span class="soc-severity-chip low">node</span>
+      </div>
+      {% else %}
+      <div class="soc-empty-state soc-empty-state-premium">
+        <h3>No graph data yet</h3>
+        <p>SAFE builds graph relationships from canonical telemetry and enrichment.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="soc-panel">
+    <h2 class="safe-section-title">Retention Summary</h2>
+    {% set retention = retention_plan.summary|default({}) %}
+    <div class="safe-grid-2" style="margin-top: 14px;">
+      <article class="safe-card safe-kpi"><span>Hot</span><strong>{{ retention.hot|default(0) }}</strong></article>
+      <article class="safe-card safe-kpi"><span>Warm</span><strong>{{ retention.warm|default(0) }}</strong></article>
+      <article class="safe-card safe-kpi"><span>Archive</span><strong>{{ retention.archive|default(0) }}</strong></article>
+      <article class="safe-card safe-kpi"><span>Expired</span><strong>{{ retention.expired|default(0) }}</strong></article>
+    </div>
+  </article>
+</section>
+{% endblock %}

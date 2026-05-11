@@ -2282,6 +2282,112 @@ def _build_soc_metrics_context() -> dict:
     }
 
 
+def _build_security_data_platform_context() -> dict:
+    context = _build_soc_operations_context()
+    tenant_id = _current_request_tenant_id()
+    alerts = list(context.get("alerts") or [])[:40]
+    hosts = list(context.get("hosts") or [])[:40]
+    incidents = list(context.get("incidents") or [])[:40]
+    raw_events: list[dict] = []
+    for alert in alerts:
+        event = alert.get("event") if isinstance(alert.get("event"), dict) else dict(alert)
+        event.setdefault("tenant_id", tenant_id)
+        event.setdefault("host_id", alert.get("host") or event.get("host_id") or "unknown")
+        event.setdefault("event_type", event.get("event_type") or "security_activity")
+        raw_events.append(event)
+    for host in hosts[:10]:
+        raw_events.append({
+            "tenant_id": tenant_id,
+            "host_id": host.get("host_id") or host.get("host_name") or "unknown",
+            "event_type": "host_inventory",
+            "category": "asset",
+            "severity": host.get("risk_label") or "low",
+            "timestamp": host.get("last_seen") or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "source": "safe.asset_inventory",
+        })
+    try:
+        from detections.packs import DetectionPackManager
+        from xdr.detection_qa import DetectionQAEngine
+        from xdr.enrichment_pipeline import EnrichmentPipeline
+        from xdr.event_lineage import EventLineageEngine
+        from xdr.normalization_engine import TelemetryNormalizationEngine
+        from xdr.retention_engine import RetentionEngine
+        from xdr.rule_catalog import build_detection_rule_catalog
+        from xdr.security_graph import SecurityKnowledgeGraph
+        from xdr.security_search import SecurityDataSearchEngine
+
+        catalog = build_detection_rule_catalog()
+        pack_manager = DetectionPackManager.from_rule_catalog(catalog)
+        qa_report = DetectionQAEngine().evaluate(catalog.get("rules") or [])
+        normalizer = TelemetryNormalizationEngine()
+        enrichment = EnrichmentPipeline()
+        lineage = EventLineageEngine()
+        graph = SecurityKnowledgeGraph()
+        canonical_events = []
+        for raw in raw_events:
+            normalized = normalizer.normalize(raw, tenant_id=tenant_id)
+            if not normalized.canonical_event:
+                continue
+            enriched = enrichment.enrich(normalized.canonical_event)
+            lineage.start(enriched.event)
+            for name in enriched.applied_enrichments:
+                lineage.add_enrichment(enriched.event, name)
+            graph.ingest_event(enriched.event)
+            canonical_events.append(enriched.event.to_dict())
+        retention = RetentionEngine().build_plan(canonical_events, tenant_id=tenant_id)
+        datasets = {
+            "hosts": hosts,
+            "incidents": incidents,
+            "detections": alerts,
+            "telemetry": canonical_events,
+            "campaigns": [
+                {"tenant_id": tenant_id, **event.get("enrichment", {}).get("campaign", {})}
+                for event in canonical_events
+                if event.get("enrichment", {}).get("campaign")
+            ],
+        }
+        search_query = str(request.args.get("q") or "").strip() if request else ""
+        search_results = SecurityDataSearchEngine().search(
+            tenant_id=tenant_id,
+            query=search_query,
+            datasets=datasets,
+            limit=30,
+        )
+        graph_view = graph.tenant_view(tenant_id)
+        packs = pack_manager.list_packs(tenant_id=tenant_id)
+        lineage_sample = lineage.trace(
+            tenant_id=tenant_id,
+            event_id=canonical_events[0]["event_id"],
+        ) if canonical_events else {"tenant_id": tenant_id, "event_id": "", "steps": [], "step_count": 0}
+    except Exception as exc:
+        logger.exception("security data platform context failed: %s", exc)
+        catalog = {"rules": [], "summary": {}}
+        qa_report = type("Report", (), {"to_dict": lambda self: {"total_rules": 0, "score": 0, "findings": []}})()
+        canonical_events = []
+        retention = {"tenant_id": tenant_id, "record_count": 0, "decisions": [], "summary": {}}
+        search_results = {"tenant_id": tenant_id, "query": "", "total": 0, "results": [], "pivots": {}}
+        graph_view = {"tenant_id": tenant_id, "nodes": [], "edges": [], "node_count": 0, "edge_count": 0}
+        packs = []
+        lineage_sample = {"tenant_id": tenant_id, "event_id": "", "steps": [], "step_count": 0}
+    return {
+        **context,
+        "canonical_events": canonical_events[:30],
+        "canonical_summary": {
+            "events": len(canonical_events),
+            "categories": sorted({event.get("category") for event in canonical_events if event.get("category")}),
+            "enriched": sum(1 for event in canonical_events if event.get("enrichment")),
+        },
+        "detection_catalog": catalog,
+        "detection_packs": packs,
+        "detection_qa": qa_report.to_dict(),
+        "lineage_sample": lineage_sample,
+        "security_graph": graph_view,
+        "retention_plan": retention,
+        "security_search": search_results,
+        "search_query": str(request.args.get("q") or "").strip() if request else "",
+    }
+
+
 def _stable_case_id(value: object) -> str:
     clean = re.sub(r"[^A-Za-z0-9]+", "-", str(value or "case")).strip("-").upper()
     return f"CASE-{(clean or 'SOC')[:24]}"
@@ -12475,6 +12581,40 @@ def soc_approvals_page():
 def soc_metrics_page():
     audit("SOC_METRICS_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="page")
     return render_template("soc/metrics.html", **_build_soc_metrics_context())
+
+
+@app.route("/soc/detection-packs", methods=["GET"])
+@require_session
+@require_role("analyst", "admin")
+def soc_detection_packs_page():
+    audit("SOC_DETECTION_PACKS_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="page")
+    return render_template("soc/detection_packs.html", **_build_security_data_platform_context())
+
+
+@app.route("/soc/search", methods=["GET"])
+@require_session
+@require_role("analyst", "admin")
+def soc_security_search_page():
+    audit("SOC_SECURITY_SEARCH_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="page")
+    return render_template("soc/search.html", **_build_security_data_platform_context())
+
+
+@app.route("/api/soc/security-data", methods=["GET"])
+@auth
+@csrf_protect
+@require_role("analyst", "admin")
+def soc_security_data_api():
+    context = _build_security_data_platform_context()
+    audit("SOC_SECURITY_DATA_API_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="context")
+    return jsonify({
+        "ok": True,
+        "canonical_summary": context.get("canonical_summary", {}),
+        "detection_qa": context.get("detection_qa", {}),
+        "detection_packs": context.get("detection_packs", []),
+        "lineage_sample": context.get("lineage_sample", {}),
+        "security_graph": context.get("security_graph", {}),
+        "retention_plan": context.get("retention_plan", {}),
+    })
 
 
 @app.route("/executive", methods=["GET"])

@@ -62,6 +62,7 @@ Storage + SOC
 - **AI-assisted SOC:** explainable alert context, false-positive reduction, investigation guidance, incident prioritization, playbook recommendations, and attack progression prediction.
 - **SOC operations:** case management, analyst workflows, approval center, hunt operations, immutable evidence, SOC metrics, and executive reporting.
 - **Operational reliability:** real-time event bus, tenant-scoped stream hub, bounded queue manager, restart-safe workers, health engine, SAFE Mode, recovery planning, and disaster recovery snapshots.
+- **Security data platform:** canonical telemetry, normalization, enrichment, event lineage, detection QA, safe replay, knowledge graph pivots, retention planning, detection packs, and tenant-scoped search.
 
 ## AI-Assisted SOC Core
 
@@ -91,6 +92,8 @@ Primary workspaces:
 - **Hunt Operations:** active hunts, completed hunts, scheduled IOC/MITRE/rare-behavior hunts, and investigation guidance.
 - **Approvals:** pending response approvals, requester, reason, affected hosts, rollback capability, and expiration context.
 - **Metrics:** MTTD, MTTR, incident volume, false-positive ratio, containment success, analyst workload, and executive reporting.
+- **Detection Packs:** versioned rule packs, staged rollout visibility, canary readiness, tenant tuning and detection QA.
+- **Security Search:** tenant-scoped search across hosts, users, IOCs, detections, incidents, telemetry and campaigns.
 - **Agents:** host inventory, liveness, enrollment, heartbeat, and key lifecycle.
 - **Live Response:** pending security actions, approvals, containment state, MITRE context, and response queue.
 - **Performance:** ingest V2 status, queue pressure, dedup ratio, latency, dropped events, and throughput.
@@ -222,6 +225,7 @@ GET  /api/host/<tenant_id>/<host_id>/attack-timeline
 GET  /api/incidents
 GET  /api/incidents/export
 GET  /api/soc/live-response
+GET  /api/soc/security-data
 GET  /api/admin/performance
 GET  /api/admin/observability
 GET  /api/admin/performance-live
@@ -247,6 +251,7 @@ Current quality gates cover auth, RBAC, CSRF, tenant isolation, agent flows, XDR
 - [NETGUARD_ENTERPRISE_HARDENING.md](NETGUARD_ENTERPRISE_HARDENING.md): Agent Trust V2, action signing, replay protection, and audit integrity
 - [NETGUARD_EDR_OPERATIONS.md](NETGUARD_EDR_OPERATIONS.md): SOC operations and response workflows
 - [SAFE_OPERATIONAL_RELIABILITY.md](SAFE_OPERATIONAL_RELIABILITY.md): real-time event bus, resilient workers, health, SAFE Mode, recovery, and DR
+- [SAFE_SECURITY_DATA_PLATFORM.md](SAFE_SECURITY_DATA_PLATFORM.md): canonical telemetry, enrichment, lineage, replay, detection QA, graph and retention
 
 ## Roadmap
 
@@ -259,6 +264,7 @@ Current quality gates cover auth, RBAC, CSRF, tenant isolation, agent flows, XDR
 - [x] Scalable XDR platform core
 - [x] Enterprise hardening and trust core
 - [x] Operational reliability and real-time core
+- [x] Security data platform
 - [ ] Client Dashboard Clean Experience with executive and technical modes
 - [ ] Full production PostgreSQL migration set for legacy tables
 - [ ] Fleet-grade agent rollout, update, and policy management

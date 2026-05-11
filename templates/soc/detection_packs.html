@@ -1,0 +1,114 @@
+{% extends "soc/base.html" %}
+{% set active_page = "detection_packs" %}
+
+{% block title %}SAFE Security Operations | Detection Packs{% endblock %}
+
+{% block page %}
+<header class="soc-page-header soc-page-header-airy">
+  <div>
+    <div class="soc-breadcrumbs">
+      <a class="soc-inline-link" href="/soc/overview">Overview</a>
+      <span>/</span>
+      <span>Detection Content</span>
+    </div>
+    <h1 class="soc-page-title">Detection Packs</h1>
+    <p class="soc-page-copy">Rule packs, MITRE coverage, QA findings, staged rollout state and tenant-specific tuning visibility.</p>
+  </div>
+</header>
+
+<section class="safe-grid-4 safe-fade-in">
+  <article class="safe-card safe-kpi"><span>Total Rules</span><strong>{{ detection_catalog.summary.total_rules|default(0) }}</strong><small>Built-in and YAML content.</small></article>
+  <article class="safe-card safe-kpi"><span>QA Score</span><strong>{{ detection_qa.score|default(0) }}</strong><small>Metadata, overlap and noise checks.</small></article>
+  <article class="safe-card safe-kpi"><span>Packs</span><strong>{{ detection_packs|length }}</strong><small>Versioned content groups.</small></article>
+  <article class="safe-card safe-kpi"><span>Canonical Events</span><strong>{{ canonical_summary.events|default(0) }}</strong><small>Normalized telemetry in context.</small></article>
+</section>
+
+<section class="soc-grid-2 soc-grid-balanced" style="margin-top: 18px;">
+  <article class="soc-panel">
+    <h2 class="safe-section-title">Rule Packs</h2>
+    <div class="soc-list soc-compact-list" style="margin-top: 14px;">
+      {% for pack in detection_packs|default([]) %}
+      <div class="soc-list-item">
+        <div>
+          <div class="soc-list-title">{{ pack.name }}</div>
+          <div class="soc-list-copy">{{ pack.description }}</div>
+          <div class="soc-meta-inline">
+            <span>v{{ pack.version }}</span>
+            <span>{{ pack.rule_count }} rules</span>
+            <span>{{ pack.rollout.mode|default("stable") }}</span>
+          </div>
+        </div>
+        <span class="soc-severity-chip {{ 'low' if pack.enabled else 'medium' }}">{{ 'Enabled' if pack.enabled else 'Disabled' }}</span>
+      </div>
+      {% else %}
+      <div class="soc-empty-state soc-empty-state-premium">
+        <h3>No detection packs loaded</h3>
+        <p>SAFE will show built-in and YAML content packs here when rules are available.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="soc-panel">
+    <h2 class="safe-section-title">Detection QA</h2>
+    <div class="soc-list soc-compact-list" style="margin-top: 14px;">
+      {% for finding in detection_qa.findings|default([]) %}
+      <div class="soc-list-item">
+        <div>
+          <div class="soc-list-title">{{ finding.finding_type|replace("_", " ")|title }} · {{ finding.rule_id or "unassigned" }}</div>
+          <div class="soc-list-copy">{{ finding.message }} {{ finding.recommendation }}</div>
+        </div>
+        <span class="soc-severity-chip {{ finding.severity }}">{{ finding.severity }}</span>
+      </div>
+      {% else %}
+      <div class="soc-empty-state soc-empty-state-premium">
+        <h3>Detection content looks clean</h3>
+        <p>No duplicate, noisy or malformed rules were found in the current catalog.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+
+<section class="soc-grid-2 soc-grid-balanced" style="margin-top: 18px;">
+  <article class="soc-panel">
+    <h2 class="safe-section-title">Canonical Telemetry Sample</h2>
+    <div class="soc-list soc-compact-list" style="margin-top: 14px;">
+      {% for event in canonical_events|default([])[:8] %}
+      <div class="soc-list-item">
+        <div>
+          <div class="soc-list-title">{{ event.event_type|replace("_", " ")|title }}</div>
+          <div class="soc-list-copy">{{ event.host_id }} · {{ event.category }} · {{ event.telemetry_source }}</div>
+        </div>
+        <span class="soc-severity-chip {{ event.severity }}">{{ event.severity }}</span>
+      </div>
+      {% else %}
+      <div class="soc-empty-state soc-empty-state-premium">
+        <h3>Waiting for normalized telemetry</h3>
+        <p>Connect agents or ingest events to populate canonical data samples.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="soc-panel">
+    <h2 class="safe-section-title">Lineage Preview</h2>
+    <div class="soc-list soc-compact-list" style="margin-top: 14px;">
+      {% for step in lineage_sample.steps|default([]) %}
+      <div class="soc-list-item">
+        <div>
+          <div class="soc-list-title">{{ step.step_type|title }} · {{ step.name }}</div>
+          <div class="soc-list-copy">{{ step.created_at }}</div>
+        </div>
+        <span class="soc-severity-chip low">lineage</span>
+      </div>
+      {% else %}
+      <div class="soc-empty-state soc-empty-state-premium">
+        <h3>No lineage yet</h3>
+        <p>Lineage appears after events are normalized, enriched and evaluated.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% endblock %}

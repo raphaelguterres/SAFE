@@ -249,6 +249,9 @@ class PipelineOutcome:
     detections: list[DetectionRecord] = field(default_factory=list)
     correlations: list[CorrelationRecord] = field(default_factory=list)
     actions: list[ResponseAction] = field(default_factory=list)
+    canonical_event: Any | None = None
+    enriched_event: Any | None = None
+    event_lineage: dict[str, Any] = field(default_factory=dict)
     host_risk_score: int = 0
     behavioral_findings: list[Any] = field(default_factory=list)
     killchain_findings: list[Any] = field(default_factory=list)
@@ -270,6 +273,9 @@ class PipelineOutcome:
     def to_dict(self) -> dict[str, Any]:
         return {
             "event": self.event.to_dict(),
+            "canonical_event": _to_dict(self.canonical_event) if self.canonical_event else {},
+            "enriched_event": _to_dict(self.enriched_event) if self.enriched_event else {},
+            "event_lineage": dict(self.event_lineage or {}),
             "detections": [item.to_dict() for item in self.detections],
             "correlations": [item.to_dict() for item in self.correlations],
             "actions": [item.to_dict() for item in self.actions],

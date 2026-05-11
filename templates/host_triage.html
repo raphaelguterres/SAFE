@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
@@ -157,7 +157,7 @@
     @media (max-width: 1050px) { .side-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media (max-width: 650px) { .side-grid { grid-template-columns:1fr; } }
 
-    /* ── LIGHT THEME (Apple Pro day) ─────────────────────────── */
+    /* â”€â”€ LIGHT THEME (Apple Pro day) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     body.theme-light {
       --bg:#f5f5f7; --s1:#ffffff; --s2:#fafafa; --s3:#f0f0f2;
       --border:rgba(0,0,0,0.08);
@@ -246,7 +246,7 @@
   </header>
 
   <main class="container">
-    <div id="loading" class="loading">Carregando triagem do host…</div>
+    <div id="loading" class="loading">Carregando triagem do hostâ€¦</div>
     <div id="error" style="display:none;"></div>
     <div id="content" style="display:none;">
 
@@ -255,15 +255,15 @@
         <div class="posture-row">
           <div>
             <h1>
-              <span id="host-name">—</span>
-              <span id="host-status" class="status-pill">—</span>
+              <span id="host-name">â€”</span>
+              <span id="host-status" class="status-pill">â€”</span>
             </h1>
             <div class="posture-meta">
-              <span><strong id="host-platform">—</strong></span>
-              <span>IP: <strong id="host-ip">—</strong></span>
+              <span><strong id="host-platform">â€”</strong></span>
+              <span>IP: <strong id="host-ip">â€”</strong></span>
               <span id="host-geo"></span>
-              <span>Último check-in: <strong id="host-lastseen">—</strong></span>
-              <span>Agente: <strong id="host-agent">—</strong></span>
+              <span>Ãšltimo check-in: <strong id="host-lastseen">â€”</strong></span>
+              <span>Agente: <strong id="host-agent">â€”</strong></span>
             </div>
           </div>
         </div>
@@ -283,9 +283,9 @@
           <div class="risk-row">
             <div id="risk-score" class="risk-score-big">0</div>
             <div>
-              <span id="risk-band" class="band-pill">—</span>
+              <span id="risk-band" class="band-pill">â€”</span>
               <div style="margin-top:.4rem; color:var(--txt2); font-size:.8rem;">
-                <span id="events-count">0</span> evento(s) nas últimas 24h
+                <span id="events-count">0</span> evento(s) nas Ãºltimas 24h
               </div>
             </div>
           </div>
@@ -293,15 +293,15 @@
         </section>
 
         <section class="panel action-card">
-          <h2>Próxima Ação <span id="urgency-pill" class="band-pill urgency-pill">—</span></h2>
-          <div id="action-text" class="action-text">—</div>
-          <div id="action-rationale" class="rationale">—</div>
+          <h2>PrÃ³xima AÃ§Ã£o <span id="urgency-pill" class="band-pill urgency-pill">â€”</span></h2>
+          <div id="action-text" class="action-text">â€”</div>
+          <div id="action-rationale" class="rationale">â€”</div>
         </section>
       </div>
 
-      <!-- Cyber Kill Chain — timeline -->
+      <!-- Cyber Kill Chain â€” timeline -->
       <section class="panel kct-panel">
-        <h2>Kill Chain &mdash; progressão (últimas 24h)</h2>
+        <h2>Kill Chain &mdash; progressÃ£o (Ãºltimas 24h)</h2>
         <svg id="kct-svg" class="kct-svg" viewBox="0 0 720 220" preserveAspectRatio="none" aria-label="Kill Chain progression timeline">
           <g id="kct-grid"></g>
           <g id="kct-area"></g>
@@ -333,13 +333,13 @@
           <!-- 6 stage cards rendered by JS -->
         </div>
         <p class="kc-helper" id="kc-helper" style="margin-top:.7rem;color:var(--txt2);font-size:.82rem;">
-          Mapeamento Lockheed Kill Chain sobre as MITRE ATT&amp;CK tactics detectadas no host. Quanto mais avançada a fase, maior a urgência de contenção.
+          Mapeamento Lockheed Kill Chain sobre as MITRE ATT&amp;CK tactics detectadas no host. Quanto mais avanÃ§ada a fase, maior a urgÃªncia de contenÃ§Ã£o.
         </p>
       </section>
 
       <!-- Timeline -->
       <section class="panel">
-        <h2>Timeline (últimas 24h, top 50 eventos)</h2>
+        <h2>Timeline (Ãºltimas 24h, top 50 eventos)</h2>
         <div id="timeline"></div>
       </section>
 
@@ -372,7 +372,7 @@
       const tenantId = decodeURIComponent(parts[2] || "");
       const hostId   = decodeURIComponent(parts[3] || "");
       if (!tenantId || !hostId) {
-        renderError("URL inválida — esperado /admin/host/&lt;tenant_id&gt;/&lt;host_id&gt;");
+        renderError("URL invÃ¡lida â€” esperado /admin/host/&lt;tenant_id&gt;/&lt;host_id&gt;");
         return;
       }
       document.getElementById("crumb-tenant").href = "/admin#tenant=" + encodeURIComponent(tenantId);
@@ -380,14 +380,14 @@
       document.getElementById("crumb-host").textContent = hostId;
 
       function esc(s) {
-        if (s === null || s === undefined) return "—";
+        if (s === null || s === undefined) return "â€”";
         return String(s).replace(/[&<>"']/g, c => ({
           "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
         })[c]);
       }
 
       function fmtTime(iso) {
-        if (!iso) return "—";
+        if (!iso) return "â€”";
         try {
           const d = new Date(iso);
           if (isNaN(d)) return iso;
@@ -426,7 +426,7 @@
         const host = data.host || {};
         const geo  = data.geo  || {};
         const risk = data.risk || { score: 0, band: "none", breakdown: [] };
-        const next = data.next_action || { action: "—", rationale: "—", urgency: "none" };
+        const next = data.next_action || { action: "â€”", rationale: "â€”", urgency: "none" };
 
         document.getElementById("host-name").textContent = host.display_name || host.host_id || "(sem nome)";
         const stEl = document.getElementById("host-status");
@@ -434,10 +434,10 @@
         stEl.textContent = st;
         stEl.className = "status-pill status-" + st;
 
-        document.getElementById("host-platform").textContent = host.platform || "—";
-        document.getElementById("host-ip").textContent = host.last_ip || "—";
+        document.getElementById("host-platform").textContent = host.platform || "â€”";
+        document.getElementById("host-ip").textContent = host.last_ip || "â€”";
         document.getElementById("host-lastseen").textContent = fmtTime(host.last_seen);
-        document.getElementById("host-agent").textContent = host.agent_version || "—";
+        document.getElementById("host-agent").textContent = host.agent_version || "â€”";
 
         const geoBits = [];
         if (geo.flag)    geoBits.push(geo.flag);
@@ -474,13 +474,13 @@
         const tEl = document.getElementById("timeline");
         const tl = data.timeline || [];
         if (!tl.length) {
-          tEl.innerHTML = '<div class="timeline-empty">Sem eventos nas últimas 24h.</div>';
+          tEl.innerHTML = '<div class="timeline-empty">Sem eventos nas Ãºltimas 24h.</div>';
         } else {
           tEl.innerHTML = tl.map(e => (
             '<div class="event-row">' +
               '<span class="event-time">' + esc(fmtTime(e.timestamp)) + "</span>" +
-              '<span class="sev-pill sev-' + esc(e.severity) + '">' + esc(e.severity || "—") + "</span>" +
-              '<span>' + esc(e.summary || e.rule_name || "—") + "</span>" +
+              '<span class="sev-pill sev-' + esc(e.severity) + '">' + esc(e.severity || "â€”") + "</span>" +
+              '<span>' + esc(e.summary || e.rule_name || "â€”") + "</span>" +
               '<span class="event-source">' + esc(e.source || "") + "</span>" +
             "</div>"
           )).join("");
@@ -502,7 +502,7 @@
     })();
   </script>
   <script>
-    // Cyber Kill Chain (Lockheed) — independent fetch
+    // Cyber Kill Chain (Lockheed) â€” independent fetch
     (function () {
       var url = new URL(window.location.href);
       var parts = window.location.pathname.split("/").filter(Boolean);
@@ -546,7 +546,7 @@
           if (data.current_label) {
             labelEl.textContent = data.current_label;
           } else {
-            labelEl.textContent = "sem detecções";
+            labelEl.textContent = "sem detecÃ§Ãµes";
             labelEl.style.color = "var(--txt2)";
           }
         }
@@ -561,232 +561,5 @@
     })();
   </script>
   <script src="/static/js/netguard-ui.js" defer></script>
-</body>
-</html>
-
-  <script>
-    // Kill Chain timeline (SVG step area + dots)
-    (function () {
-      var parts = window.location.pathname.split("/").filter(Boolean);
-      var hostId = parts[parts.length - 1] || "";
-      if (!hostId) return;
-
-      var W = 720, H = 220;
-      var P = { l: 110, r: 16, t: 14, b: 28 };  // padding
-      var plotW = W - P.l - P.r;
-      var plotH = H - P.t - P.b;
-      var PHASE_LABELS = ["Recon", "Delivery", "Exploit", "Install", "C2", "Actions"];
-
-      function render(data) {
-        var statusEl = document.getElementById("kct-status");
-        var buckets = (data && data.buckets) || [];
-        if (!buckets.length) {
-          statusEl.textContent = "Sem buckets no período.";
-          return;
-        }
-        if (data.summary && data.summary.current_phase) {
-          statusEl.textContent = "Atual: " + (data.summary.current_phase || "-") +
-            " · primeira detecção: " +
-            (data.summary.phase_first_seen[data.summary.first_phase] || "-");
-        } else {
-          statusEl.textContent = "Sem detecções no período.";
-        }
-
-        var n = buckets.length;
-        var stepX = plotW / n;
-        function xOf(i) { return P.l + i * stepX; }
-        function yOf(idx) {
-          // idx 0..5, draw with y inverted (deepest = lower on screen up)
-          var clamped = Math.max(0, Math.min(5, idx));
-          return P.t + plotH - (clamped / 5) * plotH;
-        }
-
-        // Y-axis labels (6 phases)
-        var yticks = "";
-        for (var k = 0; k < 6; k++) {
-          var y = yOf(k);
-          yticks += "<line class=\"kct-grid-line\" x1=\"" + P.l + "\" y1=\"" + y +
-            "\" x2=\"" + (W - P.r) + "\" y2=\"" + y + "\" />";
-          yticks += "<text class=\"kct-tick\" x=\"" + (P.l - 8) + "\" y=\"" + (y + 3) +
-            "\" text-anchor=\"end\">" + (k + 1) + " " + PHASE_LABELS[k] + "</text>";
-        }
-        document.getElementById("kct-yticks").innerHTML = yticks;
-
-        // X-axis ticks: every 4 hours roughly
-        var hours = data.window_hours || 24;
-        var bucketMin = data.bucket_min || 15;
-        var bucketsPerHour = 60 / bucketMin;
-        var xticks = "";
-        for (var h = 0; h <= hours; h += Math.max(1, Math.round(hours / 6))) {
-          var idx = h * bucketsPerHour;
-          var xv = xOf(idx);
-          if (xv > W - P.r) continue;
-          xticks += "<text class=\"kct-tick\" x=\"" + xv + "\" y=\"" + (H - 8) +
-            "\" text-anchor=\"middle\">-" + (hours - h) + "h</text>";
-        }
-        document.getElementById("kct-xticks").innerHTML = xticks;
-
-        // Step area: deepest_index per bucket
-        var pathArea = "M " + P.l + " " + (P.t + plotH);
-        var pathLine = "";
-        var lastIdx = -1;
-        for (var i = 0; i < n; i++) {
-          var idx = buckets[i].deepest_index;
-          if (idx < 0) {
-            // no progression yet — draw at bottom
-            var x = xOf(i), y = P.t + plotH;
-            pathArea += " L " + x + " " + y + " L " + (x + stepX) + " " + y;
-            if (lastIdx === -1) pathLine = ""; // suppress until first event
-            continue;
-          }
-          var xa = xOf(i), xb = xOf(i + 1), ya = yOf(idx);
-          if (lastIdx !== idx) {
-            pathArea += " L " + xa + " " + ya;
-            if (lastIdx !== -1) {
-              pathLine += " L " + xa + " " + yOf(lastIdx) + " L " + xa + " " + ya;
-            } else {
-              pathLine = "M " + xa + " " + ya;
-            }
-            lastIdx = idx;
-          }
-          pathArea += " L " + xb + " " + ya;
-          pathLine += " L " + xb + " " + ya;
-        }
-        // Close area down to baseline
-        var lastX = xOf(n);
-        pathArea += " L " + lastX + " " + (P.t + plotH) + " Z";
-
-        document.getElementById("kct-area").innerHTML =
-          "<path class=\"kct-area-fill\" d=\"" + pathArea + "\" />";
-        document.getElementById("kct-line").innerHTML =
-          pathLine ? "<path class=\"kct-line-stroke\" d=\"" + pathLine + "\" />" : "";
-
-        // Event dots: where phases were active
-        var dots = "";
-        for (var j = 0; j < n; j++) {
-          var b = buckets[j];
-          if (!b.phases || !b.phases.length) continue;
-          for (var p = 0; p < b.phases.length; p++) {
-            var phaseIdx = ["reconnaissance","delivery","exploitation","installation","command_and_control","actions_on_objectives"].indexOf(b.phases[p]);
-            if (phaseIdx < 0) continue;
-            var dx = xOf(j) + stepX / 2, dy = yOf(phaseIdx);
-            var cls = (phaseIdx === b.deepest_index) ? "kct-event-dot-active" : "kct-event-dot";
-            dots += "<circle class=\"" + cls + "\" cx=\"" + dx + "\" cy=\"" + dy +
-              "\" r=\"2.5\" data-ts=\"" + b.ts + "\" data-bidx=\"" + j + "\"><title>" + b.ts + " · " + b.phases[p] + " (clique para detalhes)</title></circle>";
-          }
-        }
-        document.getElementById("kct-events").innerHTML = dots;
-
-        // Drill-down: stash buckets on the SVG group for click handler
-        var eventsG = document.getElementById("kct-events");
-        eventsG.__buckets = buckets;
-
-        // Bind click on dots (delegated)
-        eventsG.onclick = function (ev) {
-          var t = ev.target;
-          if (!t || t.tagName !== "circle") return;
-          var bIdx = parseInt(t.getAttribute("data-bidx"), 10);
-          if (isNaN(bIdx) || !buckets[bIdx]) return;
-          renderDrawer(buckets[bIdx]);
-        };
-      }
-
-      function renderDrawer(bucket) {
-        var drawer = document.getElementById("kct-drawer");
-        var titleEl = document.getElementById("kct-drawer-title");
-        var bodyEl = document.getElementById("kct-drawer-body");
-        if (!drawer || !bodyEl) return;
-        drawer.hidden = false;
-
-        var ts = bucket.ts || "";
-        var phaseTxt = (bucket.phases || []).join(", ") || "—";
-        titleEl.textContent = ts + " · " + phaseTxt + " · " + bucket.count + " evento(s)";
-
-        var events = bucket.events || [];
-        if (!events.length) {
-          bodyEl.innerHTML = '<div style="padding:1rem;color:var(--txt3);font-size:.85rem;text-align:center;">Sem detalhes de eventos disponíveis para este bucket.</div>';
-          return;
-        }
-        bodyEl.innerHTML = events.map(function (e) {
-          var sev = (e.severity || "low").toLowerCase();
-          var phaseColor = (e.phase === "actions_on_objectives" || e.phase === "command_and_control") ? "var(--red)" :
-                            (e.phase === "exploitation" || e.phase === "installation") ? "var(--orange)" :
-                            "var(--accent2)";
-          return '<div style="padding:.55rem .15rem;border-bottom:1px solid var(--border);font-size:.84rem;display:grid;grid-template-columns:90px 1fr auto;gap:.6rem;align-items:start;">'
-            + '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--txt3);font-size:.72rem;">' + (e.ts || "").substring(11, 19) + '</span>'
-            + '<div>'
-              + '<div style="color:var(--txt);font-weight:500;">' + (e.summary || e.event_type || e.tactic || "(sem detalhe)") + '</div>'
-              + '<div style="color:var(--txt2);font-size:.74rem;margin-top:.2rem;">'
-                + (e.tactic ? ('tactic: <span style="color:' + phaseColor + ';">' + e.tactic + '</span> · ') : "")
-                + (e.technique ? ('technique: ' + e.technique + ' · ') : "")
-                + (e.source_ip ? ('src: ' + e.source_ip + ' · ') : "")
-                + (e.process ? ('proc: ' + e.process) : "")
-              + '</div>'
-            + '</div>'
-            + '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--txt3);font-size:.7rem;">' + sev + '</span>'
-          + '</div>';
-        }).join("");
-      }
-
-      // Close handler
-      var closeBtn = document.querySelector("#kct-drawer .kct-drawer-close");
-      if (closeBtn) closeBtn.addEventListener("click", function () {
-        document.getElementById("kct-drawer").hidden = true;
-      }
-
-      fetch("/api/risk/host/" + encodeURIComponent(hostId) + "/kill_chain/timeline?window=24&bucket=15&include_events=true", {
-        credentials: "same-origin"
-      })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (d) { if (d) render(d); else render({buckets: []}); })
-        .catch(function () {
-          document.getElementById("kct-status").textContent = "Falha ao carregar timeline.";
-        });
-    })();
-  </script>
-</body>
-</html>
-nt dots: where phases were active
-        var dots = "";
-        for (var j = 0; j < n; j++) {
-          var b = buckets[j];
-          if (!b.phases || !b.phases.length) continue;
-          for (var p = 0; p < b.phases.length; p++) {
-            var phaseIdx = ["reconnaissance","delivery","exploitation","installation","command_and_control","actions_on_objectives"].indexOf(b.phases[p]);
-            if (phaseIdx < 0) continue;
-            var dx = xOf(j) + (plotW / n) / 2;ket.phases || []).join(", ") || "—";
-        titleEl.textContent = ts + " · " + phaseTxt + " · " + bucket.count + " evento(s)";
-        var events = bucket.events || [];
-        if (!events.length) {
-          bodyEl.innerHTML = "<div style=\"padding:1rem;color:var(--txt3);font-size:.85rem;text-align:center;\">Sem detalhes de eventos disponiveis para este bucket.</div>";
-          return;
-        }
-        bodyEl.innerHTML = events.map(function (e) {
-          var sev = String(e.severity || "low").toLowerCase();
-          var phaseColor = (e.phase === "actions_on_objectives" || e.phase === "command_and_control") ? "var(--red)" : (e.phase === "exploitation" || e.phase === "installation") ? "var(--orange)" : "var(--accent2)";
-          var tac = e.tactic ? "tactic: <span style=\"color:" + phaseColor + ";\">" + e.tactic + "</span> · " : "";
-          var tech = e.technique ? "tech: " + e.technique + " · " : "";
-          var src = e.source_ip ? "src: " + e.source_ip + " · " : "";
-          var prc = e.process ? "proc: " + e.process : "";
-          var time = (e.ts || "").substring(11, 19);
-          return "<div style=\"padding:.55rem .15rem;border-bottom:1px solid var(--border);font-size:.84rem;display:grid;grid-template-columns:90px 1fr auto;gap:.6rem;align-items:start;\">" +
-            "<span style=\"font-family:JetBrains Mono,monospace;color:var(--txt3);font-size:.72rem;\">" + time + "</span>" +
-            "<div><div style=\"color:var(--txt);font-weight:500;\">" + (e.summary || e.event_type || e.tactic || "(sem detalhe)") + "</div>" +
-            "<div style=\"color:var(--txt2);font-size:.74rem;margin-top:.2rem;\">" + tac + tech + src + prc + "</div></div>" +
-            "<span style=\"font-family:JetBrains Mono,monospace;color:var(--txt3);font-size:.7rem;\">" + sev + "</span></div>";
-        }).join("");
-      }
-
-      var closeBtn = document.querySelector("#kct-drawer .kct-drawer-close");
-      if (closeBtn) closeBtn.addEventListener("click", function () {
-        document.getElementById("kct-drawer").hidden = true;
-      });
-
-      fetch("/api/risk/host/" + encodeURIComponent(hostId) + "/kill_chain/timeline?window=24&bucket=15&include_events=true", { credentials: "same-origin" })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (d) { if (d) render(d); else render({buckets: []}); })
-        .catch(function () { document.getElementById("kct-status").textContent = "Falha ao carregar timeline."; });
-    })();
-  </script>
 </body>
 </html>
