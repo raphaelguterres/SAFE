@@ -204,6 +204,7 @@ class TelemetryCollector:
         collect_processes: bool = True,
         collect_connections: bool = True,
         collect_security: bool = True,
+        collect_auth_events: bool = True,
     ):
         self.host_id = host_id
         self.host_facts = host_facts
@@ -211,10 +212,13 @@ class TelemetryCollector:
         self.collect_processes = collect_processes
         self.collect_connections = collect_connections
         self.collect_security = collect_security
+        self.collect_auth_events = collect_auth_events
 
         # Snapshot anterior — usado pra emitir só deltas.
         self._known_pids: set[int] = set()
         self._known_conns: set[tuple] = set()
+        self._last_auth_record_id: int | None = None
+        self._auth_events_baselined = False
         self._first_run = True
 
     # ──────────────────────────────────────────────────────────────
@@ -234,6 +238,8 @@ class TelemetryCollector:
             events.extend(self._collect_processes(psutil))
         if self.collect_connections:
             events.extend(self._collect_connections(psutil))
+        if self.collect_auth_events:
+            events.extend(self._collect_auth_events())
 
         self._first_run = False
         return events
@@ -376,6 +382,21 @@ class TelemetryCollector:
         self._known_conns = seen_conns
         return events
 
+    def _collect_auth_events(self) -> list[dict]:
+        try:
+            from agent.auth_logon_monitor import collect_windows_logon_events
+        except Exception as exc:
+            logger.debug("auth logon monitor unavailable: %s", exc)
+            return []
+
+        result = collect_windows_logon_events(after_record_id=self._last_auth_record_id, limit=50)
+        if result.latest_record_id is not None:
+            self._last_auth_record_id = result.latest_record_id
+        if not self._auth_events_baselined:
+            self._auth_events_baselined = True
+            return []
+        return [self._build_auth_event(event) for event in result.events]
+
     def _scan_process_security(
         self, *, pid, ppid, name, cmdline, parent_name, username
     ) -> list[dict]:
@@ -505,6 +526,41 @@ class TelemetryCollector:
                 "src_port": laddr_port,
                 "status": status,
             },
+        )
+
+    def _build_auth_event(self, event) -> dict:
+        tactic = "Credential Access" if event.event_type == "login_failed" else "Initial Access"
+        technique = "T1110" if event.event_type == "login_failed" else "T1078"
+        return self._event_base(
+            event_type=event.event_type,
+            severity=event.severity,
+            confidence=85,
+            evidence=event.evidence,
+            raw={
+                "windows_event_id": event.event_id,
+                "event_record_id": event.record_id,
+                "domain": event.domain,
+                "workstation": event.workstation,
+                "logon_type": event.logon_type,
+                "outcome": event.outcome,
+                "status": event.status,
+                "failure_reason": event.failure_reason,
+            },
+            timestamp=event.timestamp or _utc_iso(),
+            user=event.user,
+            username=event.user,
+            src_ip=event.source_ip,
+            mitre_tactic=tactic,
+            mitre_technique=technique,
+            details={
+                "windows_event_id": event.event_id,
+                "event_record_id": event.record_id,
+                "domain": event.domain,
+                "workstation": event.workstation,
+                "logon_type": event.logon_type,
+                "outcome": event.outcome,
+            },
+            tags=["safe-agent", "identity", "authentication"],
         )
 
     def _build_security_event(self, *, pid, ppid, name, cmdline,

@@ -255,6 +255,7 @@ load the issued key from `credential_path` instead of keeping it in config.
 | `collect_processes` | `true` | Toggle off to silence on noisy hosts. |
 | `collect_connections` | `true` | |
 | `collect_security_indicators` | `true` | |
+| `collect_auth_events` | `true` | Windows Security Log 4624/4625 identity telemetry. Degrades safely if access is denied. |
 
 ### Transport hardening
 

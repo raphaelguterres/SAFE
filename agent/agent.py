@@ -148,6 +148,7 @@ class NetGuardAgent:
             collect_processes=self.config.collect_processes,
             collect_connections=self.config.collect_connections,
             collect_security=self.config.collect_security_indicators,
+            collect_auth_events=self.config.collect_auth_events,
         )
         self.action_client = AgentActionClient(self.sender)
         self.action_executor = AgentActionExecutor(
@@ -298,6 +299,7 @@ class NetGuardAgent:
                 "processes": bool(self.config.collect_processes),
                 "connections": bool(self.config.collect_connections),
                 "security_indicators": bool(self.config.collect_security_indicators),
+                "auth_events": bool(self.config.collect_auth_events),
                 "interval_seconds": int(self.config.interval_seconds),
                 "batch_max_events": int(self.config.batch_max_events),
             },

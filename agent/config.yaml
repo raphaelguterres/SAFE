@@ -75,3 +75,4 @@ tags: []
 collect_processes: true
 collect_connections: true
 collect_security_indicators: true
+collect_auth_events: true

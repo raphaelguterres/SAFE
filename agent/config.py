@@ -62,6 +62,7 @@ class AgentConfig:
     collect_processes: bool = True
     collect_connections: bool = True
     collect_security_indicators: bool = True
+    collect_auth_events: bool = True
 
     def validate(self) -> None:
         if not self.server_url.startswith(("http://", "https://")):
@@ -218,6 +219,7 @@ def _apply_env_overrides(cfg: AgentConfig) -> AgentConfig:
         "ALLOW_DESTRUCTIVE_RESPONSE_ACTIONS": ("allow_destructive_response_actions", bool),
         "RESPONSE_POLICY_SECRET": ("response_policy_secret", str),
         "TENANT_ID": ("tenant_id", str),
+        "COLLECT_AUTH_EVENTS": ("collect_auth_events", bool),
     }
     for env_suffix, (attr, kind) in mapping.items():
         val = os.environ.get(_ENV_PREFIX + env_suffix)
