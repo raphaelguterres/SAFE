@@ -1,0 +1,98 @@
+{% extends "soc/base.html" %}
+{% set active_page = "identities" %}
+{% set summary = identity_summary if identity_summary is defined else {} %}
+{% set profiles = identity_profiles if identity_profiles is defined else [] %}
+
+{% block title %}SAFE Security Operations | Identity Risk{% endblock %}
+
+{% block page %}
+<header class="soc-page-header soc-page-header-airy">
+  <div>
+    <div class="soc-breadcrumbs">
+      <a class="soc-inline-link" href="/soc/overview">Overview</a>
+      <span>/</span>
+      <span>Identity Risk</span>
+    </div>
+    <h1 class="soc-page-title">Identity Risk</h1>
+    <p class="soc-page-copy">User-centric risk signals for brute force, impossible travel, privilege escalation and unusual access.</p>
+  </div>
+  <a class="soc-action-button" href="/api/soc/identities">JSON</a>
+</header>
+
+<section class="safe-grid-4 safe-fade-in">
+  <article class="safe-card safe-kpi">
+    <span>Identities Observed</span>
+    <strong>{{ summary.total_identities|default(0) }}</strong>
+    <small>Users with attributable telemetry.</small>
+  </article>
+  <article class="safe-card safe-kpi">
+    <span>High Risk</span>
+    <strong>{{ summary.high_risk_identities|default(0) }}</strong>
+    <small>Profiles at high or critical risk.</small>
+  </article>
+  <article class="safe-card safe-kpi">
+    <span>Anomalies</span>
+    <strong>{{ summary.total_anomalies|default(0) }}</strong>
+    <small>Identity detections in current context.</small>
+  </article>
+  <article class="safe-card safe-kpi">
+    <span>Affected Hosts</span>
+    <strong>{{ summary.affected_hosts|default(0) }}</strong>
+    <small>Endpoints touched by risky identities.</small>
+  </article>
+</section>
+
+<section class="safe-operation-grid" style="margin-top: 18px;">
+  <article class="soc-panel">
+    <div class="safe-section-heading">
+      <div>
+        <h2 class="safe-section-title">Prioritized Identity Queue</h2>
+        <p class="safe-section-copy">Sorted by risk score so analysts can triage the identity most likely to be abused first.</p>
+      </div>
+    </div>
+
+    <div class="soc-list soc-compact-list" style="margin-top: 14px;">
+      {% for profile in profiles %}
+      <div class="soc-list-item">
+        <div>
+          <span class="soc-list-title">{{ profile.user_id }}</span>
+          <span class="soc-list-meta">
+            {{ profile.privilege_level|default("standard") }} - {{ profile.affected_hosts|length }} host(s) - {{ profile.anomalies|length }} anomaly(s)
+          </span>
+        </div>
+        <span class="soc-severity-chip {{ profile.severity_band|default('low') }}">{{ profile.risk_score|default(0) }} risk</span>
+      </div>
+      {% else %}
+      <div class="soc-empty-state soc-empty-state-premium">
+        <h3>No identity risk signals yet</h3>
+        <p>SAFE is waiting for authentication or user-attributed endpoint telemetry before building identity risk profiles.</p>
+        <a class="soc-action-button" href="/soc/hosts">Review endpoint coverage</a>
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="soc-panel">
+    <h2 class="safe-section-title">Anomaly Breakdown</h2>
+    <p class="safe-section-copy">Concise evidence for the highest-priority identity profiles.</p>
+    <div class="soc-list soc-compact-list" style="margin-top: 14px;">
+      {% for profile in profiles[:5] %}
+        {% for anomaly in profile.anomalies[:4] %}
+        <div class="soc-list-item">
+          <div>
+            <span class="soc-list-title">{{ anomaly.type|replace("_", " ")|title }}</span>
+            <span class="soc-list-meta">{{ profile.user_id }} - {{ anomaly.host_id|default("no host") }} - {{ anomaly.ts|default("unknown time") }}</span>
+          </div>
+          <span class="soc-severity-chip {{ profile.severity_band|default('low') }}">{{ anomaly.severity|default(0) }}</span>
+        </div>
+        {% endfor %}
+      {% else %}
+      <div class="soc-empty-state soc-empty-state-premium">
+        <h3>No anomalies to explain</h3>
+        <p>Clean identity telemetry will stay quiet here; risky user behavior will appear with evidence and affected hosts.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% endblock %}

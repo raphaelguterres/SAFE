@@ -4,7 +4,7 @@ import importlib
 def test_primary_pages_do_not_render_stack_traces():
     app_mod = importlib.import_module("app")
     client = app_mod.app.test_client()
-    for path in ["/login", "/pricing", "/soc-preview", "/executive", "/soc/search", "/soc/detection-packs"]:
+    for path in ["/login", "/pricing", "/soc-preview", "/executive", "/soc/search", "/soc/detection-packs", "/soc/identities"]:
         response = client.get(path, headers={"Accept": "text/html"})
         assert response.status_code < 500, path
         assert "Traceback (most recent call last)" not in response.get_data(as_text=True)

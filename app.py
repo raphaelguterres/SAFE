@@ -2821,6 +2821,92 @@ def _build_soc_preview_context():
     return context
 
 
+def _identity_user_from_event(event: dict) -> str:
+    if not isinstance(event, dict):
+        return ""
+    candidate_keys = (
+        "user_id",
+        "user",
+        "username",
+        "account_name",
+        "target_user",
+        "target_user_name",
+        "subject_user",
+    )
+    for source in (event, event.get("details") or {}, event.get("raw") or {}):
+        if not isinstance(source, dict):
+            continue
+        for key in candidate_keys:
+            value = source.get(key)
+            if value:
+                return str(value).strip()
+    return ""
+
+
+def _build_identity_risk_context(context: dict | None = None) -> dict:
+    context = context or _build_soc_experience_context()
+    try:
+        from xdr.identity_engine import assess_identity_risk
+    except Exception:
+        context.update({
+            "identity_profiles": [],
+            "identity_summary": {
+                "total_identities": 0,
+                "high_risk_identities": 0,
+                "total_anomalies": 0,
+                "affected_hosts": 0,
+            },
+        })
+        return context
+
+    grouped_events: dict[str, list[dict]] = {}
+    recent_events = list((context.get("xdr_summary") or {}).get("recent_events") or [])
+    for alert in context.get("alerts") or []:
+        event = alert.get("event") if isinstance(alert, dict) else None
+        if isinstance(event, dict):
+            recent_events.append(event)
+
+    for event in recent_events:
+        if not isinstance(event, dict):
+            continue
+        user_id = _identity_user_from_event(event)
+        if not user_id:
+            continue
+        event_copy = dict(event)
+        event_copy.setdefault("user", user_id)
+        event_copy.setdefault("tenant_id", _current_request_tenant_id())
+        grouped_events.setdefault(user_id, []).append(event_copy)
+
+    profiles = [
+        assess_identity_risk(user_id, events).to_dict()
+        for user_id, events in grouped_events.items()
+    ]
+    profiles.sort(
+        key=lambda item: (
+            int(item.get("risk_score") or 0),
+            str(item.get("last_seen") or ""),
+            str(item.get("user_id") or ""),
+        ),
+        reverse=True,
+    )
+    affected_hosts = {
+        host
+        for profile in profiles
+        for host in profile.get("affected_hosts", [])
+        if host
+    }
+    context.update({
+        "identity_profiles": profiles,
+        "identity_summary": {
+            "total_identities": len(profiles),
+            "high_risk_identities": sum(1 for item in profiles if int(item.get("risk_score") or 0) >= 60),
+            "total_anomalies": sum(len(item.get("anomalies") or []) for item in profiles),
+            "affected_hosts": len(affected_hosts),
+        },
+    })
+    return context
+
+
 def _soc_pretty_alert_type(value: str) -> str:
     raw = str(value or "").strip()
     if not raw:
@@ -12676,6 +12762,28 @@ def soc_detection_packs_page():
 def soc_security_search_page():
     audit("SOC_SECURITY_SEARCH_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="page")
     return render_template("soc/search.html", **_build_security_data_platform_context())
+
+
+@app.route("/soc/identities", methods=["GET"])
+@require_session
+@require_role("analyst", "admin")
+def soc_identities_page():
+    audit("SOC_IDENTITIES_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="page")
+    return render_template("soc/identities.html", **_build_identity_risk_context())
+
+
+@app.route("/api/soc/identities", methods=["GET"])
+@auth
+@csrf_protect
+@require_role("analyst", "admin")
+def soc_identities_api():
+    context = _build_identity_risk_context()
+    audit("SOC_IDENTITIES_API_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="context")
+    return jsonify({
+        "ok": True,
+        "summary": context.get("identity_summary", {}),
+        "identities": context.get("identity_profiles", []),
+    })
 
 
 @app.route("/api/soc/security-data", methods=["GET"])
