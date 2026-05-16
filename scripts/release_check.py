@@ -38,8 +38,12 @@ REQUIRED_DOCS = [
     "docs/ARCHITECTURE.md",
     "docs/SECURITY_MODEL.md",
     "docs/DEMO_GUIDE.md",
+    "docs/DEMO_ASSETS.md",
+    "docs/SCREENSHOT_GUIDE.md",
+    "docs/API_REFERENCE.md",
     "docs/ROADMAP.md",
     "docs/PORTFOLIO_SUMMARY.md",
+    "openapi/safe-api.yaml",
 ]
 IMPORT_MODULES = [
     "app",
@@ -90,6 +94,7 @@ def run_release_check(root: str | Path = ".", *, quick: bool = False) -> dict[st
             _timed_gate("template_render_check", lambda: _template_check(base)),
             _timed_gate("docs_presence_check", lambda: _docs_check(base)),
             _timed_gate("branding_check", lambda: _branding_check(base)),
+            _timed_gate("demo_readiness_check", lambda: _demo_readiness_check(base)),
         ]
     )
     blockers = [blocker for gate in gates for blocker in gate.blockers]
@@ -176,7 +181,7 @@ def _import_smoke() -> GateResult:
 def _route_smoke() -> GateResult:
     app_module = importlib.import_module("app")
     client = app_module.app.test_client()
-    paths = ["/api/health", "/login", "/pricing", "/soc-preview", "/executive"]
+    paths = ["/api/health", "/login", "/pricing", "/soc-preview", "/executive", "/client/overview", "/api/openapi.yaml"]
     failures: list[str] = []
     for path in paths:
         response = client.get(path, headers={"Accept": "text/html"})
@@ -266,6 +271,25 @@ def _branding_check(base: Path) -> GateResult:
     status = "warn" if warnings else "pass"
     score = 85 if warnings else 100
     return GateResult("branding_check", status, "Branding check completed.", score, warnings)
+
+
+def _demo_readiness_check(base: Path) -> GateResult:
+    from scripts.demo_readiness_check import run_demo_readiness_check
+
+    result = run_demo_readiness_check(base)
+    warnings = list(result.get("warnings") or [])
+    failures = list(result.get("failures") or [])
+    if failures:
+        return GateResult(
+            "demo_readiness_check",
+            "warn",
+            "Demo readiness has non-blocking findings.",
+            80,
+            warnings=warnings + failures,
+        )
+    status = "warn" if warnings else "pass"
+    score = 90 if warnings else 100
+    return GateResult("demo_readiness_check", status, "Demo readiness check completed.", score, warnings)
 
 
 def main() -> int:

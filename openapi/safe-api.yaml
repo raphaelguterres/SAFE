@@ -1,0 +1,330 @@
+openapi: 3.0.3
+info:
+  title: SAFE Enterprise XDR / EDR API
+  version: enterprise-preview-v0.1.0
+  description: >
+    SAFE telemetry, agent, incident, detection, and administrative APIs.
+    Legacy NetGuard headers remain accepted for compatibility.
+servers:
+  - url: http://localhost:5000
+security:
+  - AgentKey: []
+  - BearerToken: []
+paths:
+  /api/events:
+    post:
+      summary: Ingest SAFE Agent events
+      security:
+        - AgentKey: []
+        - LegacyAgentKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventIngestRequest"
+            example:
+              tenant_id: default
+              host_id: SAFE-WS-14
+              events:
+                - event_type: process
+                  severity: medium
+                  command_line: powershell.exe -NoProfile
+      responses:
+        "200":
+          description: Events accepted and processed.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/agent/register:
+    post:
+      summary: Register a SAFE Agent host
+      security:
+        - ManagementToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentRegisterRequest"
+            example:
+              host_id: SAFE-WS-14
+              display_name: Finance workstation
+              platform: windows
+              agent_version: 0.1.0
+      responses:
+        "201":
+          description: Host registered and one-time API key returned.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/agent/heartbeat:
+    post:
+      summary: Update SAFE Agent liveness and posture
+      security:
+        - AgentKey: []
+        - LegacyAgentKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              host_id: SAFE-WS-14
+              status: online
+              metrics:
+                cpu_percent: 18.2
+                memory_percent: 51.4
+      responses:
+        "200":
+          description: Heartbeat recorded.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/agent/events:
+    post:
+      summary: Submit endpoint telemetry through the agent channel
+      security:
+        - AgentKey: []
+        - LegacyAgentKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventIngestRequest"
+      responses:
+        "200":
+          description: Telemetry accepted.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/xdr/events:
+    post:
+      summary: Submit normalized XDR endpoint events
+      security:
+        - AgentKey: []
+        - LegacyAgentKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventIngestRequest"
+      responses:
+        "200":
+          description: Events processed synchronously.
+        "202":
+          description: Events queued when XDR ingest V2 is enabled.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/incidents:
+    get:
+      summary: List tenant-scoped incidents
+      security:
+        - BearerToken: []
+      responses:
+        "200":
+          description: Incident list returned.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/incidents/export:
+    get:
+      summary: Export incidents for reporting
+      security:
+        - BearerToken: []
+      responses:
+        "200":
+          description: Incident export returned.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/detection/rules:
+    get:
+      summary: List detection rules
+      security:
+        - BearerToken: []
+      responses:
+        "200":
+          description: Detection rule catalog.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/detection/coverage:
+    get:
+      summary: Show MITRE ATT&CK and data-source coverage
+      security:
+        - BearerToken: []
+      responses:
+        "200":
+          description: Detection coverage summary.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/admin/performance:
+    get:
+      summary: Admin performance metrics
+      security:
+        - BearerToken: []
+      responses:
+        "200":
+          description: Performance metrics returned.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/admin/observability:
+    get:
+      summary: Admin observability snapshot
+      security:
+        - BearerToken: []
+      responses:
+        "200":
+          description: Observability snapshot returned.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/admin/config/status:
+    get:
+      summary: Production-readiness configuration status
+      security:
+        - BearerToken: []
+      responses:
+        "200":
+          description: Redacted configuration status.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/admin/audit/integrity:
+    get:
+      summary: Audit integrity status
+      security:
+        - BearerToken: []
+      responses:
+        "200":
+          description: Audit integrity status returned.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+components:
+  securitySchemes:
+    AgentKey:
+      type: apiKey
+      in: header
+      name: X-SAFE-Agent-Key
+      description: Preferred SAFE Agent key header.
+    LegacyAgentKey:
+      type: apiKey
+      in: header
+      name: X-NetGuard-Agent-Key
+      description: Legacy compatibility header accepted during migration.
+    BearerToken:
+      type: http
+      scheme: bearer
+    ManagementToken:
+      type: apiKey
+      in: header
+      name: X-Management-Token
+  schemas:
+    EventIngestRequest:
+      type: object
+      required: [host_id, events]
+      properties:
+        tenant_id:
+          type: string
+        host_id:
+          type: string
+        agent_id:
+          type: string
+        events:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    AgentRegisterRequest:
+      type: object
+      required: [host_id]
+      properties:
+        tenant_id:
+          type: string
+        host_id:
+          type: string
+        display_name:
+          type: string
+        platform:
+          type: string
+        agent_version:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+  responses:
+    BadRequest:
+      description: Invalid JSON, invalid event, or missing required field.
+    Unauthorized:
+      description: Missing or invalid authentication.
+    Forbidden:
+      description: Authenticated caller lacks permission.
+    RateLimited:
+      description: Tenant or agent exceeded configured rate limits.
+    InternalError:
+      description: Unexpected server error.

@@ -10132,11 +10132,11 @@ def _get_safe_operational_core():
         from xdr.event_bus import get_event_bus
         from xdr.health_engine import HealthEngine
         from xdr.observability import get_observability_registry
-        from xdr.queue_manager import ResilientQueueManager
         from xdr.realtime_stream import get_realtime_stream_hub
         from xdr.recovery_engine import RecoveryEngine
+        from server.queue_config import build_operational_queue_manager
 
-        queue = ResilientQueueManager(max_size=5_000, dead_letter_size=500, per_tenant_limit=2_000)
+        queue = build_operational_queue_manager(max_size=5_000, dead_letter_size=500, per_tenant_limit=2_000)
         supervisor = WorkerSupervisor([
             TelemetryWorker(queue_manager=queue),
             CorrelationWorker(queue_manager=queue),
@@ -10274,10 +10274,32 @@ def admin_config_status():
 
         status = validate_production_config()
         audit("ADMIN_CONFIG_STATUS_VIEW", actor="admin", ip=request.remote_addr or "-", detail="safe")
+        try:
+            from server.queue_config import queue_config_status
+
+            status["queue_backend"] = queue_config_status()
+        except Exception:
+            status["queue_backend"] = {"backend": "unknown"}
         return jsonify({"ok": True, "config": status})
     except Exception:
         logger.exception("admin config status failed")
         return jsonify({"ok": False, "error": "config_status_unavailable"}), 500
+
+
+@app.route("/api/openapi.json", methods=["GET"])
+def api_openapi_json():
+    """Return the SAFE OpenAPI contract as JSON."""
+    from server.openapi import openapi_json_response
+
+    return openapi_json_response(jsonify)
+
+
+@app.route("/api/openapi.yaml", methods=["GET"])
+def api_openapi_yaml():
+    """Return the SAFE OpenAPI contract as YAML."""
+    from server.openapi import openapi_yaml_response
+
+    return openapi_yaml_response(Response)
 
 
 @app.route("/api/admin/ingest-v2/control", methods=["POST"])
@@ -10349,11 +10371,16 @@ def api_recommended_route():
 
 
 @app.route("/client/overview")
+@app.route("/client")
+@app.route("/client/dashboard")
 @require_session
 @require_role("viewer")
 def client_overview():
     """Executive client view with tenant-scoped posture and no secret exposure."""
+    from server.client_dashboard import build_client_dashboard_context
+
     context = _build_soc_preview_context()
+    context = build_client_dashboard_context(context)
     audit("CLIENT_OVERVIEW_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="page")
     return render_template("client_overview.html", **context)
 

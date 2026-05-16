@@ -64,9 +64,40 @@ Open:
 
 - `http://127.0.0.1:5000/login`
 - `http://127.0.0.1:5000/admin`
+- `http://127.0.0.1:5000/client/overview`
 - `http://127.0.0.1:5000/soc`
 - `http://127.0.0.1:5000/soc/search`
 - `http://127.0.0.1:5000/soc/detection-packs`
+- `http://127.0.0.1:5000/api/openapi.yaml`
+
+## PostgreSQL Migrations
+
+SQLite remains the default for local demo. For production-like PostgreSQL, set
+`DATABASE_URL` and run the idempotent migration runner:
+
+```powershell
+$env:DATABASE_URL="postgresql://safe:safe@localhost:5432/safe"
+python scripts\migrate_postgres.py --dry-run
+python scripts\migrate_postgres.py
+```
+
+You can also pass `--database-url` directly. The runner creates
+`schema_migrations` and applies only pending files from `migrations/postgres`.
+
+## Optional Redis Queues
+
+The operational reliability queue uses memory by default. Redis can be enabled
+for production-style pilots without making local demo dependent on Redis:
+
+```powershell
+$env:SAFE_QUEUE_BACKEND="redis"
+$env:REDIS_URL="redis://localhost:6379/0"
+$env:SAFE_REDIS_REQUIRED="false"
+```
+
+With `SAFE_REDIS_REQUIRED=false`, SAFE falls back to memory with a warning if
+Redis is unavailable. Use `SAFE_REDIS_REQUIRED=true` only when Redis availability
+must be a startup requirement.
 
 ## Seed Demo Data
 
@@ -116,6 +147,7 @@ docker compose --profile postgres up --build
 python -m pytest -q
 python run_pentest_audit.py
 python scripts\release_check.py
+python scripts\demo_readiness_check.py
 python scripts\security_self_check.py
 python scripts\template_check.py
 python scripts\branding_check.py

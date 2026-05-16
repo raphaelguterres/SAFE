@@ -11,6 +11,8 @@ Treat these items as mandatory before exposing the app outside localhost:
 - strong `TOKEN_SIGNING_SECRET`
 - reverse proxy with TLS
 - PostgreSQL recommended for production
+- PostgreSQL migrations applied with `scripts/migrate_postgres.py`
+- optional Redis-backed operational queues (`SAFE_QUEUE_BACKEND=redis`)
 - persistent admin rate-limit DB (`IDS_ADMIN_RL_DB`)
 - shared modular API rate limit (`sqlite` for single-host, `redis` for multi-node)
 - audit log rotation and retention configured
@@ -67,6 +69,9 @@ TOKEN_SIGNING_SECRET=<64+ char random secret>
 SECRET_KEY=<separate random secret if used>
 APP_URL=https://your-domain.example
 DATABASE_URL=postgresql://user:pass@host:5432/netguard
+SAFE_QUEUE_BACKEND=memory
+REDIS_URL=redis://redis.internal:6379/0
+SAFE_REDIS_REQUIRED=false
 IDS_AUDIT_LOG=/var/log/netguard/audit.log
 IDS_AUDIT_LOG_ROTATE_WHEN=midnight
 IDS_AUDIT_LOG_ROTATE_INTERVAL=1
@@ -79,6 +84,17 @@ NETGUARD_RATE_LIMIT_BURST=40
 IDS_CORS_ORIGINS=https://your-domain.example
 ```
 
+Apply PostgreSQL migrations before opening a production tenant:
+
+```bash
+python scripts/migrate_postgres.py --dry-run
+python scripts/migrate_postgres.py
+```
+
+The runner is idempotent, creates `schema_migrations`, and applies only pending
+SQL files from `migrations/postgres`. SQLite remains the default local/demo
+store and is not replaced by this path.
+
 For multi-node deployments, move the modular ingest limiter to Redis:
 
 ```dotenv
@@ -88,6 +104,18 @@ NETGUARD_RATE_LIMIT_REDIS_PREFIX=netguard:rate_limit
 NETGUARD_RATE_LIMIT_RATE_PER_SEC=20
 NETGUARD_RATE_LIMIT_BURST=40
 ```
+
+For the SAFE operational reliability queue, enable Redis separately:
+
+```dotenv
+SAFE_QUEUE_BACKEND=redis
+REDIS_URL=redis://redis.internal:6379/0
+SAFE_REDIS_REQUIRED=false
+```
+
+When Redis is optional, startup falls back to the bounded memory queue with a
+warning. Set `SAFE_REDIS_REQUIRED=true` only when the deployment should fail
+closed if Redis is unavailable. Redis keys are tenant-scoped for queue isolation.
 
 Generate a signing secret:
 
