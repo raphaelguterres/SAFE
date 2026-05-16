@@ -2104,7 +2104,7 @@ body.theme-light.auth-page {
   color: #1d1d1f !important;
 }
 
-/* netguard.css applies radial-gradient via .pricing-page / .welcome-page etc — kill it in light */
+/* safe.css applies radial-gradient via .pricing-page / .welcome-page etc — kill it in light */
 [data-theme="light"] .pricing-page,
 [data-theme="light"] .marketing-page,
 [data-theme="light"] .welcome-page,

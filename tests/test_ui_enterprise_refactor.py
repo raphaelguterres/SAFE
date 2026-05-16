@@ -11,7 +11,7 @@ def _read(path: str) -> str:
 
 
 def test_netguard_design_tokens_are_centralized():
-    css = _read("static/css/netguard.css")
+    css = _read("static/css/safe.css")
     for token in (
         "--bg",
         "--panel",
@@ -30,8 +30,8 @@ def test_netguard_design_tokens_are_centralized():
 
 
 def test_shared_ui_assets_exist_and_are_referenced():
-    assert (ROOT / "static/css/netguard.css").is_file()
-    assert (ROOT / "static/js/netguard-ui.js").is_file()
+    assert (ROOT / "static/css/safe.css").is_file()
+    assert (ROOT / "static/js/safe-ui.js").is_file()
 
     pages = [
         "admin.html",
@@ -48,7 +48,7 @@ def test_shared_ui_assets_exist_and_are_referenced():
         "templates/soc/base.html",
     ]
     for page in pages:
-        assert "netguard.css" in _read(page), page
+        assert "safe.css" in _read(page), page
 
 
 def test_soc_sidebar_has_product_workspace_sections():
@@ -73,7 +73,7 @@ def test_soc_sidebar_has_product_workspace_sections():
 def test_guided_soc_recommendation_assets_are_wired():
     app_src = _read("app.py")
     service_src = _read("services/recommendation_service.py")
-    js = _read("static/js/netguard-ui.js")
+    js = _read("static/js/safe-ui.js")
     overview = _read("templates/soc/overview.html")
 
     assert "get_recommended_route" in app_src
@@ -85,7 +85,7 @@ def test_guided_soc_recommendation_assets_are_wired():
 
 
 def test_apple_enterprise_ui_layer_exists():
-    css = _read("static/css/netguard.css")
+    css = _read("static/css/safe.css")
     for marker in (
         "Apple/enterprise product layer",
         "#f5f5f7",
@@ -99,7 +99,7 @@ def test_apple_enterprise_ui_layer_exists():
 
 
 def test_dark_enterprise_layer_and_local_login_are_wired():
-    css = _read("static/css/netguard.css")
+    css = _read("static/css/safe.css")
     login = _read("templates/login.html")
     app_src = _read("app.py")
 
@@ -149,8 +149,8 @@ def test_enterprise_ui_assets_do_not_embed_secrets():
     combined = "\n".join(
         _read(path)
         for path in (
-            "static/css/netguard.css",
-            "static/js/netguard-ui.js",
+            "static/css/safe.css",
+            "static/js/safe-ui.js",
             "templates/landing.html",
             "templates/client_overview.html",
             "templates/operator_inbox.html",

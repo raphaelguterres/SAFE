@@ -53,7 +53,7 @@ def test_safe_dashboard_visible_branding_replaces_legacy_copy():
 def test_safe_client_overview_is_wired_without_secret_exposure():
     app_src = _read("app.py")
     template = _read("templates/client_overview.html")
-    css = _read("static/css/netguard.css")
+    css = _read("static/css/safe.css")
 
     assert '@app.route("/client/overview")' in app_src
     assert "CLIENT_OVERVIEW_VIEW" in app_src
@@ -67,7 +67,7 @@ def test_safe_client_overview_is_wired_without_secret_exposure():
 
 
 def test_safe_dark_enterprise_tokens_exist():
-    css = _read("static/css/netguard.css")
+    css = _read("static/css/safe.css")
     for marker in (
         "SAFE rebrand premium dark layer",
         "--safe-bg",
@@ -87,7 +87,7 @@ def test_legacy_contract_names_are_documented_not_removed():
 
 
 def test_safe_theme_toggle_supports_light_login_and_admin():
-    css = _read("static/css/netguard.css")
+    css = _read("static/css/safe.css")
     for marker in (
         "SAFE theme repair",
         'html[data-theme="light"] body.auth-page',
@@ -100,7 +100,7 @@ def test_safe_theme_toggle_supports_light_login_and_admin():
 
 def test_safe_admin_console_has_isolated_theme_shell():
     admin = _read("admin.html")
-    css = _read("static/css/netguard.css")
+    css = _read("static/css/safe.css")
     js = _read("static/js/theme-toggle.js")
 
     for marker in (

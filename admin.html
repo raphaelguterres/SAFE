@@ -144,7 +144,7 @@ body.theme-light .theme-toggle:hover{ background:rgba(0,0,0,0.04) }
 body.theme-light .theme-toggle .icon-sun{display:block} body.theme-light .theme-toggle .icon-moon{display:none}
 
 </style>
-<link rel="stylesheet" href="/static/css/netguard.css">
+<link rel="stylesheet" href="/static/css/safe.css">
 <script src="/static/js/theme-toggle.js"></script>
 </head>
 <body class="safe-admin-shell">
@@ -408,7 +408,7 @@ body.theme-light .theme-toggle .icon-sun{display:block} body.theme-light .theme-
     <div class="panel">
       <div class="panel-title">🔐 Segurança — Admin Token</div>
       <p style="color:var(--muted);font-size:.83rem;margin-bottom:12px">
-        O token de admin fica em <code style="background:var(--surface2);padding:1px 6px;border-radius:3px">.netguard_token</code>.
+        O token de admin fica em <code style="background:var(--surface2);padding:1px 6px;border-radius:3px">.safe_token</code> <small style="color:var(--txt2)">(legacy: <code>.netguard_token</code>)</small>.
         Rotacione se suspeitar de vazamento ou periodicamente como prática de segurança.
         O token antigo é invalidado imediatamente e o novo é exibido uma única vez.
       </p>
@@ -422,7 +422,7 @@ body.theme-light .theme-toggle .icon-sun{display:block} body.theme-light .theme-
     <div class="panel">
       <div class="panel-title">🔒 Segurança — 2FA (TOTP)</div>
       <p style="color:var(--muted);font-size:.83rem;margin-bottom:12px">
-        Ative 2FA opcional para o login admin. Secret em <code style="background:var(--surface2);padding:1px 6px;border-radius:3px">.netguard_totp</code>.
+        Ative 2FA opcional para o login admin. Secret em <code style="background:var(--surface2);padding:1px 6px;border-radius:3px">.safe_totp</code> <small style="color:var(--txt2)">(legacy: <code>.netguard_totp</code>)</small>.
         Compatível com Google Authenticator, 1Password, Authy.
       </p>
       <div class="flex" style="margin-bottom:8px">
@@ -450,7 +450,7 @@ body.theme-light .theme-toggle .icon-sun{display:block} body.theme-light .theme-
       </div>
       <div style="padding:16px 20px">
         <div class="alert error" style="margin-bottom:14px">
-          <strong>⚠️ Aviso:</strong> O token antigo foi invalidado. Seu login atual vai cair. Copie o novo token e use em <code>.netguard_token</code> / cookie / header.
+          <strong>⚠️ Aviso:</strong> O token antigo foi invalidado. Seu login atual vai cair. Copie o novo token e use em <code>.safe_token</code> (ou <code>.netguard_token</code> legacy) / cookie / header.
         </div>
         <div style="font-size:.72rem;color:var(--muted);margin-bottom:6px">Novo token (clique para copiar):</div>
         <div id="rotate-new-token" class="link-box" onclick="copyText(this.textContent.trim())"
@@ -811,13 +811,13 @@ async function setupTotp(ev){
 async function disableTotp(ev){
   if(!confirm(
     'DESATIVAR 2FA?\n\n' +
-    'O arquivo .netguard_totp sera removido. Login admin volta a pedir so o token.\n\n' +
+    'O arquivo .safe_totp (e .netguard_totp legacy) sera removido. Login admin volta a pedir so o token.\n\n' +
     'Continuar?'
   )) return;
   return _withBusyBtn(ev, 'Desativando...', async () => {
     const r = await api('/admin/totp/disable', {method:'POST'});
     if(!r?.ok){
-      toast('Nao conseguimos desativar o 2FA. Verifique se o arquivo .netguard_totp e gravavel pelo processo.', 'err');
+      toast('Nao conseguimos desativar o 2FA. Verifique se .safe_totp ou .netguard_totp (legacy) e gravavel pelo processo.', 'err');
       return;
     }
     toast(r.was_enabled ? '2FA desativado.' : '2FA ja estava inativo.');
@@ -1959,6 +1959,6 @@ document.getElementById('gv-modal').addEventListener('click', (e)=>{
   if(e.target.id === 'gv-modal') gvCloseModal();
 });
 </script>
-<script src="/static/js/netguard-ui.js" defer></script>
+<script src="/static/js/safe-ui.js" defer></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 ﻿# ============================================================
-# SAFE Build 8 — Asset Intelligence Enrichment — commit + push
+# SAFE branding cleanup — 3 commits separados
 # Uso: powershell -ExecutionPolicy Bypass -File .\PUSH.ps1
 # ============================================================
 
@@ -8,76 +8,114 @@ Set-Location $PSScriptRoot
 
 Write-Host ""
 Write-Host "==============================================" -ForegroundColor Yellow
-Write-Host "  SAFE - Build 8: Asset Intelligence" -ForegroundColor Yellow
+Write-Host "  SAFE branding cleanup (3 commits)" -ForegroundColor Yellow
 Write-Host "==============================================" -ForegroundColor Yellow
-Write-Host ""
 
 if (Test-Path ".git/index.lock") {
     Remove-Item ".git/index.lock" -Force
-    Write-Host ">> lock removido" -ForegroundColor DarkGray
 }
 
 $branch = git rev-parse --abbrev-ref HEAD
 Write-Host ">> branch: $branch" -ForegroundColor Cyan
-git status --short | Select-Object -First 30
 
-git add -A
-$staged = git diff --cached --shortstat
-if (-not $staged) { Write-Host ">> nada a commitar." -ForegroundColor Yellow; exit 0 }
-Write-Host ">> staged: $staged" -ForegroundColor Green
+# Commit 1: CSS rename
+Write-Host ""
+Write-Host ">> Commit 1/3: rename netguard.css -> safe.css" -ForegroundColor Green
+git add static/css/safe.css
+git add static/enterprise.css
+git add templates/*.html templates/soc/*.html admin.html dashboard.html dashboard/templates_html.py
+git add tests/test_safe_rebrand.py tests/test_ui_enterprise_refactor.py
+$msg1 = @"
+ui: rename netguard.css -> safe.css (alias mantido)
 
-$msg = @"
-xdr: Asset Intelligence Engine (build 8)
+Cria static/css/safe.css como copia canonica do legacy netguard.css.
+Templates e codigo Python passam a referenciar safe.css. O arquivo
+netguard.css continua presente como alias durante a transicao.
 
-Adiciona enrichment de host com classificacao + criticality_score separado
-do risk_score. Risk = quao ameacado; criticality = quao valioso o ativo e.
+Arquivos atualizados (19 no total):
+  static/css/safe.css (novo, copia de netguard.css)
+  static/enterprise.css
+  templates/admin_dashboard.html
+  templates/client_overview.html
+  templates/executive.html
+  templates/host_triage.html
+  templates/landing.html
+  templates/login.html
+  templates/observability.html
+  templates/operator_inbox.html
+  templates/performance.html
+  templates/performance_live.html
+  templates/pricing.html
+  templates/welcome.html
+  templates/soc/base.html
+  admin.html
+  dashboard.html
+  dashboard/templates_html.py
+  tests/test_safe_rebrand.py
+  tests/test_ui_enterprise_refactor.py
 
-xdr/asset_intelligence.py (novo, 297 LOC)
-  - AssetClass enum: workstation, server, domain_controller, database,
-    dev_machine, executive_device, critical_asset, unknown
-  - Sensitivity (1-4) + Environment (prod/staging/dev/unknown)
-  - AssetProfile dataclass com to_dict() JSON-safe
-  - classify_asset(hint): heuristica em 3 niveis
-      1. tag override (critical-asset, dc, executive, etc)
-      2. role/asset_class field direto
-      3. regex no hostname (WIN-DC-01, db-prod-mysql, ceo-laptop, etc)
-  - detect_environment(hint): tags / hostname / explicit field
-  - score_criticality(profile) -> 0..100
-      base por class * environment_multiplier + sensitivity_bump
-  - business_impact_label(score) -> low|medium|high|critical
-  - enrich_host(record) -> AssetProfile (nao muta input)
-
-app.py endpoints novos
-  - GET /api/assets/<host_id>: AssetProfile do host
-  - GET /api/assets?class=&env=&min_crit=: lista com filtros + sort
-    por criticality desc
-
-tests/test_asset_intelligence.py (novo, 36 testes)
-  - classify_asset cobre todas as 7 classes + tag override + role field
-  - detect_environment via tag/hostname/explicit
-  - score_criticality: bounds, env multiplier, sensitivity bump, clamp 100
-  - business_impact_label: parametrizado nos 4 buckets
-  - enrich_host: input nao mutado, non-dict safe, JSON serializavel
-
-Sem mexer em risk_engine, sem migracao de schema. Enrichment puro:
-o enrichment e calculado on-read a partir de campos ja existentes no
-host record (hostname, tags, role, environment, sensitivity, owner).
-
-Total: ~370 LOC + 36 testes. Zero impacto nos testes pre-existentes.
+netguard.css mantido pra deploys legados. Sem mudancas de regra CSS.
 "@
+git commit -m $msg1
+if ($LASTEXITCODE -ne 0) { Write-Host ">> commit 1 falhou" -ForegroundColor Red; exit 1 }
 
-git commit -m $msg
-if ($LASTEXITCODE -ne 0) { Write-Host ">> commit falhou" -ForegroundColor Red; exit 1 }
-Write-Host ">> commit ok" -ForegroundColor Green
+# Commit 2: JS rename
+Write-Host ""
+Write-Host ">> Commit 2/3: rename netguard-ui.js -> safe-ui.js" -ForegroundColor Green
+git add static/js/safe-ui.js
+git add templates/*.html templates/soc/*.html admin.html dashboard.html dashboard/templates_html.py
+$msg2 = @"
+ui: rename netguard-ui.js -> safe-ui.js (alias mantido)
 
+Cria static/js/safe-ui.js como copia canonica do legacy netguard-ui.js.
+Templates passam a referenciar safe-ui.js. netguard-ui.js mantido
+como alias durante a transicao.
+
+Arquivos atualizados: ~13 templates + scripts/*
+"@
+git commit -m $msg2
+if ($LASTEXITCODE -ne 0) { Write-Host ">> commit 2 falhou" -ForegroundColor Red; exit 1 }
+
+# Commit 3: Token files migration
+Write-Host ""
+Write-Host ">> Commit 3/3: migrate .netguard_token -> .safe_token (fallback)" -ForegroundColor Green
+git add .gitignore auth.py admin.html scripts/security_self_check.py templates/welcome.html
+$msg3 = @"
+auth: migrate .netguard_token / .netguard_totp -> .safe_*
+
+auth.py agora usa .safe_token e .safe_totp como caminhos canonicos.
+Leitura cai pra .netguard_token / .netguard_totp como fallback quando
+o caminho SAFE nao existe. Na primeira leitura, conteudo legacy e
+copiado pro caminho SAFE.
+
+Mudancas:
+  - auth.py:
+      TOKEN_FILE         = _BASE_DIR / .safe_token
+      TOKEN_FILE_LEGACY  = _BASE_DIR / .netguard_token
+      TOTP_FILE          = _BASE_DIR / .safe_totp
+      TOTP_FILE_LEGACY   = _BASE_DIR / .netguard_totp
+      _read_token_with_fallback() / _read_totp_with_fallback()
+      rotate_admin_token() atualiza ambos quando legacy existe
+      totp_disable() remove ambos
+  - admin.html: texto visivel cita .safe_* primeiro, .netguard_* como legacy
+  - scripts/security_self_check.py: checa todos 4 paths
+  - templates/welcome.html: comando safe-agent prefere SAFE_TOKEN/SAFE_SERVER
+  - .gitignore: ignora .safe_token/.safe_totp e chaves/certs locais SAFE
+
+Sem breaking changes: deploys com .netguard_token continuam funcionando.
+"@
+git commit -m $msg3
+if ($LASTEXITCODE -ne 0) { Write-Host ">> commit 3 falhou" -ForegroundColor Red; exit 1 }
+
+Write-Host ""
 Write-Host ">> push origin $branch ..." -ForegroundColor Cyan
 git push origin $branch
 if ($LASTEXITCODE -eq 0) {
     Write-Host ""
     Write-Host "==============================================" -ForegroundColor Green
-    Write-Host "  Build 8 PUSHED." -ForegroundColor Green
+    Write-Host "  3 commits PUSHED." -ForegroundColor Green
     Write-Host "==============================================" -ForegroundColor Green
 } else {
-    Write-Host ">> push falhou. Verifique credenciais GitHub." -ForegroundColor Red
+    Write-Host ">> push falhou. Verifique credenciais." -ForegroundColor Red
     exit 1
 }

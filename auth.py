@@ -3,8 +3,9 @@ SAFE — Autenticação e HTTPS
 Token-based auth + certificado self-signed para HTTPS local.
 
 Uso:
-  - Token: gerado automaticamente no primeiro run, salvo em .netguard_token
-  - HTTPS: certificado self-signed gerado automaticamente em netguard.pem
+  - Token: gerado automaticamente no primeiro run, salvo em .safe_token
+    (.netguard_token continua como fallback legacy)
+  - HTTPS: certificado self-signed gerado automaticamente em safe.pem
 
 Acesso após ativar:
   https://127.0.0.1:5443  (HTTPS)
@@ -24,9 +25,14 @@ from flask import request, jsonify, redirect
 logger = logging.getLogger("netguard.auth")
 
 # ── Configuração ──────────────────────────────────────────────────
-TOKEN_FILE    = pathlib.Path(__file__).parent / ".netguard_token"
-CERT_FILE     = pathlib.Path(__file__).parent / "netguard.pem"
-KEY_FILE      = pathlib.Path(__file__).parent / "netguard.key"
+# .safe_token e o caminho canonico. .netguard_token continua sendo lido
+# como fallback (legacy) e atualizado em sync quando o admin rotaciona o
+# token, ate a migracao completa dos deploys.
+_BASE_DIR         = pathlib.Path(__file__).parent
+TOKEN_FILE        = _BASE_DIR / ".safe_token"
+TOKEN_FILE_LEGACY = _BASE_DIR / ".netguard_token"
+CERT_FILE     = _BASE_DIR / "safe.pem"
+KEY_FILE      = _BASE_DIR / "safe.key"
 AUTH_ENABLED  = os.environ.get("IDS_AUTH", "false").lower() == "true"
 HTTPS_ENABLED = os.environ.get("IDS_HTTPS", "false").lower() == "true"
 HTTPS_PORT    = int(os.environ.get("IDS_HTTPS_PORT", 5443))
@@ -34,12 +40,33 @@ HTTPS_PORT    = int(os.environ.get("IDS_HTTPS_PORT", 5443))
 
 # ── Token management ──────────────────────────────────────────────
 
+def _read_token_with_fallback() -> str:
+    """SAFE-branded path first, legacy fallback."""
+    for path in (TOKEN_FILE, TOKEN_FILE_LEGACY):
+        try:
+            if path.exists():
+                content = path.read_text().strip()
+                if len(content) >= 32:
+                    return content
+        except (OSError, UnicodeDecodeError):
+            continue
+    return ""
+
+
 def get_or_create_token() -> str:
-    """Retorna token existente ou gera um novo."""
-    if TOKEN_FILE.exists():
-        token = TOKEN_FILE.read_text().strip()
-        if len(token) >= 32:
-            return token
+    """Retorna token existente ou gera um novo. Le SAFE primeiro, legacy depois."""
+    existing = _read_token_with_fallback()
+    if existing:
+        # Migrar conteudo legacy para o caminho SAFE na primeira leitura
+        if not TOKEN_FILE.exists():
+            try:
+                TOKEN_FILE.write_text(existing)
+                TOKEN_FILE.chmod(0o600)
+                logger.info("Migrated admin token: %s -> %s",
+                            TOKEN_FILE_LEGACY, TOKEN_FILE)
+            except (OSError, NotImplementedError):
+                pass
+        return existing
 
     token = secrets.token_urlsafe(32)
     TOKEN_FILE.write_text(token)
@@ -53,8 +80,10 @@ def get_or_create_token() -> str:
 
 def rotate_admin_token() -> str:
     """
-    Gera um NOVO admin token, sobrescreve o arquivo .netguard_token e
-    retorna o novo valor. O token antigo é invalidado imediatamente.
+    Gera um NOVO admin token, sobrescreve o arquivo .safe_token e
+    retorna o novo valor. O token antigo e invalidado imediatamente.
+    Se houver .netguard_token (legacy), tambem e atualizado pra manter
+    sistemas antigos em sync.
 
     Usado pelo endpoint /api/admin/rotate-admin-token.
     """
@@ -64,12 +93,18 @@ def rotate_admin_token() -> str:
         TOKEN_FILE.chmod(0o600)
     except (OSError, NotImplementedError):
         pass
+    if TOKEN_FILE_LEGACY.exists():
+        try:
+            TOKEN_FILE_LEGACY.write_text(new_token)
+            TOKEN_FILE_LEGACY.chmod(0o600)
+        except (OSError, NotImplementedError):
+            pass
     logger.warning("Admin token rotacionado — novo token gravado em %s", TOKEN_FILE)
     return new_token
 
 
 def verify_token(token: str) -> bool:
-    """Verifica se é o token de admin (arquivo .netguard_token)."""
+    """Verifica se e o token de admin (.safe_token; fallback .netguard_token)."""
     expected = get_or_create_token()
     return secrets.compare_digest(token.encode(), expected.encode())
 
@@ -314,8 +349,9 @@ def auth(f):
             # API → retorna 401 JSON
             return jsonify({
                 "error": "Unauthorized",
-                "message": "Token inválido ou ausente. "
-                           "Consulte .netguard_token para o token de acesso.",
+                "message": "Token invalido ou ausente. "
+                           "Consulte .safe_token para o token de acesso "
+                           "(.netguard_token em deploys legacy).",
             }), 401
 
         return f(*args, **kwargs)
@@ -554,14 +590,15 @@ def print_startup_info(host: str = "127.0.0.1"):
 # ─────────────────────────────────────────────────────────────────
 #
 # POR QUE EXISTE:
-#   O login admin depende de um único token bearer (.netguard_token). Se o
+#   O login admin depende de um unico token bearer (.safe_token, com fallback
+#   legacy para .netguard_token). Se o
 #   token vaza (post em log, screenshot, commit acidental), o atacante entra
 #   direto. 2FA TOTP exige um fator adicional que está FORA do repo e FORA
 #   do servidor: o secret fica no celular do operador.
 #
 # POR QUE OPT-IN (e não obrigatório):
 #   Durante dev/demo o operador roda sem TOTP pra iterar rápido. Ativar é
-#   uma ação explícita: /api/admin/totp/setup cria .netguard_totp. Enquanto
+#   uma acao explicita: /api/admin/totp/setup cria .safe_totp. Enquanto
 #   o arquivo não existe, o login pede só o bearer token.
 #
 # POR QUE STDLIB-ONLY (sem pyotp):
@@ -569,12 +606,15 @@ def print_startup_info(host: str = "127.0.0.1"):
 #   + módulo — 20 linhas. Cada dep a menos é uma CVE a menos pra auditar.
 #
 # ACTIVATION GATE (dupla):
-#   1) Arquivo .netguard_totp existe (secret está configurado)
+#   1) Arquivo .safe_totp ou .netguard_totp existe (secret esta configurado)
 #   2) env IDS_ADMIN_TOTP != 'false' (kill switch pra emergência)
 #   Precisa dos dois pra 2FA ser exigido. Remover o arquivo OU setar a env
 #   como 'false' desativa.
 
-TOTP_FILE        = pathlib.Path(__file__).parent / ".netguard_totp"
+# .safe_totp e o caminho canonico; .netguard_totp continua sendo lido
+# como fallback (legacy).
+TOTP_FILE        = _BASE_DIR / ".safe_totp"
+TOTP_FILE_LEGACY = _BASE_DIR / ".netguard_totp"
 TOTP_ISSUER      = os.environ.get("IDS_TOTP_ISSUER", "SAFE Enterprise Defense Platform")
 TOTP_ACCOUNT     = os.environ.get("IDS_TOTP_ACCOUNT", "admin")
 # Janela de tolerância — aceita código do período anterior/posterior.
@@ -600,28 +640,40 @@ def _b32_encode(raw: bytes) -> str:
     import base64
     return base64.b32encode(raw).decode("ascii").rstrip("=")
 
+def _read_totp_with_fallback() -> str:
+    """SAFE-branded path first, legacy fallback. Returns '' if neither exists."""
+    for path in (TOTP_FILE, TOTP_FILE_LEGACY):
+        try:
+            if path.exists():
+                content = path.read_text(encoding="utf-8").strip()
+                if content:
+                    return content
+        except (OSError, UnicodeDecodeError):
+            continue
+    return ""
+
+
 def totp_is_enabled() -> bool:
     """
     True se TOTP está ativo AGORA (deve ser exigido no próximo login admin).
     Duas condições:
       1) IDS_ADMIN_TOTP != 'false' (env kill-switch)
-      2) .netguard_totp existe e tem secret mínimo (>=16 chars base32)
+      2) .safe_totp OU .netguard_totp existe e tem secret mínimo (>=16 chars base32)
     O check de tamanho protege contra arquivo corrompido/vazio.
     """
     if os.environ.get("IDS_ADMIN_TOTP", "auto").lower() == "false":
         return False
-    return TOTP_FILE.exists() and len(TOTP_FILE.read_text(encoding="utf-8").strip()) >= 16
+    secret = _read_totp_with_fallback()
+    return len(secret) >= 16
 
 def totp_get_secret() -> str:
-    """Lê o secret base32 de .netguard_totp. Retorna '' se não existir."""
-    if not TOTP_FILE.exists():
-        return ""
-    return TOTP_FILE.read_text(encoding="utf-8").strip()
+    """Lê o secret base32. Tenta .safe_totp primeiro, fallback .netguard_totp."""
+    return _read_totp_with_fallback()
 
 def totp_generate_secret() -> str:
     """
     Gera NOVO secret TOTP (160 bits = 20 bytes, base32 sem padding) e grava
-    em .netguard_totp. Sobrescreve se já existir. Retorna o secret base32.
+    em .safe_totp. Sobrescreve se ja existir. Retorna o secret base32.
 
     Por que 160 bits: recomendação da RFC 4226 §4 — HMAC-SHA1 usa chaves
     do tamanho do bloco hash (SHA1 = 160). Menos que isso reduz a entropia
@@ -641,25 +693,35 @@ def totp_generate_secret() -> str:
         TOTP_FILE.chmod(0o600)
     except (OSError, NotImplementedError):
         pass
+    # Limpa o legacy se existir — se o admin gerou um novo secret, deixar
+    # o legacy parado seria fonte de confusao no proximo login.
+    if TOTP_FILE_LEGACY.exists():
+        try:
+            TOTP_FILE_LEGACY.unlink()
+        except OSError:
+            pass
     logger.warning("TOTP secret gerado e gravado em %s", TOTP_FILE)
     return secret_b32
 
 def totp_disable() -> bool:
     """
-    Remove .netguard_totp. Retorna True se existia.
+    Remove .safe_totp E .netguard_totp (se existirem). Retorna True se
+    pelo menos um existia.
 
     Caminho de emergência: admin perdeu o celular. Quem tem acesso ao
     host remove o arquivo e o login volta a aceitar só o token bearer.
     Alternativa sem acesso a arquivo: setar IDS_ADMIN_TOTP=false.
     """
-    try:
-        if TOTP_FILE.exists():
-            TOTP_FILE.unlink()
-            logger.warning("TOTP desativado — arquivo %s removido", TOTP_FILE)
-            return True
-    except Exception as exc:
-        logger.error("Falha ao remover %s: %s", TOTP_FILE, exc)
-    return False
+    removed = False
+    for path in (TOTP_FILE, TOTP_FILE_LEGACY):
+        try:
+            if path.exists():
+                path.unlink()
+                logger.warning("TOTP desativado — arquivo %s removido", path)
+                removed = True
+        except Exception as exc:
+            logger.error("Falha ao remover %s: %s", path, exc)
+    return removed
 
 def _totp_code_at(secret_b32: str, counter: int) -> str:
     """
@@ -687,7 +749,8 @@ def _totp_code_at(secret_b32: str, counter: int) -> str:
 
 def totp_verify(code: str, at_time: float = None) -> bool:
     """
-    Verifica código TOTP (6 dígitos) contra o secret em .netguard_totp.
+    Verifica codigo TOTP (6 digitos) contra o secret em .safe_totp
+    (fallback .netguard_totp).
 
     Proteções:
       - Fail-closed: sem TOTP habilitado, sempre False. O caller NUNCA

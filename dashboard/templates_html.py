@@ -329,7 +329,7 @@ SOC_DASHBOARD_HTML = r"""<!doctype html>
       th, td { padding: 8px; }
     }
   </style>
-  <link rel="stylesheet" href="/static/css/netguard.css">
+  <link rel="stylesheet" href="/static/css/safe.css">
 </head>
 <body>
   <header>
@@ -615,7 +615,7 @@ SOC_DASHBOARD_HTML = r"""<!doctype html>
   refresh();
   setInterval(refresh, 30000);
   </script>
-  <script src="/static/js/netguard-ui.js" defer></script>
+  <script src="/static/js/safe-ui.js" defer></script>
 </body>
 </html>
 """

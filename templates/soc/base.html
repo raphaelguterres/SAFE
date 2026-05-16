@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}SAFE Security Operations{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='soc-dashboard.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/netguard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/safe.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/safe-ui.css') }}">
   <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
 </head>
@@ -23,7 +23,7 @@
       </section>
     </main>
   </div>
-  <script src="{{ url_for('static', filename='js/netguard-ui.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/safe-ui.js') }}" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

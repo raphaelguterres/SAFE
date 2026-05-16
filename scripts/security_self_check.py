@@ -83,7 +83,13 @@ def _debug_off_in_production(env: dict[str, str]) -> SelfCheck:
 
 
 def _sensitive_file_permissions(base: Path) -> SelfCheck:
-    sensitive = [base / ".netguard_token", base / ".netguard_totp"]
+    # SAFE-branded files first, NetGuard legacy paths still checked
+    sensitive = [
+        base / ".safe_token",
+        base / ".safe_totp",
+        base / ".netguard_token",
+        base / ".netguard_totp",
+    ]
     weak: list[str] = []
     if os.name == "nt":
         return SelfCheck("sensitive_file_permissions", "pass", "Permission check skipped on Windows ACLs.")

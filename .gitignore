@@ -25,6 +25,13 @@ agent/.venv-build/
 # Tokens / secrets
 # ========================
 .netguard_token
+.netguard_totp
+.safe_token
+.safe_totp
+netguard.pem
+netguard.key
+safe.pem
+safe.key
 *.token
 
 .env

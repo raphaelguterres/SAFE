@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <link rel="stylesheet" href="/static/enterprise.css">
-  <link rel="stylesheet" href="/static/css/netguard.css">
+  <link rel="stylesheet" href="/static/css/safe.css">
   <script src="/static/js/theme-toggle.js"></script>
 </head>
 <body class="welcome-page">
@@ -81,18 +81,19 @@
           <article class="step-card">
             <span class="step-index">STEP 01</span>
             <h3 class="step-title">Instale o agente</h3>
-            <p class="step-copy">Instale o SAFE Agent no host que deseja monitorar. O pacote atual mantem o comando legado por compatibilidade.</p>
-            <pre>pip install netguard-agent
-netguard-agent --token {{ token }} --server {{ server_url }}</pre>
+            <p class="step-copy">Instale o SAFE Agent no host que deseja monitorar. O bin&aacute;rio &eacute; distribu&iacute;do via build PyInstaller; o comando legado <code>netguard-agent</code> continua aceito por compatibilidade.</p>
+            <pre>safe-agent --token {{ token }} --server {{ server_url }}
+# legado equivalente:
+# netguard-agent --token {{ token }} --server {{ server_url }}</pre>
           </article>
 
           <article class="step-card">
             <span class="step-index">STEP 02</span>
             <h3 class="step-title">Padronize por ambiente</h3>
-            <p class="step-copy">Use variaveis de ambiente para Docker, systemd ou automacao do SAFE Agent:</p>
-            <pre>export NETGUARD_TOKEN="{{ token }}"
-export NETGUARD_SERVER="{{ server_url }}"
-netguard-agent</pre>
+            <p class="step-copy">Use vari&aacute;veis de ambiente para Docker, systemd ou automa&ccedil;&atilde;o do SAFE Agent. As chaves <code>NETGUARD_*</code> permanecem v&aacute;lidas como alias.</p>
+            <pre>export SAFE_TOKEN="{{ token }}"
+export SAFE_SERVER="{{ server_url }}"
+safe-agent</pre>
           </article>
 
           <article class="step-card">
@@ -224,6 +225,6 @@ netguard-agent</pre>
       });
     }
   </script>
-<script src="/static/js/netguard-ui.js" defer></script>
+<script src="/static/js/safe-ui.js" defer></script>
 </body>
 </html>
