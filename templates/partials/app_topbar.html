@@ -9,10 +9,10 @@
   <nav class="safe-client-mode" aria-label="Client navigation">
     <a class="{% if active_app_page|default('overview') == 'overview' %}is-active{% endif %}" href="/app/overview">Executive Mode</a>
     <a class="{% if active_app_page|default('overview') == 'dashboard' %}is-active{% endif %}" href="/app/dashboard" title="Technical View">Technical Mode</a>
-    <a href="/app/assets">Assets</a>
-    <a href="/app/incidents">Incidents</a>
+    <a class="{% if active_app_page|default('overview') == 'assets' %}is-active{% endif %}" href="/app/assets">Assets</a>
+    <a class="{% if active_app_page|default('overview') == 'incidents' %}is-active{% endif %}" href="/app/incidents">Incidents</a>
   </nav>
   <div class="safe-client-actions" data-theme-slot>
-    <a href="/app/reports">Reports</a>
+    <a class="{% if active_app_page|default('overview') == 'reports' %}is-active{% endif %}" href="/app/reports">Reports</a>
   </div>
 </header>

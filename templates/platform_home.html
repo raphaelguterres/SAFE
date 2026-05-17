@@ -6,18 +6,45 @@
   <title>SAFE | Platform</title>
   <link rel="stylesheet" href="/static/css/safe.css">
   <link rel="stylesheet" href="/static/css/safe-ui.css">
-  <link rel="stylesheet" href="/static/css/safe-client.css">
+  <link rel="stylesheet" href="/static/css/safe-platform.css">
 </head>
 <body class="safe-platform-page">
+  {% set status = platform_status if platform_status is defined else {} %}
+  {% set health = status.health_summary|default({}) %}
+  {% set migrations = status.migration_status|default({}) %}
+  {% set queue = status.queue_backend|default({}) %}
+  {% set subsystems = health.subsystems|default({}) %}
   {% include "partials/platform_topbar.html" %}
   <main class="platform-shell">
     <section class="platform-hero">
       <span>Platform Owner View</span>
       <h1>SAFE Platform</h1>
-      <p>Tenant operations, reliability, performance, and audit surfaces for the platform owner.</p>
+      <p>Tenant operations, reliability, performance, configuration, and audit surfaces for the platform owner.</p>
+    </section>
+    <section class="platform-status-grid" aria-label="Platform status summary">
+      <article class="platform-status-card">
+        <span>Storage Backend</span>
+        <strong>{{ status.storage_backend|default("SQLite") }}</strong>
+        <small>{{ health.db_backend|default("local") }}</small>
+      </article>
+      <article class="platform-status-card">
+        <span>Queue Backend</span>
+        <strong>{{ queue.backend|default("memory")|title }}</strong>
+        <small>{% if queue.redis_configured %}Redis configured{% else %}Memory default{% endif %}</small>
+      </article>
+      <article class="platform-status-card">
+        <span>Migration Status</span>
+        <strong>{% if migrations.ok %}Current{% else %}Needs Review{% endif %}</strong>
+        <small>{{ migrations.schema_version|default(0) }}/{{ migrations.latest_version|default(0) }}</small>
+      </article>
+      <article class="platform-status-card">
+        <span>Health Summary</span>
+        <strong>{{ health.status|default("unknown")|title }}</strong>
+        <small>HTTP {{ health.status_code|default(200) }}</small>
+      </article>
     </section>
     <section class="platform-grid" aria-label="Platform entry points">
-      <a href="/admin">
+      <a href="/platform/tenants">
         <span>Tenant God View</span>
         <strong>Open tenants</strong>
       </a>
@@ -33,6 +60,25 @@
         <span>Live Queues</span>
         <strong>Live metrics</strong>
       </a>
+      <a href="/api/admin/audit/integrity">
+        <span>Audit Integrity</span>
+        <strong>Verify audit</strong>
+      </a>
+      <a href="/api/admin/config/status">
+        <span>Config Status</span>
+        <strong>Check readiness</strong>
+      </a>
+    </section>
+    <section class="platform-panel">
+      <span class="platform-kicker">Subsystems</span>
+      <h2>Health summary</h2>
+      <div class="platform-health-list">
+        {% for name, value in subsystems.items() %}
+          <div><span>{{ name|replace("_", " ")|title }}</span><strong>{{ value }}</strong></div>
+        {% else %}
+          <div><span>Status</span><strong>No subsystem snapshot available</strong></div>
+        {% endfor %}
+      </div>
     </section>
   </main>
 </body>

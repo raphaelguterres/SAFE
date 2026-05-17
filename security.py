@@ -45,6 +45,15 @@ _WEAK_SIGNING_SECRETS = {
 
 
 def _is_dev_or_test_runtime() -> bool:
+    explicit_production = False
+    for env_name in ("SAFE_ENV", "NETGUARD_ENV", "IDS_ENV", "FLASK_ENV"):
+        current = os.environ.get(env_name, "").strip().lower()
+        if current in {"prod", "production"}:
+            explicit_production = True
+        if current in {"dev", "development", "local", "test", "testing"}:
+            continue
+    if explicit_production:
+        return False
     for env_name in ("SAFE_ENV", "NETGUARD_ENV", "IDS_ENV", "FLASK_ENV"):
         current = os.environ.get(env_name, "").strip().lower()
         if current in {"dev", "development", "local", "test", "testing"}:

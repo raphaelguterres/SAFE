@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAFE | Client Incidents</title>
+  <link rel="stylesheet" href="/static/css/safe.css">
+  <link rel="stylesheet" href="/static/css/safe-ui.css">
+  <link rel="stylesheet" href="/static/css/safe-client.css">
+  <link rel="stylesheet" href="/static/css/safe-app.css">
+  <script src="/static/js/theme-toggle.js"></script>
+</head>
+<body class="safe-client-page safe-app-page app-incidents-page">
+  {% set dashboard = client_dashboard if client_dashboard is defined else {} %}
+  {% include "partials/app_topbar.html" %}
+  <main class="safe-app-shell">
+    <section class="safe-app-hero">
+      <div>
+        <span class="safe-app-kicker">Incidents</span>
+        <h1>{{ dashboard.critical_incidents|default(0) }} critical incidents</h1>
+        <p>Client-ready incident view focused on severity, status, affected asset, and next review.</p>
+      </div>
+      <a class="safe-app-action" href="/app/reports">Export</a>
+    </section>
+
+    <section class="safe-app-panel">
+      <div class="safe-app-panel-head">
+        <div><span class="safe-app-kicker">Incident Queue</span><h2>Important cases</h2></div>
+      </div>
+      <div class="safe-app-table safe-app-incident-table">
+        {% for incident in app_incidents %}
+          <div>
+            <strong>{{ incident.title }}</strong>
+            <span>{{ incident.host }}</span>
+            <small class="safe-app-severity-{{ incident.severity }}">{{ incident.severity|title }} - {{ incident.status|title }}</small>
+          </div>
+        {% else %}
+          <div class="safe-app-empty"><strong>No active incidents</strong><span>SAFE will place client-visible cases here.</span><small>Clear</small></div>
+        {% endfor %}
+      </div>
+    </section>
+  </main>
+  <script src="/static/js/safe-ui.js" defer></script>
+</body>
+</html>

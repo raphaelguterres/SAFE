@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAFE | Client Reports</title>
+  <link rel="stylesheet" href="/static/css/safe.css">
+  <link rel="stylesheet" href="/static/css/safe-ui.css">
+  <link rel="stylesheet" href="/static/css/safe-client.css">
+  <link rel="stylesheet" href="/static/css/safe-app.css">
+  <script src="/static/js/theme-toggle.js"></script>
+</head>
+<body class="safe-client-page safe-app-page app-reports-page">
+  {% include "partials/app_topbar.html" %}
+  <main class="safe-app-shell">
+    <section class="safe-app-hero">
+      <div>
+        <span class="safe-app-kicker">Reports</span>
+        <h1>Executive reporting center</h1>
+        <p>Board-ready summaries and tenant-scoped exports for security reviews.</p>
+      </div>
+      <a class="safe-app-action" href="/app/overview">Overview</a>
+    </section>
+
+    <section class="safe-app-report-grid" aria-label="Client reports">
+      {% for report in app_reports %}
+        <article class="safe-app-report-card">
+          <span>{{ report.format }}</span>
+          <strong>{{ report.title }}</strong>
+          <p>{{ report.description }}</p>
+          <a href="{{ report.href }}">Open report</a>
+        </article>
+      {% endfor %}
+    </section>
+  </main>
+  <script src="/static/js/safe-ui.js" defer></script>
+</body>
+</html>

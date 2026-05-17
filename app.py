@@ -8773,10 +8773,51 @@ def platform_performance_live_alias():
     return redirect("/admin/performance-live", code=301)
 
 
+def _build_platform_home_context() -> dict:
+    try:
+        from storage.event_repository import USE_POSTGRES as _USE_STORAGE_PG
+
+        storage_backend = "PostgreSQL" if _USE_STORAGE_PG else "SQLite"
+    except Exception:
+        storage_backend = "SQLite"
+    try:
+        from server.queue_config import queue_config_status
+
+        queue_backend = queue_config_status()
+    except Exception:
+        queue_backend = {"backend": "unknown"}
+    try:
+        migration_status = repo.legacy_migration_status()
+    except Exception as exc:
+        migration_status = {"ok": False, "error": str(exc), "schema_version": 0, "latest_version": 0}
+    try:
+        response, status_code = _health_inner()
+        health_payload = response.get_json() or {}
+        health_summary = {
+            "status": health_payload.get("status", "unknown"),
+            "status_code": status_code,
+            "db_backend": health_payload.get("db_backend", storage_backend.lower()),
+            "connections_active": health_payload.get("connections_active", 0),
+            "subsystems": health_payload.get("subsystems", {}),
+        }
+    except Exception as exc:
+        health_summary = {"status": "unknown", "status_code": 500, "error": str(exc), "subsystems": {}}
+    return {
+        "storage_backend": storage_backend,
+        "queue_backend": queue_backend,
+        "migration_status": migration_status,
+        "health_summary": health_summary,
+    }
+
+
 @app.route("/platform")
 def platform_home():
     """Platform owner landing page for production/ops navigation."""
-    return render_template("platform_home.html", active_platform_page="home")
+    return render_template(
+        "platform_home.html",
+        active_platform_page="home",
+        platform_status=_build_platform_home_context(),
+    )
 
 
 @app.route("/platform/tenants")
@@ -10417,16 +10458,29 @@ def api_recommended_route():
     return jsonify({"ok": True, "recommendation": recommendation})
 
 
+def _build_app_product_page_context(active_page: str) -> dict:
+    from server.client_dashboard import build_app_product_context
+
+    context = _build_soc_preview_context()
+    context = build_app_product_context(context, active_page=active_page)
+    audit(
+        "CLIENT_APP_VIEW",
+        actor=_current_request_tenant_id(),
+        ip=request.remote_addr or "-",
+        detail=active_page,
+    )
+    return context
+
+
 @app.route("/app/overview")
 @require_session
 @require_role("viewer")
 def app_overview():
     """Executive client view with tenant-scoped posture and no secret exposure."""
-    from server.client_dashboard import build_client_dashboard_context
+    from server.client_dashboard import build_app_product_context
 
     context = _build_soc_preview_context()
-    context = build_client_dashboard_context(context)
-    context["active_app_page"] = "overview"
+    context = build_app_product_context(context, active_page="overview")
     audit("CLIENT_OVERVIEW_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="page")
     return render_template("client_overview.html", **context)
 
@@ -10440,9 +10494,11 @@ def client_overview_legacy_alias():
 
 
 @app.route("/app/dashboard")
-def app_dashboard_alias():
-    """Client app IA alias for the existing client dashboard route."""
-    return redirect("/app/overview", code=302)
+@require_session
+@require_role("viewer")
+def app_dashboard():
+    """Technical-but-client-safe dashboard for tenant-scoped security operations."""
+    return render_template("app_dashboard.html", **_build_app_product_page_context("dashboard"))
 
 
 @app.route("/client/dashboard")
@@ -10452,21 +10508,27 @@ def client_dashboard_legacy_alias():
 
 
 @app.route("/app/incidents")
-def app_incidents_alias():
-    """Client app IA alias for tenant incident reporting."""
-    return redirect("/app/overview", code=302)
+@require_session
+@require_role("viewer")
+def app_incidents():
+    """Client incident view without SOC/operator noise or admin links."""
+    return render_template("app_incidents.html", **_build_app_product_page_context("incidents"))
 
 
 @app.route("/app/assets")
-def app_assets_alias():
-    """Client app IA alias for tenant assets."""
-    return redirect("/app/overview", code=302)
+@require_session
+@require_role("viewer")
+def app_assets():
+    """Client protected-assets view scoped to the current tenant."""
+    return render_template("app_assets.html", **_build_app_product_page_context("assets"))
 
 
 @app.route("/app/reports")
-def app_reports_alias():
-    """Client app reports placeholder until executive report export is productized."""
-    return redirect("/api/incidents/export", code=302)
+@require_session
+@require_role("viewer")
+def app_reports():
+    """Client reporting center for executive exports and board-ready summaries."""
+    return render_template("app_reports.html", **_build_app_product_page_context("reports"))
 
 
 @app.route("/api/admin/tenant/<tenant_id>/feed")

@@ -1,0 +1,257 @@
+:root {
+  --safe-app-bg: #f6f8fb;
+  --safe-app-surface: #ffffff;
+  --safe-app-text: #111827;
+  --safe-app-muted: #64748b;
+  --safe-app-border: #dbe3ef;
+  --safe-app-accent: #0f766e;
+  --safe-app-danger: #b42318;
+  --safe-app-warning: #b45309;
+}
+
+.safe-app-page {
+  background: var(--safe-app-bg);
+  color: var(--safe-app-text);
+}
+
+.safe-app-topbar .is-active {
+  background: #e7f7f4;
+  color: var(--safe-app-accent);
+}
+
+.safe-app-shell {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 56px;
+}
+
+.safe-app-hero {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 28px 0 22px;
+}
+
+.safe-app-hero h1 {
+  margin: 6px 0;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.safe-app-hero p {
+  max-width: 680px;
+  margin: 0;
+  color: var(--safe-app-muted);
+  font-size: 1.02rem;
+}
+
+.safe-app-kicker {
+  color: var(--safe-app-accent);
+  font-size: .78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.safe-app-action,
+.safe-app-panel-head a,
+.safe-app-report-card a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: #102a43;
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.safe-app-metrics,
+.safe-app-grid,
+.safe-app-assets,
+.safe-app-report-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.safe-app-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.safe-app-grid {
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr);
+  margin-top: 14px;
+}
+
+.safe-app-assets,
+.safe-app-report-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.safe-app-metrics article,
+.safe-app-panel,
+.safe-app-asset-card,
+.safe-app-report-card,
+.safe-app-empty-card {
+  border: 1px solid var(--safe-app-border);
+  border-radius: 8px;
+  background: var(--safe-app-surface);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, .06);
+}
+
+.safe-app-metrics article {
+  padding: 18px;
+}
+
+.safe-app-metrics span,
+.safe-app-panel small,
+.safe-app-asset-card small,
+.safe-app-report-card span,
+.safe-app-report-card p,
+.safe-app-empty-card p {
+  color: var(--safe-app-muted);
+}
+
+.safe-app-metrics strong {
+  display: block;
+  margin: 8px 0 4px;
+  font-size: 2rem;
+}
+
+.safe-app-panel,
+.safe-app-empty-card {
+  padding: 18px;
+}
+
+.safe-app-panel {
+  margin-top: 14px;
+}
+
+.safe-app-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.safe-app-panel-head h2 {
+  margin: 4px 0 0;
+  font-size: 1.18rem;
+}
+
+.safe-app-list,
+.safe-app-table {
+  display: grid;
+  gap: 10px;
+}
+
+.safe-app-list div,
+.safe-app-table div {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(120px, .7fr) minmax(120px, .5fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #edf1f7;
+  border-radius: 8px;
+}
+
+.safe-app-list div {
+  grid-template-columns: 1fr;
+}
+
+.safe-app-table span {
+  color: var(--safe-app-muted);
+}
+
+.safe-app-trend {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  height: 180px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.safe-app-trend span {
+  flex: 1;
+  min-height: 20px;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(180deg, #14b8a6, #0f766e);
+}
+
+.safe-app-asset-card,
+.safe-app-report-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.safe-app-asset-card strong,
+.safe-app-report-card strong {
+  display: block;
+  margin: 4px 0;
+  font-size: 1.05rem;
+}
+
+.safe-app-risk-meter {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5edf7;
+}
+
+.safe-app-risk-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #14b8a6, #f59e0b);
+}
+
+.safe-app-asset-card footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--safe-app-muted);
+}
+
+.safe-app-severity-critical,
+.safe-app-severity-high {
+  color: var(--safe-app-danger);
+  font-weight: 800;
+}
+
+.safe-app-severity-medium {
+  color: var(--safe-app-warning);
+  font-weight: 800;
+}
+
+.safe-app-empty,
+.safe-app-empty-card {
+  color: var(--safe-app-muted);
+}
+
+@media (max-width: 900px) {
+  .safe-app-hero,
+  .safe-app-panel-head {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .safe-app-metrics,
+  .safe-app-grid,
+  .safe-app-assets,
+  .safe-app-report-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .safe-app-list div,
+  .safe-app-table div {
+    grid-template-columns: 1fr;
+  }
+}

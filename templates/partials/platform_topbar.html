@@ -10,9 +10,10 @@
     <a href="/platform" {% if active_platform_page|default('home') == 'home' %}aria-current="page"{% endif %}>Tenants</a>
     <a href="/platform/observability" {% if active_platform_page|default('home') == 'observability' %}aria-current="page"{% endif %}>Observability</a>
     <a href="/platform/performance" {% if active_platform_page|default('home') == 'performance' %}aria-current="page"{% endif %}>Performance</a>
-    <a href="/platform/performance-live" {% if active_platform_page|default('home') == 'performance_live' %}aria-current="page"{% endif %}>Live</a>
+    <a href="/api/admin/audit/integrity">Audit</a>
+    <a href="/api/admin/config/status">Config</a>
   </nav>
   <div class="platform-actions">
-    <a href="/admin">Legacy Admin</a>
+    <a href="/platform/performance-live" {% if active_platform_page|default('home') == 'performance_live' %}aria-current="page"{% endif %}>Live</a>
   </div>
 </header>
