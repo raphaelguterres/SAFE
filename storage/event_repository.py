@@ -47,6 +47,23 @@ if not USE_POSTGRES:
     import sqlite3
 
 
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+_SQLITE_TIMEOUT_SECONDS = max(
+    1.0,
+    _env_float(
+        "SAFE_SQLITE_TIMEOUT_SECONDS",
+        _env_float("NETGUARD_SQLITE_TIMEOUT_SECONDS", 30.0),
+    ),
+)
+_SQLITE_BUSY_TIMEOUT_MS = int(_SQLITE_TIMEOUT_SECONDS * 1000)
+
+
 # ══════════════════════════════════════════════════════════════════
 #  DDL — Schema compartilhado (SQLite e PostgreSQL)
 # ══════════════════════════════════════════════════════════════════
@@ -296,11 +313,51 @@ class EventRepository:
 
     def _sqlite_conn(self):
         if not hasattr(self._local, "conn") or self._local.conn is None:
-            self._local.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            self._local.conn = sqlite3.connect(
+                self.db_path,
+                timeout=_SQLITE_TIMEOUT_SECONDS,
+                check_same_thread=False,
+            )
             self._local.conn.row_factory = sqlite3.Row
-            self._local.conn.execute("PRAGMA journal_mode=WAL")
-            self._local.conn.execute("PRAGMA synchronous=NORMAL")
+            self._configure_sqlite_connection(self._local.conn)
         return self._local.conn
+
+    def _configure_sqlite_connection(self, conn):
+        conn.execute(f"PRAGMA busy_timeout={_SQLITE_BUSY_TIMEOUT_MS}")
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+
+    def _is_sqlite_busy_error(self, exc: Exception) -> bool:
+        if USE_POSTGRES:
+            return False
+        if not isinstance(exc, sqlite3.OperationalError):
+            return False
+        message = str(exc).lower()
+        return "database is locked" in message or "database is busy" in message
+
+    def _sqlite_write_with_retry(self, operation, *, attempts: int = 5):
+        delay = 0.05
+        last_exc = None
+        for attempt in range(1, attempts + 1):
+            try:
+                return operation()
+            except Exception as exc:
+                if (
+                    USE_POSTGRES
+                    or not self._is_sqlite_busy_error(exc)
+                    or attempt == attempts
+                ):
+                    raise
+                last_exc = exc
+                try:
+                    self._conn().rollback()
+                except Exception:
+                    pass
+                time.sleep(delay)
+                delay = min(delay * 2, 1.0)
+        if last_exc is not None:
+            raise last_exc
+        return None
 
     def _pg_conn(self):
         """Retorna conexão PostgreSQL (thread-local via pool simples)."""
@@ -323,7 +380,8 @@ class EventRepository:
             finally:
                 conn.close()
         else:
-            conn = sqlite3.connect(self.db_path)
+            conn = sqlite3.connect(self.db_path, timeout=_SQLITE_TIMEOUT_SECONDS)
+            self._configure_sqlite_connection(conn)
             # Executa cada statement individualmente para tolerar schema antigo
             for stmt in _DDL_SQLITE.split(";"):
                 stmt = stmt.strip()
@@ -1173,8 +1231,12 @@ class EventRepository:
             self._conn().commit()
             cur.close()
         else:
-            self._conn().execute(ddl)
-            self._conn().commit()
+            def _write():
+                conn = self._conn()
+                conn.execute(ddl)
+                conn.commit()
+
+            self._sqlite_write_with_retry(_write)
 
     def _legacy_migration_applied_at(self):
         if USE_POSTGRES:
@@ -1211,10 +1273,12 @@ class EventRepository:
             self._conn().commit()
             cur.close()
         else:
-            self._conn().execute(
-                f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
-            )
-            self._conn().commit()
+            def _write():
+                conn = self._conn()
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+                conn.commit()
+
+            self._sqlite_write_with_retry(_write)
         return True
 
     def _record_legacy_migration(self, item: dict, *, status: str, error: str = ""):
@@ -1247,8 +1311,33 @@ class EventRepository:
             self._conn().commit()
             cur.close()
         else:
-            self._conn().execute(sql, params)
-            self._conn().commit()
+            def _write():
+                conn = self._conn()
+                conn.execute(sql, params)
+                conn.commit()
+
+            self._sqlite_write_with_retry(_write)
+
+    def _record_legacy_migration_safely(
+        self,
+        item: dict,
+        *,
+        status: str,
+        error: str = "",
+    ) -> bool:
+        try:
+            self._record_legacy_migration(item, status=status, error=error)
+            return True
+        except Exception as exc:
+            if not USE_POSTGRES and self._is_sqlite_busy_error(exc):
+                logger.warning(
+                    "Legacy migration metadata busy; continuing | component=%s | version=%s | status=%s",
+                    _LEGACY_MIGRATION_COMPONENT,
+                    item.get("version"),
+                    status,
+                )
+                return False
+            raise
 
     def legacy_migration_history(self) -> list[dict]:
         try:
@@ -1329,7 +1418,7 @@ class EventRepository:
                     for col, definition in cols:
                         if self._apply_column_migration(table, col, definition):
                             changed.append(f"{table}.{col}")
-                self._record_legacy_migration(item, status="applied")
+                self._record_legacy_migration_safely(item, status="applied")
                 if changed:
                     logger.info(
                         "Legacy migration applied: %s v%s changed=%s",
@@ -1338,7 +1427,11 @@ class EventRepository:
                         ",".join(changed),
                     )
             except Exception as exc:
-                self._record_legacy_migration(item, status="failed", error=str(exc))
+                self._record_legacy_migration_safely(
+                    item,
+                    status="failed",
+                    error=str(exc),
+                )
                 logger.error(
                     "Legacy migration failed: %s v%s %s",
                     _LEGACY_MIGRATION_COMPONENT,

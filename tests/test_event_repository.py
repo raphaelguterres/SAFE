@@ -108,6 +108,27 @@ class TestEventRepositoryTokenStorage(unittest.TestCase):
         self.assertEqual(status["history"][0]["status"], "applied")
         self.assertTrue(status["history"][0]["checksum"])
 
+    def test_sqlite_connection_configures_busy_timeout(self):
+        repo = self._repo()
+
+        busy_timeout_ms = repo._conn().execute("PRAGMA busy_timeout").fetchone()[0]
+
+        self.assertGreaterEqual(busy_timeout_ms, 1000)
+
+    def test_locked_legacy_migration_metadata_does_not_break_migration(self):
+        repo = self._repo()
+        calls = {"count": 0}
+
+        def locked_record(*args, **kwargs):
+            calls["count"] += 1
+            raise sqlite3.OperationalError("database is locked")
+
+        repo._record_legacy_migration = locked_record
+
+        repo._migrate_schema()
+
+        self.assertGreater(calls["count"], 0)
+
     def test_update_tenant_token_scrubs_plaintext_and_preserves_lookup(self):
         repo = self._repo()
         tenant_id = "tenant-rotate"
