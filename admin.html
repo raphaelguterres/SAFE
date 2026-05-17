@@ -1734,7 +1734,7 @@ function gvRenderDrillDown(r){
     // T14 — deep-link do nome do host pra Host Triage View.
     // gvModalTid está em scope do modal aberto (variável global do God View).
     // target=_blank: triage abre em outra aba pra não perder o contexto do drill-down.
-    const triageUrl = '/admin/host/' + encodeURIComponent(gvModalTid)
+    const triageUrl = '/soc/host/' + encodeURIComponent(gvModalTid)
                      + '/' + encodeURIComponent(h.host_id || '');
     const nameCell = h.host_id
       ? `<a href="${triageUrl}" target="_blank" rel="noopener"

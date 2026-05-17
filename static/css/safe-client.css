@@ -318,3 +318,53 @@ body.safe-theme-dark.safe-client-page,
     justify-content: space-between;
   }
 }
+
+/* ── FIX: garantir contraste em cards brancos independente do tema ───────── */
+/* Cards são sempre brancos no client overview; texto interno deve ser escuro */
+.safe-client-page .safe-client-score,
+.safe-client-page .safe-client-score *,
+.safe-client-page .safe-client-metrics article,
+.safe-client-page .safe-client-metrics article *,
+.safe-client-page .safe-client-panel,
+.safe-client-page .safe-client-panel h2,
+.safe-client-page .safe-client-panel p,
+.safe-client-page .safe-client-panel strong,
+.safe-client-page .safe-client-summary-grid div,
+.safe-client-page .safe-client-summary-grid div *,
+.safe-client-page .safe-client-events div,
+.safe-client-page .safe-client-events div * {
+  color: #18202b;
+}
+
+/* Recalibrar os textos auxiliares (gray-mid) com !important pra vencer
+   qualquer regra de tema escuro */
+.safe-client-page .safe-client-kicker,
+.safe-client-page .safe-client-metrics span,
+.safe-client-page .safe-client-summary-grid span,
+.safe-client-page .safe-client-events small,
+.safe-client-page .safe-client-brand small {
+  color: #697386 !important;
+}
+
+/* Valor grande das métricas mantém preto */
+.safe-client-page .safe-client-metrics strong,
+.safe-client-page .safe-client-summary-grid strong,
+.safe-client-page .safe-client-score strong,
+.safe-client-page .safe-client-panel h2 {
+  color: #18202b !important;
+}
+
+/* Texto descritivo dos panels */
+.safe-client-page .safe-client-panel p,
+.safe-client-page .safe-client-panel-large p {
+  color: #4d5968 !important;
+}
+
+/* Hero (gradient verde): texto branco contra fundo escuro/colorido */
+.safe-client-page .safe-client-hero-copy,
+.safe-client-page .safe-client-hero-copy * {
+  color: #ffffff;
+}
+.safe-client-page .safe-client-hero-copy .safe-client-kicker {
+  color: rgba(255,255,255,0.75) !important;
+}

@@ -99,7 +99,7 @@
   function isSafeReadRoute(route) {
     var text = String(route || "");
     var lower = text.toLowerCase();
-    var allowed = text.indexOf("/soc") === 0 || text.indexOf("/soc-preview") === 0 || text === "/admin/inbox";
+    var allowed = text.indexOf("/soc") === 0 || text.indexOf("/soc-preview") === 0 || text.indexOf("/app") === 0 || text.indexOf("/platform") === 0 || text === "/admin/inbox";
     var blocked = ["/api/", "/delete", "/reset", "/rotate", "/revoke", "/disable", "/actions", "/status"].some(function (marker) {
       return lower.indexOf(marker) !== -1;
     });

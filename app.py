@@ -8683,6 +8683,12 @@ def admin_host_triage_page(tenant_id, host_id):
     return resp
 
 
+@app.route("/soc/host/<tenant_id>/<host_id>")
+def soc_host_triage_alias(tenant_id, host_id):
+    """New SOC host triage IA alias; legacy /admin/host remains canonical for now."""
+    return redirect(f"/admin/host/{tenant_id}/{host_id}", code=301)
+
+
 @app.route("/admin/inbox")
 @_admin_only
 def admin_inbox_page():
@@ -8701,6 +8707,12 @@ def admin_inbox_page():
     return resp
 
 
+@app.route("/soc/inbox")
+def soc_inbox_alias():
+    """New SOC inbox IA alias; legacy /admin/inbox remains available."""
+    return redirect("/admin/inbox", code=301)
+
+
 @app.route("/admin/performance")
 @_admin_only
 def admin_performance_page():
@@ -8713,6 +8725,12 @@ def admin_performance_page():
     except Exception:
         pass
     return resp
+
+
+@app.route("/platform/performance")
+def platform_performance_alias():
+    """Platform IA alias for performance metrics."""
+    return redirect("/admin/performance", code=301)
 
 
 @app.route("/admin/observability")
@@ -8729,6 +8747,12 @@ def admin_observability_page():
     return resp
 
 
+@app.route("/platform/observability")
+def platform_observability_alias():
+    """Platform IA alias for operational reliability."""
+    return redirect("/admin/observability", code=301)
+
+
 @app.route("/admin/performance-live")
 @_admin_only
 def admin_performance_live_page():
@@ -8741,6 +8765,19 @@ def admin_performance_live_page():
     except Exception:
         pass
     return resp
+
+
+@app.route("/platform/performance-live")
+def platform_performance_live_alias():
+    """Platform IA alias for live performance."""
+    return redirect("/admin/performance-live", code=301)
+
+
+@app.route("/platform")
+@app.route("/platform/tenants")
+def platform_tenants_alias():
+    """Platform IA alias for tenant god view."""
+    return redirect("/admin", code=301)
 
 
 @app.route("/demo/reset", methods=["POST"])
@@ -10390,6 +10427,31 @@ def client_overview():
     return render_template("client_overview.html", **context)
 
 
+@app.route("/app")
+@app.route("/app/overview")
+def app_overview_alias():
+    """Client app IA alias for the existing client overview."""
+    return redirect("/client/overview", code=301)
+
+
+@app.route("/app/dashboard")
+def app_dashboard_alias():
+    """Client app IA alias for the existing client dashboard route."""
+    return redirect("/client/dashboard", code=301)
+
+
+@app.route("/app/incidents")
+def app_incidents_alias():
+    """Client app IA alias for tenant incident reporting."""
+    return redirect("/soc/incidents", code=301)
+
+
+@app.route("/app/assets")
+def app_assets_alias():
+    """Client app IA alias for tenant assets."""
+    return redirect("/soc/hosts", code=301)
+
+
 @app.route("/api/admin/tenant/<tenant_id>/feed")
 @_admin_only
 def admin_tenant_feed(tenant_id):
@@ -11140,7 +11202,7 @@ def admin_tenant_view(tenant_id):
             "ok": True,
             "tenant_id": tenant_id,
             "name": t.get("name", tenant_id),
-            "view_url": f"{base}/admin/view/{tenant_id}",
+            "view_url": f"{base}/platform/tenants/{tenant_id}",
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -11195,6 +11257,12 @@ window.__IMPERSONATE__ = {{
           ip=request.remote_addr or "-",
           detail=f"tenant={tenant_id} name={safe_name[:40]}")
     return resp
+
+
+@app.route("/platform/tenants/<tenant_id>")
+def platform_tenant_view_alias(tenant_id):
+    """Platform IA alias for tenant drill-down/impersonation."""
+    return redirect(f"/admin/view/{tenant_id}", code=301)
 
 
 @app.route("/admin/view/exit")

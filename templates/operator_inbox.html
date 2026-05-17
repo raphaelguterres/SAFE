@@ -247,7 +247,7 @@
         const band = it.risk_band || bandFor(Number(it.risk_score || 0));
         const severity = it.urgency || band;
         const status = it.status || "enrolled";
-        const url = "/admin/host/" + encodeURIComponent(it.tenant_id) + "/" + encodeURIComponent(it.host_id);
+        const url = "/soc/host/" + encodeURIComponent(it.tenant_id) + "/" + encodeURIComponent(it.host_id);
         return (
           '<tr onclick="window.location=\'' + url + '\'">' +
             '<td class="score-cell band-' + esc(band) + '">' + esc(it.risk_score) + "</td>" +
