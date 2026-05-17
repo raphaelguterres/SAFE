@@ -7,6 +7,11 @@ Um único processo. Sem simulador. Sem dados falsos.
 import os, re, json, sys, time, logging, functools, pathlib, threading, subprocess, socket, ipaddress, secrets  # noqa: F401
 import logging.handlers
 from types import MethodType
+
+if not any(os.environ.get(name) for name in ("SAFE_ENV", "NETGUARD_ENV", "IDS_ENV", "FLASK_ENV")):
+    os.environ.setdefault("SAFE_ENV", "development")
+    os.environ.setdefault("IDS_ENV", "development")
+
 from platform_utils import (  # noqa: F401
     OS, IS_WINDOWS, IS_LINUX,
     get_processes, get_pid_name_map, get_listen_ports,
