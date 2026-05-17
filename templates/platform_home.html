@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAFE | Platform</title>
+  <link rel="stylesheet" href="/static/css/safe.css">
+  <link rel="stylesheet" href="/static/css/safe-ui.css">
+  <link rel="stylesheet" href="/static/css/safe-client.css">
+</head>
+<body class="safe-platform-page">
+  {% include "partials/platform_topbar.html" %}
+  <main class="platform-shell">
+    <section class="platform-hero">
+      <span>Platform Owner View</span>
+      <h1>SAFE Platform</h1>
+      <p>Tenant operations, reliability, performance, and audit surfaces for the platform owner.</p>
+    </section>
+    <section class="platform-grid" aria-label="Platform entry points">
+      <a href="/admin">
+        <span>Tenant God View</span>
+        <strong>Open tenants</strong>
+      </a>
+      <a href="/platform/observability">
+        <span>Operational Health</span>
+        <strong>Observability</strong>
+      </a>
+      <a href="/platform/performance">
+        <span>XDR Core</span>
+        <strong>Performance</strong>
+      </a>
+      <a href="/platform/performance-live">
+        <span>Live Queues</span>
+        <strong>Live metrics</strong>
+      </a>
+    </section>
+  </main>
+</body>
+</html>

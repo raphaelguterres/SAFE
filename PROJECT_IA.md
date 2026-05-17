@@ -209,3 +209,4 @@ Me diga por qual quer começar.
 - Build A aplicado: aliases `/app/*`, `/soc/inbox`, `/soc/host/*` e `/platform/*` adicionados como redirects 301 sem remover rotas antigas.
 - Links visíveis principais atualizados para a nova information architecture.
 - Testes adicionados em `tests/test_information_architecture_aliases.py`.
+- Build B parcial aplicado: `/app/overview` virou rota principal do cliente, `/client/overview` virou redirect legacy, e topbars parciais de `/app` e `/platform` foram criadas.

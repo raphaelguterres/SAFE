@@ -1,0 +1,18 @@
+<header class="safe-client-topbar safe-app-topbar">
+  <a class="safe-client-brand" href="/app/overview" aria-label="SAFE Client Security Overview">
+    <span class="safe-client-mark">S</span>
+    <span>
+      <strong>SAFE</strong>
+      <small>{{ tenant_name|default("Client Security Overview") }}</small>
+    </span>
+  </a>
+  <nav class="safe-client-mode" aria-label="Client navigation">
+    <a class="{% if active_app_page|default('overview') == 'overview' %}is-active{% endif %}" href="/app/overview">Executive Mode</a>
+    <a class="{% if active_app_page|default('overview') == 'dashboard' %}is-active{% endif %}" href="/app/dashboard" title="Technical View">Technical Mode</a>
+    <a href="/app/assets">Assets</a>
+    <a href="/app/incidents">Incidents</a>
+  </nav>
+  <div class="safe-client-actions" data-theme-slot>
+    <a href="/app/reports">Reports</a>
+  </div>
+</header>

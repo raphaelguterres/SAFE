@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SAFE | Client Dashboard</title>
+  <title>SAFE | Client Security Overview</title>
   <link rel="stylesheet" href="/static/css/safe.css">
   <link rel="stylesheet" href="/static/css/safe-ui.css">
   <link rel="stylesheet" href="/static/css/safe-client.css">
@@ -31,23 +31,8 @@
     {% set posture_tone = "critical" %}
   {% endif %}
 
-  <header class="safe-client-topbar">
-    <a class="safe-client-brand" href="/app/overview" aria-label="SAFE Client Security Overview">
-      <span class="safe-client-mark">S</span>
-      <span>
-        <strong>SAFE</strong>
-        <small>Client Security Overview</small>
-      </span>
-    </a>
-    <nav class="safe-client-mode" aria-label="View mode">
-      <a class="is-active" href="/app/overview">Executive Mode</a>
-      <a href="/app/dashboard" title="Technical View">Technical Mode</a>
-    </nav>
-    <div class="safe-client-actions" data-theme-slot>
-      <a href="/executive">Executive View</a>
-      <a href="/soc">Open SOC</a>
-    </div>
-  </header>
+  <!-- Client Security Overview | Executive View | Technical View -->
+  {% include "partials/app_topbar.html" %}
 
   <main class="safe-client-shell">
     <section class="safe-client-hero safe-client-tone-{{ posture_tone }}">

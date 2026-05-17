@@ -8774,6 +8774,11 @@ def platform_performance_live_alias():
 
 
 @app.route("/platform")
+def platform_home():
+    """Platform owner landing page for production/ops navigation."""
+    return render_template("platform_home.html", active_platform_page="home")
+
+
 @app.route("/platform/tenants")
 def platform_tenants_alias():
     """Platform IA alias for tenant god view."""
@@ -10412,44 +10417,56 @@ def api_recommended_route():
     return jsonify({"ok": True, "recommendation": recommendation})
 
 
-@app.route("/client/overview")
-@app.route("/client")
-@app.route("/client/dashboard")
+@app.route("/app/overview")
 @require_session
 @require_role("viewer")
-def client_overview():
+def app_overview():
     """Executive client view with tenant-scoped posture and no secret exposure."""
     from server.client_dashboard import build_client_dashboard_context
 
     context = _build_soc_preview_context()
     context = build_client_dashboard_context(context)
+    context["active_app_page"] = "overview"
     audit("CLIENT_OVERVIEW_VIEW", actor=_current_request_tenant_id(), ip=request.remote_addr or "-", detail="page")
     return render_template("client_overview.html", **context)
 
 
+@app.route("/client/overview")
 @app.route("/app")
-@app.route("/app/overview")
-def app_overview_alias():
-    """Client app IA alias for the existing client overview."""
-    return redirect("/client/overview", code=301)
+@app.route("/client")
+def client_overview_legacy_alias():
+    """Legacy client overview route kept for old bookmarks."""
+    return redirect("/app/overview", code=301)
 
 
 @app.route("/app/dashboard")
 def app_dashboard_alias():
     """Client app IA alias for the existing client dashboard route."""
-    return redirect("/client/dashboard", code=301)
+    return redirect("/app/overview", code=302)
+
+
+@app.route("/client/dashboard")
+def client_dashboard_legacy_alias():
+    """Legacy client dashboard route kept for old bookmarks."""
+    return redirect("/app/dashboard", code=301)
 
 
 @app.route("/app/incidents")
 def app_incidents_alias():
     """Client app IA alias for tenant incident reporting."""
-    return redirect("/soc/incidents", code=301)
+    return redirect("/app/overview", code=302)
 
 
 @app.route("/app/assets")
 def app_assets_alias():
     """Client app IA alias for tenant assets."""
-    return redirect("/soc/hosts", code=301)
+    return redirect("/app/overview", code=302)
+
+
+@app.route("/app/reports")
+def app_reports_alias():
+    """Client app reports placeholder until executive report export is productized."""
+    return redirect("/api/incidents/export", code=302)
 
 
 @app.route("/api/admin/tenant/<tenant_id>/feed")

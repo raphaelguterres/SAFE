@@ -1,0 +1,18 @@
+<header class="platform-topbar">
+  <a class="platform-brand" href="/platform" aria-label="SAFE Platform Operations">
+    <span class="platform-mark">S</span>
+    <span>
+      <strong>SAFE</strong>
+      <small>Platform Operations</small>
+    </span>
+  </a>
+  <nav class="platform-nav" aria-label="Platform navigation">
+    <a href="/platform" {% if active_platform_page|default('home') == 'home' %}aria-current="page"{% endif %}>Tenants</a>
+    <a href="/platform/observability" {% if active_platform_page|default('home') == 'observability' %}aria-current="page"{% endif %}>Observability</a>
+    <a href="/platform/performance" {% if active_platform_page|default('home') == 'performance' %}aria-current="page"{% endif %}>Performance</a>
+    <a href="/platform/performance-live" {% if active_platform_page|default('home') == 'performance_live' %}aria-current="page"{% endif %}>Live</a>
+  </nav>
+  <div class="platform-actions">
+    <a href="/admin">Legacy Admin</a>
+  </div>
+</header>
